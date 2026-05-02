@@ -29,6 +29,24 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Run a Rust game example
+    #[command(about = "Run a Rust game example")]
+    Run {
+        /// Game name (example directory name)
+        name: String,
+    },
+
+    /// Convert Rust game to HTML/WASM and serve
+    #[command(about = "Convert Rust game to HTML/WASM and serve locally")]
+    App2Html {
+        /// Game name (example directory name)
+        name: String,
+
+        /// Port number
+        #[arg(short, long, default_value = "8080")]
+        port: u16,
+    },
+
     /// Create a new Pyxel project
     #[command(about = "Create a new Pyxel-rust project")]
     New {
@@ -38,17 +56,6 @@ enum Commands {
         /// Template type (basic, game, minimal)
         #[arg(short, long, default_value = "basic")]
         template: String,
-    },
-
-    /// Run a Pyxel game script
-    #[command(about = "Run a Pyxel-rust game")]
-    Run {
-        /// Game file path
-        file: PathBuf,
-
-        /// Enable debug mode
-        #[arg(short, long)]
-        debug: bool,
     },
 
     /// Open resource editor
@@ -91,12 +98,16 @@ fn main() -> Result<()> {
 
     // Handle commands
     match cli.command {
-        Some(Commands::New { name, template }) => {
-            commands::new_project(&name, &template)?;
+        Some(Commands::Run { name }) => {
+            commands::run_example(&name)?;
         }
 
-        Some(Commands::Run { file, debug }) => {
-            commands::run_game(&file, debug)?;
+        Some(Commands::App2Html { name, port }) => {
+            commands::app2html(&name, port)?;
+        }
+
+        Some(Commands::New { name, template }) => {
+            commands::new_project(&name, &template)?;
         }
 
         Some(Commands::Editor { file }) => {
@@ -113,32 +124,26 @@ fn main() -> Result<()> {
         }
 
         None => {
-            // If file is provided but no subcommand, treat as run
-            if let Some(file) = cli.file {
-                commands::run_game(&file, false)?;
-            } else if cli.editor {
-                commands::open_editor(None)?;
-            } else {
-                // Show help
-                println!("Usage: pyxel-rust [OPTIONS] [FILE]");
-                println!("\nOptions:");
-                println!("  --editor         Open resource editor");
-                println!("  -v, --verbose    Verbose output");
-                println!("  -h, --help       Show this help message");
-                println!("\nCommands:");
-                println!("  new <name>       Create a new project");
-                println!("  run <file>       Run a game script");
-                println!("  editor [file]    Open resource editor");
-                println!("  build            Build project");
-                println!("  version          Show version information");
-                println!("\nExamples:");
-                println!("  pyxel-rust my_game.rs");
-                println!("  pyxel-rust run my_game.rs");
-                println!("  pyxel-rust new my_project");
-                println!("  pyxel-rust my_resources.pyxres --editor");
-            }
+            // Show help
+            println!("Usage: pyxel-rust [OPTIONS] [COMMAND]");
+            println!("\nCommands:");
+            println!("  run <name>              Run a game example");
+            println!("  app2html <name> [-p]    Convert game to HTML/WASM");
+            println!("  new <name>              Create a new project");
+            println!("  editor [file]           Open resource editor");
+            println!("  build                   Build project");
+            println!("  version                 Show version information");
+            println!("\nOptions:");
+            println!("  -v, --verbose          Verbose output");
+            println!("  -h, --help             Show this help message");
+            println!("\nExamples:");
+            println!("  pyxel-rust run cubeboy");
+            println!("  pyxel-rust app2html cubeboy");
+            println!("  pyxel-rust app2html cubeboy -p 3000");
+            println!("  pyxel-rust new my_project");
         }
     }
 
     Ok(())
 }
+
