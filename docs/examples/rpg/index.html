@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>アリサクエスト — Pyxel-Rust</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; background: #0a0a1a; overflow: hidden; }
+        body { display: flex; flex-direction: column; align-items: center; font-family: monospace; color: #eee; }
+
+        #header { padding: 4px 12px; font-size: 0.85rem; color: #ff88cc; display: flex; align-items: center; gap: 12px; width: 100%; }
+        #status { color: #888; font-size: 0.75rem; }
+        .back a { color: #7ec8e3; text-decoration: none; font-size: 0.75rem; }
+
+        #canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 0; padding: 4px; }
+        canvas { image-rendering: pixelated; image-rendering: crisp-edges; max-width: 100%; max-height: 100%; border: 2px solid #2a1a3a; display: block; }
+
+        /* Gamepad */
+        #gamepad { width: 100%; max-width: 480px; padding: 6px 12px 12px; display: flex; align-items: center; justify-content: space-between; }
+
+        /* D-pad */
+        #dpad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); gap: 2px; }
+        .dp { background: #1a1a2a; border: 2px solid #444; border-radius: 8px; color: #ccc; font-size: 18px;
+              display: flex; align-items: center; justify-content: center; cursor: pointer;
+              -webkit-tap-highlight-color: transparent; user-select: none; }
+        .dp.active { background: #3a2a5a; border-color: #ff88cc; color: #fff; }
+        .dp-empty { background: #0a0a1a; border: 2px solid #0a0a1a; border-radius: 8px; }
+
+        /* Center buttons */
+        #center-btns { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .sm { background: #1e1e3a; border: 2px solid #444; border-radius: 10px; color: #aaa;
+              font-size: 11px; font-weight: bold; width: 44px; height: 30px;
+              display: flex; align-items: center; justify-content: center;
+              cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .sm.active { background: #3e3e6a; color: #fff; border-color: #ff88cc; }
+
+        /* Face buttons */
+        #face-btns { width: 152px; height: 152px; position: relative; }
+        .fb { position: absolute; width: 52px; height: 52px; border-radius: 50%;
+              border: 2px solid #664488; background: #2a1a3a; color: #ddd;
+              font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center;
+              cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .fb.active { background: #5a2a7a; border-color: #ff88cc; color: #fff; }
+        #fb-top  { top: 0;    left: 50%; transform: translateX(-50%); }
+        #fb-left { left: 0;   top:  50%; transform: translateY(-50%); }
+        #fb-rght { right: 0;  top:  50%; transform: translateY(-50%); }
+        #fb-bot  { bottom: 0; left: 50%; transform: translateX(-50%); }
+
+        @media (pointer: fine) and (min-width: 600px) { #gamepad { display: none; } }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <span>🐱 アリサクエスト</span>
+        <span id="status">Loading...</span>
+        <span class="back"><a href="../../">← Docs</a></span>
+    </div>
+    <div id="canvas-area"><canvas id="pyxel_canvas"></canvas></div>
+
+    <div id="gamepad">
+        <!-- D-pad -->
+        <div id="dpad">
+            <div class="dp-empty"></div>
+            <button class="dp" data-idx="5">▲</button>
+            <div class="dp-empty"></div>
+            <button class="dp" data-idx="7">◀</button>
+            <div class="dp-empty"></div>
+            <button class="dp" data-idx="8">▶</button>
+            <div class="dp-empty"></div>
+            <button class="dp" data-idx="6">▼</button>
+            <div class="dp-empty"></div>
+        </div>
+        <!-- START -->
+        <div id="center-btns">
+            <button class="sm" data-idx="2">START</button>
+        </div>
+        <!-- Face: A=Z(45) B=X(43) -->
+        <div id="face-btns">
+            <button class="fb" id="fb-top"  data-idx="45">決定</button>
+            <button class="fb" id="fb-left" data-idx="43">B</button>
+            <button class="fb" id="fb-rght" data-idx="1">C</button>
+            <button class="fb" id="fb-bot"  data-idx="2">スタート</button>
+        </div>
+    </div>
+
+    <script>
+        const active = new Map();
+
+        function press(idx, down) {
+            if (window.wasmModule) window.wasmModule.set_key(idx, down);
+        }
+
+        function onTouchStart(e) {
+            e.preventDefault();
+            for (const t of e.changedTouches) {
+                const el = e.currentTarget;
+                const idx = parseInt(el.dataset.idx);
+                if (!active.has(t.identifier)) {
+                    active.set(t.identifier, { idx, el });
+                    el.classList.add('active');
+                    press(idx, true);
+                }
+            }
+        }
+        function onTouchEnd(e) {
+            e.preventDefault();
+            for (const t of e.changedTouches) {
+                const info = active.get(t.identifier);
+                if (info) {
+                    info.el.classList.remove('active');
+                    press(info.idx, false);
+                    active.delete(t.identifier);
+                }
+            }
+        }
+        document.querySelectorAll('[data-idx]').forEach(btn => {
+            btn.addEventListener('touchstart',  onTouchStart, { passive: false });
+            btn.addEventListener('touchend',    onTouchEnd,   { passive: false });
+            btn.addEventListener('touchcancel', onTouchEnd,   { passive: false });
+        });
+
+        window.pyxelPlaySound = function(ch, sound) {};
+        window.pyxelStopSound = function(ch) {};
+    </script>
+    <script type="module">
+        import init, { set_key } from './pkg/rpg_rust_lib.js';
+        try {
+            const wasm = await init();
+            window.wasmModule = { set_key };
+            document.getElementById('status').textContent = '▶ 実行中';
+        } catch(e) {
+            document.getElementById('status').textContent = '❌ ' + e;
+            console.error(e);
+        }
+    </script>
+</body>
+</html>

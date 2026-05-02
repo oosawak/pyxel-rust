@@ -1,0 +1,15 @@
+{
+  "name": "rpg_rust",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "rpg_rust_lib_bg.wasm",
+    "rpg_rust_lib.js",
+    "rpg_rust_lib.d.ts"
+  ],
+  "main": "rpg_rust_lib.js",
+  "types": "rpg_rust_lib.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
