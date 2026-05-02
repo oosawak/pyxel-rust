@@ -3,9 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>lineboy</title>
+    <title>Lineboy - Pyxel Rust</title>
+    <link rel="stylesheet" href="pyxel.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #2c3e50;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #ecf0f1;
+            margin-bottom: 10px;
+        }
+        .info {
+            color: #bdc3c7;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        canvas {
+            border: 3px solid #34495e;
+            background-color: #000;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        .controls {
+            color: #ecf0f1;
+            margin-top: 20px;
+            background-color: #34495e;
+            padding: 15px;
+            border-radius: 5px;
+            max-width: 600px;
+        }
+    </style>
 </head>
 <body>
-    <p>Game HTML generation in progress...</p>
+    <h1>✨ Lineboy</h1>
+    <div class="info">
+        <p>A neon-themed action game ported to Pyxel Rust</p>
+        <p id="loading">Loading WASM...</p>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div class="controls">
+        <strong>Controls:</strong>
+        <ul>
+            <li>Arrow Keys or WASD: Move</li>
+            <li>Z or Spacebar: Jump</li>
+            <li>Enter: Interact</li>
+        </ul>
+    </div>
+
+    <script src="pyxel.js"></script>
+    <script>
+        async function main() {
+            try {
+                // Load Pyxel with the wheel file
+                await loadPyxel('pyxel-2.7.9-cp38-abi3-emscripten_4_0_9_wasm32.whl');
+                document.getElementById('loading').textContent = 'Game running...';
+            } catch (error) {
+                document.getElementById('loading').textContent = 'Error loading game: ' + error.message;
+                console.error('Failed to load Pyxel:', error);
+            }
+        }
+
+        main();
+    </script>
 </body>
 </html>
