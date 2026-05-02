@@ -1,5 +1,12 @@
 # pyxel-rust
 
+> ⚠️ **このリポジトリは現在開発中です。**  
+> API・ディレクトリ構成は予告なく変更される可能性があります。  
+> 現時点では一般利用を想定していません。  
+> **This repository is under active development and not ready for general use.**
+
+---
+
 Rust implementation of the Pyxel game engine, based on official Pyxel-core.
 
 ## 概要
