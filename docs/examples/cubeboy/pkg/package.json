@@ -1,0 +1,15 @@
+{
+  "name": "cubeboy_rust",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "cubeboy_rust_lib_bg.wasm",
+    "cubeboy_rust_lib.js",
+    "cubeboy_rust_lib.d.ts"
+  ],
+  "main": "cubeboy_rust_lib.js",
+  "types": "cubeboy_rust_lib.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
