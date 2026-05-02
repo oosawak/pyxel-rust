@@ -372,11 +372,7 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
         if elapsed >= frame_ms {
             *last_time.borrow_mut() = now;
 
-            {
-                let s = state();
-                s.frame_count += 1;
-                s.input.tick();
-            }
+            state().frame_count += 1;
 
             update();
             draw();
@@ -418,6 +414,9 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
             }
 
             if state().should_quit { return; }
+
+            // tick() at end of frame so touch/key events fired before rAF are visible in update()
+            state().input.tick();
         }
 
         let _ = window.request_animation_frame(
