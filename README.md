@@ -75,6 +75,15 @@ cargo test
 cargo build --release
 ```
 
+### サンプルゲームの実行
+
+#### Cubeboy (プラットフォーマー)
+```bash
+cargo run --example cubeboy
+```
+プレイヤーを移動・ジャンプ・ダッシュさせるプラットフォーマーゲーム。
+- **操作**: 矢印キーで移動、SPACE でジャンプ、X でダッシュ
+
 ### WASM ビルド
 ```bash
 ./scripts/build-wasm.sh --release
