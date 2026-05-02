@@ -119,6 +119,71 @@
             btn.addEventListener('touchend',    onTouchEnd,   { passive: false });
             btn.addEventListener('touchcancel', onTouchEnd,   { passive: false });
         });
+
+        // ── Audio System ───────────────────────────────────────────────────
+        let audioCtx = null;
+        let bgmAudio = null;
+        let bgmStarted = false;
+
+        const BGM_FILES = [
+            'BGM/ComfyUI_00001_.mp3',
+            'BGM/ComfyUI_00002_.mp3',
+            'BGM/ComfyUI_00003_.mp3',
+            'BGM/ComfyUI_00004_.mp3',
+        ];
+        let bgmIdx = 0;
+
+        function getAudioCtx() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            return audioCtx;
+        }
+
+        function startBgm() {
+            if (bgmStarted) return;
+            bgmStarted = true;
+            bgmIdx = Math.floor(Math.random() * BGM_FILES.length);
+            playNextBgm();
+        }
+
+        function playNextBgm() {
+            if (bgmAudio) { bgmAudio.pause(); bgmAudio.src = ''; }
+            bgmAudio = new Audio(BGM_FILES[bgmIdx % BGM_FILES.length]);
+            bgmAudio.volume = 0.35;
+            bgmAudio.onended = () => { bgmIdx++; playNextBgm(); };
+            bgmAudio.play().catch(() => {});
+            bgmIdx++;
+        }
+
+        // SFX tones for lineboy
+        // sound 0 = jump, 1 = land, 2 = hit/death, 3 = item collect
+        function playSfxTone(freq, type, duration, fadeOut) {
+            const ctx = getAudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            if (fadeOut) osc.frequency.exponentialRampToValueAtTime(freq * 0.4, ctx.currentTime + duration);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + duration);
+        }
+
+        window.pyxelPlaySound = function(ch, sound) {
+            startBgm();
+            try {
+                if (sound === 0) playSfxTone(380, 'square', 0.1, true);    // jump
+                if (sound === 1) playSfxTone(150, 'sawtooth', 0.15, true); // land/hit
+                if (sound === 2) playSfxTone(180, 'sawtooth', 0.3, true);  // death
+                if (sound === 3) playSfxTone(600, 'triangle', 0.18, false);// item
+            } catch(e) {}
+        };
+        window.pyxelStopSound = function(ch) {};
+
+        document.addEventListener('keydown',    startBgm, { once: true });
+        document.addEventListener('touchstart', startBgm, { once: true });
+        document.addEventListener('mousedown',  startBgm, { once: true });
     </script>
     <script type="module">
         import init, { set_key } from './pkg/lineboy_rust_lib.js';
