@@ -1,6 +1,16 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export function get_bg_idx(): number;
+
+export function get_enemy_flash(): number;
+
+export function get_enemy_idx(): number;
+
+export function get_game_state(): number;
+
+export function get_player_flash(): number;
+
 /**
  * キーインデックスの定数マップを返す (JS から参照用)
  */
@@ -17,6 +27,11 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly get_bg_idx: () => number;
+    readonly get_enemy_flash: () => number;
+    readonly get_enemy_idx: () => number;
+    readonly get_game_state: () => number;
+    readonly get_player_flash: () => number;
     readonly main: () => void;
     readonly key_index: (a: number, b: number) => number;
     readonly set_key: (a: number, b: number) => void;

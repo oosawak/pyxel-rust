@@ -1,6 +1,46 @@
 /* @ts-self-types="./rpg_rust_lib.d.ts" */
 
 /**
+ * @returns {number}
+ */
+export function get_bg_idx() {
+    const ret = wasm.get_bg_idx();
+    return ret;
+}
+
+/**
+ * @returns {number}
+ */
+export function get_enemy_flash() {
+    const ret = wasm.get_enemy_flash();
+    return ret;
+}
+
+/**
+ * @returns {number}
+ */
+export function get_enemy_idx() {
+    const ret = wasm.get_enemy_idx();
+    return ret;
+}
+
+/**
+ * @returns {number}
+ */
+export function get_game_state() {
+    const ret = wasm.get_game_state();
+    return ret;
+}
+
+/**
+ * @returns {number}
+ */
+export function get_player_flash() {
+    const ret = wasm.get_player_flash();
+    return ret;
+}
+
+/**
  * キーインデックスの定数マップを返す (JS から参照用)
  * @param {string} code
  * @returns {number}

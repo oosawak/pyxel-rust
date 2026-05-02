@@ -1,6 +1,11 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const get_bg_idx: () => number;
+export const get_enemy_flash: () => number;
+export const get_enemy_idx: () => number;
+export const get_game_state: () => number;
+export const get_player_flash: () => number;
 export const main: () => void;
 export const key_index: (a: number, b: number) => number;
 export const set_key: (a: number, b: number) => void;
