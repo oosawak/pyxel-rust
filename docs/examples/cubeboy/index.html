@@ -8,71 +8,64 @@
     <style>
         body {
             margin: 0;
-            padding: 20px;
-            background-color: #2c3e50;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-        h1 {
-            color: #ecf0f1;
-            margin-bottom: 10px;
-        }
-        .info {
-            color: #bdc3c7;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 14px;
-        }
-        canvas {
-            border: 3px solid #34495e;
+            padding: 0;
             background-color: #000;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
         }
-        .controls {
-            color: #ecf0f1;
+        #error-container {
+            color: #ff6b6b;
+            padding: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-width: 800px;
+        }
+        #debug-info {
+            color: #6bff6b;
+            font-size: 12px;
             margin-top: 20px;
-            background-color: #34495e;
-            padding: 15px;
-            border-radius: 5px;
-            max-width: 600px;
         }
     </style>
 </head>
 <body>
-    <h1>🎮 Cubeboy</h1>
-    <div class="info">
-        <p>A classic action-adventure game ported to Pyxel Rust</p>
-        <p id="loading">Loading WASM...</p>
-    </div>
-    <canvas id="canvas"></canvas>
-    <div class="controls">
-        <strong>Controls:</strong>
-        <ul>
-            <li>Arrow Keys: Move</li>
-            <li>Z: Jump</li>
-            <li>X: Attack</li>
-            <li>Spacebar: Dash</li>
-        </ul>
-    </div>
-
+    <div id="error-container"></div>
+    <div id="debug-info"></div>
+    
     <script src="pyxel.js"></script>
     <script>
-        async function main() {
-            try {
-                // Load Pyxel with the wheel file
-                await loadPyxel('pyxel-2.7.9-cp38-abi3-emscripten_4_0_9_wasm32.whl');
-                document.getElementById('loading').textContent = 'Game running...';
-            } catch (error) {
-                document.getElementById('loading').textContent = 'Error loading game: ' + error.message;
-                console.error('Failed to load Pyxel:', error);
+        const errorDiv = document.getElementById('error-container');
+        const debugDiv = document.getElementById('debug-info');
+        
+        // Log all resource loads
+        window.addEventListener('error', (event) => {
+            debugDiv.innerHTML += `Error: ${event.message} at ${event.filename}:${event.lineno}\n`;
+        });
+        
+        // Check if files are accessible
+        async function checkResources() {
+            const files = ['pyxel.js', 'pyxel.css', 'pyxel-2.7.9-cp38-abi3-emscripten_4_0_9_wasm32.whl'];
+            debugDiv.innerHTML += 'Checking resources:\n';
+            for (const file of files) {
+                try {
+                    const response = await fetch(file, { method: 'HEAD' });
+                    debugDiv.innerHTML += `✓ ${file}: ${response.status}\n`;
+                } catch (e) {
+                    debugDiv.innerHTML += `✗ ${file}: ${e.message}\n`;
+                }
             }
         }
-
-        main();
+        
+        checkResources();
+        
+        // Launch Cubeboy
+        if (typeof launchPyxel !== 'undefined') {
+            launchPyxel({
+                command: 'print("Cubeboy loaded!")',
+            }).catch(error => {
+                console.error('Failed to load Pyxel:', error);
+                errorDiv.innerHTML = 'Error loading Cubeboy:\n\n' + error.toString() + '\n\nStack:\n' + error.stack;
+            });
+        } else {
+            errorDiv.innerHTML = 'Error: launchPyxel function not found. pyxel.js may not have loaded correctly.';
+        }
     </script>
 </body>
 </html>
