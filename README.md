@@ -75,10 +75,35 @@ cargo test
 cargo build --release
 ```
 
+### Pyxel-rust CLI
+
+完全な Rust 実装の CLI ツール：
+
+```bash
+# ゲーム例を実行
+pyxel-rust run cubeboy
+
+# ゲーム例を HTML/WASM に変換してブラウザで実行
+pyxel-rust app2html cubeboy
+pyxel-rust app2html cubeboy -p 3000  # カスタムポート指定
+
+# 新しいプロジェクトを作成
+pyxel-rust new my_game
+
+# 他のコマンド
+pyxel-rust editor
+pyxel-rust build --release
+pyxel-rust version
+```
+
+**注意**: CLI は Python 依存なし、完全な Rust 実装です。
+
 ### サンプルゲームの実行
 
 #### Cubeboy (プラットフォーマー)
 ```bash
+pyxel-rust run cubeboy
+# または
 cargo run --example cubeboy
 ```
 プレイヤーを移動・ジャンプ・ダッシュさせるプラットフォーマーゲーム。
