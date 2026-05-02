@@ -9,10 +9,6 @@ repository = "https://github.com/oosawak/pyxel-rust"
 keywords = ["game", "graphics", "retro", "2d"]
 categories = ["game-development", "graphics"]
 
-[[bin]]
-name = "pyxel-rust"
-path = "src/bin/main.rs"
-
 [lib]
 crate-type = ["cdylib", "rlib"]
 

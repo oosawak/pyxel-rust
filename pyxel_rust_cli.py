@@ -95,7 +95,11 @@ def run_rust_project(project_name):
 
 
 def app2html_rust_project(project_name, port_str='8000'):
-    """Build Rust project to WASM and serve as HTML"""
+    """Build Rust project to WASM and serve as HTML
+    
+    Uses Rust's cargo to compile to wasm32-unknown-unknown target,
+    then serves from docs/ directory.
+    """
     try:
         port = int(port_str)
     except ValueError:
@@ -110,23 +114,23 @@ def app2html_rust_project(project_name, port_str='8000'):
         print(f"project not found: {project_path}")
         sys.exit(1)
     
-    print(f"📦 Converting {project_name} to HTML/WASM...")
+    base_dir = os.path.dirname(__file__)
     
-    # Build WASM target
-    print("🔨 Building WASM with Cargo...")
+    print(f"📦 Building {project_name} to WASM...")
+    
+    # Build to WASM target using cargo
     result = subprocess.run(
         ['cargo', 'build', '--target', 'wasm32-unknown-unknown', '--release'],
         cwd=project_path
     )
     
     if result.returncode != 0:
-        print(f"WASM build failed")
+        print(f"❌ WASM build failed - ensure Rust API wrapper supports WASM target")
         sys.exit(1)
     
     print("✓ WASM build complete")
     
-    # Create output directory in docs/
-    base_dir = os.path.dirname(__file__)
+    # Create output directory
     output_dir = os.path.join(base_dir, 'docs', project_name)
     os.makedirs(output_dir, exist_ok=True)
     
@@ -143,7 +147,7 @@ def app2html_rust_project(project_name, port_str='8000'):
     else:
         print(f"⚠️  WASM file not found: {wasm_src}")
     
-    # Generate HTML if not present
+    # Generate simple index.html if not present
     html_file = os.path.join(output_dir, 'index.html')
     if not os.path.isfile(html_file):
         html_content = f"""<!DOCTYPE html>
@@ -181,12 +185,8 @@ def app2html_rust_project(project_name, port_str='8000'):
 <body>
     <div id="container">
         <h1>{project_name}</h1>
-        <canvas id="canvas"></canvas>
-        <p>Loading...</p>
+        <canvas id="game"></canvas>
     </div>
-    <script>
-        console.log('Loading WASM: {project_name}.wasm');
-    </script>
 </body>
 </html>"""
         with open(html_file, 'w') as f:
@@ -194,10 +194,12 @@ def app2html_rust_project(project_name, port_str='8000'):
         print(f"✓ Generated HTML: {html_file}")
     
     # Start HTTP server
-    print(f"🌐 Starting web server on http://localhost:{port}")
+    print(f"\n🌐 Starting web server on http://localhost:{port}")
+    print(f"✓ Game ready at: http://localhost:{port}/{project_name}/")
+    print("   Press Ctrl+C to stop")
     
     try:
-        result = subprocess.run(
+        subprocess.run(
             [sys.executable, '-m', 'http.server', str(port)],
             cwd=base_dir
         )
