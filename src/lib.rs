@@ -1,14 +1,20 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+//! pyxel-rust - Rust implementation of Pyxel game engine
+//!
+//! A complete Rust implementation of the Pyxel retro game engine.
+//! Built on Pyxel-core with CLI and GUI support.
+
+// Re-export from pyxel-core
+pub use pyxel::*;
+
+/// Common prelude for Pyxel-rust games
+pub mod prelude {
+    pub use crate::*;
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn test_cli() {
+        // CLI tests will be added
     }
 }

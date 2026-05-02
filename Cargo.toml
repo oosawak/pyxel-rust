@@ -2,21 +2,34 @@
 name = "pyxel-rust"
 version = "0.1.0"
 edition = "2021"
-description = "Rust implementation of Pyxel game engine - Pyxel-core WASM support"
+description = "Rust implementation of Pyxel game engine"
 license = "MIT"
 authors = ["Copilot"]
+repository = "https://github.com/oosawak/pyxel-rust"
+keywords = ["game", "graphics", "retro", "2d"]
+categories = ["game-development", "graphics"]
+
+[[bin]]
+name = "pyxel-rust"
+path = "src/bin/main.rs"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Pyxel-core (local fork)
-pyxel-core = { path = "./pyxel_fork/crates/pyxel-core", features = ["sdl2_dynamic"] }
+# Pyxel-core (local fork) - Using sdl2_static to build SDL2 from source
+pyxel-core = { path = "./pyxel_fork/crates/pyxel-core", features = ["sdl2_static"] }
+
+# CLI utilities
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+thiserror = "1.0"
 
 # Common utilities
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 log = "0.4"
+env_logger = "0.11"
 
 # WASM support (optional)
 wasm-bindgen = { version = "0.2", optional = true }

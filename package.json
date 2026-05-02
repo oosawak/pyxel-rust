@@ -1,0 +1,44 @@
+{
+  "name": "pyxel-rust",
+  "version": "0.1.0",
+  "description": "Rust implementation of Pyxel game engine - Run Pyxel games with npm",
+  "license": "MIT",
+  "homepage": "https://github.com/oosawak/pyxel-rust",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oosawak/pyxel-rust.git"
+  },
+  "keywords": [
+    "game",
+    "graphics",
+    "retro",
+    "2d",
+    "engine",
+    "pyxel",
+    "rust"
+  ],
+  "author": {
+    "name": "Copilot"
+  },
+  "bin": {
+    "pyxel-rust": "./bin/pyxel-rust"
+  },
+  "preferGlobal": true,
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "build": "cargo build --release",
+    "test": "cargo test",
+    "prepublish": "cargo build --release"
+  },
+  "files": [
+    "bin/pyxel-rust",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {},
+  "bugs": {
+    "url": "https://github.com/oosawak/pyxel-rust/issues"
+  }
+}
