@@ -87,11 +87,10 @@
     </div>
 
     <script>
-        let wasmModule = null;
         const active = new Map(); // touchId -> {idx, el}
 
         function press(idx, down) {
-            if (wasmModule) wasmModule.set_key(idx, down);
+            if (window.wasmModule) window.wasmModule.set_key(idx, down);
         }
 
         function onTouchStart(e) {
