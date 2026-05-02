@@ -13,30 +13,51 @@ categories = ["game-development", "graphics"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Pyxel-core (local fork) - Using sdl2_static to build SDL2 from source
-pyxel-core = { path = "./pyxel_fork/crates/pyxel-core", features = ["sdl2_static"] }
+# PyxelCoreBackend (optional, native only)
+pyxel-core = { path = "./pyxel_fork/crates/pyxel-core", optional = true }
+
+# WgpuBackend (optional, native + WASM)
+pixels  = { version = "0.12", optional = true }
+winit   = { version = "0.28", optional = true }
+
+# WasmBackend (optional, wasm32-unknown-unknown only)
+wasm-bindgen          = { version = "0.2",  optional = true }
+wasm-bindgen-futures  = { version = "0.4",  optional = true }
+js-sys                = { version = "0.3",  optional = true }
+web-sys               = { version = "0.3",  optional = true, features = [
+    "Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement",
+    "CanvasRenderingContext2d", "ImageData", "EventTarget",
+    "KeyboardEvent", "MouseEvent", "Performance",
+] }
 
 # CLI utilities
-clap = { version = "4.5", features = ["derive"] }
-anyhow = "1.0"
+clap    = { version = "4.5", features = ["derive"] }
+anyhow  = "1.0"
 thiserror = "1.0"
 
 # Common utilities
-serde = { version = "1.0", features = ["derive"] }
+serde      = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-log = "0.4"
+log        = "0.4"
 env_logger = "0.11"
-
-# WASM support (optional)
-wasm-bindgen = { version = "0.2", optional = true }
-web-sys = { version = "0.3", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
 
 [features]
-default = []
-wasm = ["wasm-bindgen", "web-sys"]
+# Default: pyxel-core backend (SDL2 static)
+default = ["pyxel-core-backend"]
+
+# PyxelCoreBackend
+pyxel-core-backend = ["dep:pyxel-core", "pyxel-core/sdl2_static"]
+sdl2_static        = ["dep:pyxel-core", "pyxel-core/sdl2_static"]
+sdl2_dynamic       = ["dep:pyxel-core", "pyxel-core/sdl2_dynamic"]
+
+# WgpuBackend (replaces pyxel-core-backend)
+wgpu-backend = ["dep:pixels", "dep:winit"]
+
+# WasmBackend (browser canvas, wasm32-unknown-unknown)
+wasm-backend = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:js-sys", "dep:web-sys"]
 
 [profile.release]
 lto = true

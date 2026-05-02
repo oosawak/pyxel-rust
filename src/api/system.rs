@@ -1,83 +1,120 @@
 /// System API - Core game loop and initialization
-/// 
-/// Matches Python Pyxel interface with simplified signatures for Rust.
 
-use pyxel::{Pyxel, PyxelCallback};
-use std::sync::{Arc, Mutex};
+// ---------------------------------------------------------------------------
+// PyxelCoreBackend
+// ---------------------------------------------------------------------------
+#[cfg(feature = "pyxel-core-backend")]
+mod pyxel_core_impl {
+    use pyxel::{Pyxel, PyxelCallback};
+    use std::sync::{Arc, Mutex};
 
-/// Initialize Pyxel engine
-/// 
-/// # Arguments
-/// * `width` - Screen width in pixels
-/// * `height` - Screen height in pixels
-/// * `title` - Window title
-/// * `fps` - Frames per second (default: 60)
+    pub fn init(width: u32, height: u32, title: &str, fps: u32) {
+        pyxel::init(width, height, Some(title), Some(fps), None, None, None, None, None);
+    }
+
+    pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
+        struct GameCallback {
+            update: Arc<Mutex<Box<dyn FnMut()>>>,
+            draw: Arc<Mutex<Box<dyn FnMut()>>>,
+        }
+        impl PyxelCallback for GameCallback {
+            fn update(&mut self, _: &mut Pyxel) {
+                if let Ok(mut f) = self.update.try_lock() { f(); }
+            }
+            fn draw(&mut self, _: &mut Pyxel) {
+                if let Ok(mut f) = self.draw.try_lock() { f(); }
+            }
+        }
+        let callback = GameCallback {
+            update: Arc::new(Mutex::new(Box::new(update))),
+            draw: Arc::new(Mutex::new(Box::new(draw))),
+        };
+        pyxel::pyxel().run(callback);
+    }
+
+    pub fn quit() { pyxel::pyxel().quit(); }
+    pub fn width() -> u32 { *pyxel::width() }
+    pub fn height() -> u32 { *pyxel::height() }
+    pub fn frame_count() -> u32 { *pyxel::frame_count() }
+}
+
+// ---------------------------------------------------------------------------
+// WasmBackend
+// ---------------------------------------------------------------------------
+#[cfg(feature = "wasm-backend")]
+mod wasm_impl {
+    use crate::backend::wasm_backend;
+
+    pub fn init(width: u32, height: u32, title: &str, fps: u32) {
+        wasm_backend::init(width, height, title, fps);
+    }
+    pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
+        wasm_backend::run(Box::new(update), Box::new(draw));
+    }
+    pub fn quit() { wasm_backend::state().should_quit = true; }
+    pub fn width() -> u32 { wasm_backend::state().width }
+    pub fn height() -> u32 { wasm_backend::state().height }
+    pub fn frame_count() -> u32 { wasm_backend::state().frame_count }
+}
+
+// ---------------------------------------------------------------------------
+// WgpuBackend
+// ---------------------------------------------------------------------------
+#[cfg(feature = "wgpu-backend")]
+mod wgpu_impl {
+    use crate::backend::wgpu_backend;
+
+    pub fn init(width: u32, height: u32, title: &str, fps: u32) {
+        wgpu_backend::init(width, height, title, fps);
+    }
+    pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
+        wgpu_backend::run(Box::new(update), Box::new(draw));
+    }
+    pub fn quit() { wgpu_backend::state().should_quit = true; }
+    pub fn width() -> u32 { wgpu_backend::state().width }
+    pub fn height() -> u32 { wgpu_backend::state().height }
+    pub fn frame_count() -> u32 { wgpu_backend::state().frame_count }
+}
+
+// ---------------------------------------------------------------------------
+// Public API — dispatches to the active backend
+// ---------------------------------------------------------------------------
+
 pub fn init(width: u32, height: u32, title: &str, fps: u32) {
-    pyxel::init(
-        width,
-        height,
-        Some(title),
-        Some(fps),
-        None, // quit_key
-        None, // display_scale
-        None, // capture_scale
-        None, // capture_sec
-        None, // headless
-    );
+    #[cfg(feature = "wasm-backend")]        wasm_impl::init(width, height, title, fps);
+    #[cfg(feature = "wgpu-backend")]        wgpu_impl::init(width, height, title, fps);
+    #[cfg(feature = "pyxel-core-backend")] pyxel_core_impl::init(width, height, title, fps);
 }
 
-/// Run the game loop with update and draw callbacks
-/// 
-/// # Arguments
-/// * `update` - Update callback function (called every frame)
-/// * `draw` - Draw callback function (called every frame after update)
 pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
-    struct GameCallback {
-        update: Arc<Mutex<Box<dyn FnMut()>>>,
-        draw: Arc<Mutex<Box<dyn FnMut()>>>,
-    }
-
-    impl PyxelCallback for GameCallback {
-        fn update(&mut self, _pyxel: &mut Pyxel) {
-            if let Ok(mut f) = self.update.try_lock() {
-                f();
-            }
-        }
-
-        fn draw(&mut self, _pyxel: &mut Pyxel) {
-            if let Ok(mut f) = self.draw.try_lock() {
-                f();
-            }
-        }
-    }
-
-    let update = Arc::new(Mutex::new(Box::new(update) as Box<dyn FnMut()>));
-    let draw = Arc::new(Mutex::new(Box::new(draw) as Box<dyn FnMut()>));
-
-    let callback = GameCallback {
-        update: Arc::clone(&update),
-        draw: Arc::clone(&draw),
-    };
-
-    pyxel::pyxel().run(callback);
+    #[cfg(feature = "wasm-backend")]        wasm_impl::run(update, draw);
+    #[cfg(feature = "wgpu-backend")]        wgpu_impl::run(update, draw);
+    #[cfg(feature = "pyxel-core-backend")] pyxel_core_impl::run(update, draw);
 }
 
-/// Quit the game
 pub fn quit() {
-    pyxel::pyxel().quit();
+    #[cfg(feature = "wasm-backend")]        wasm_impl::quit();
+    #[cfg(feature = "wgpu-backend")]        wgpu_impl::quit();
+    #[cfg(feature = "pyxel-core-backend")] pyxel_core_impl::quit();
 }
 
-/// Get screen width
 pub fn width() -> u32 {
-    *pyxel::width()
+    #[cfg(feature = "wasm-backend")]        { return wasm_impl::width(); }
+    #[cfg(feature = "wgpu-backend")]        { return wgpu_impl::width(); }
+    #[cfg(feature = "pyxel-core-backend")] { return pyxel_core_impl::width(); }
+    #[allow(unreachable_code)] 0
 }
 
-/// Get screen height
 pub fn height() -> u32 {
-    *pyxel::height()
+    #[cfg(feature = "wasm-backend")]        { return wasm_impl::height(); }
+    #[cfg(feature = "wgpu-backend")]        { return wgpu_impl::height(); }
+    #[cfg(feature = "pyxel-core-backend")] { return pyxel_core_impl::height(); }
+    #[allow(unreachable_code)] 0
 }
 
-/// Get current frame count
 pub fn frame_count() -> u32 {
-    *pyxel::frame_count()
+    #[cfg(feature = "wasm-backend")]        { return wasm_impl::frame_count(); }
+    #[cfg(feature = "wgpu-backend")]        { return wgpu_impl::frame_count(); }
+    #[cfg(feature = "pyxel-core-backend")] { return pyxel_core_impl::frame_count(); }
+    #[allow(unreachable_code)] 0
 }

@@ -1,30 +1,24 @@
-//! pyxel-rust - Rust implementation of Pyxel game engine
+//! pyxel-rust - Rust game engine with Pyxel-compatible API
 //!
-//! A complete Rust implementation of the Pyxel retro game engine.
-//! Built on Pyxel-core with CLI and GUI support.
+//! Backends:
+//!   - `pyxel-core-backend` (default): wraps pyxel-core / SDL2
+//!   - `wgpu-backend`: pure Rust / wgpu + winit, supports native + WASM
 
-// Import pyxel-core (extern crate) - it's aliased to `pyxel` in its Cargo.toml
+#[cfg(feature = "pyxel-core-backend")]
 extern crate pyxel;
 
-/// API wrapper modules - Python-like interface to pyxel-core
+pub mod backend;
 pub mod api;
 
-// Re-export commonly used types from pyxel
-pub use pyxel::{
-    Color, Image, Tilemap, Sound, Music, Channel,
-};
+// Re-export pyxel-core types when using pyxel-core-backend
+#[cfg(feature = "pyxel-core-backend")]
+pub use pyxel::{Color, Image, Tilemap, Sound, Music, Channel};
 
-/// Common prelude for Pyxel-rust games
-/// 
-/// Use this for convenient access to all Pyxel APIs:
-/// ```ignore
-/// use pyxel_rust::prelude::*;
-/// 
-/// fn main() {
-///     init(160, 120, "My Game", 60);
-///     run(update, draw);
-/// }
-/// ```
+// Generic Color type for wgpu-backend
+#[cfg(not(feature = "pyxel-core-backend"))]
+pub type Color = u8;
+
+/// Prelude — `use pyxel_rust::prelude::*;` for all API functions
 pub mod prelude {
     pub use crate::api::*;
 }
@@ -32,7 +26,5 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_cli() {
-        // CLI tests will be added
-    }
+    fn test_placeholder() {}
 }

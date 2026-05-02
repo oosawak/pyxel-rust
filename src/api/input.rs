@@ -1,45 +1,45 @@
-/// Input API - Keyboard and mouse input handling
-/// 
-/// Matches Python Pyxel interface for input.
+/// Input API - Keyboard and mouse
 
-use pyxel::Key;
-
-/// Check if key is held down this frame
-pub fn btn(key: Key) -> bool {
-    pyxel::pyxel().is_button_down(key)
+#[cfg(feature = "wasm-backend")]
+fn s() -> &'static mut crate::backend::wasm_backend::WasmState {
+    crate::backend::wasm_backend::state()
+}
+#[cfg(feature = "wgpu-backend")]
+fn s() -> &'static mut crate::backend::wgpu_backend::WgpuState {
+    crate::backend::wgpu_backend::state()
 }
 
-/// Check if key was pressed this frame (one shot)
-pub fn btnp(key: Key) -> bool {
-    pyxel::pyxel().is_button_pressed(key, None, None)
+macro_rules! dispatch {
+    (soft: $soft:expr, pyxel: $p:expr) => {{
+        #[cfg(any(feature = "wgpu-backend", feature = "wasm-backend"))] { $soft }
+        #[cfg(feature = "pyxel-core-backend")] { $p }
+    }};
 }
 
-/// Check if key with hold frame
-pub fn btnp_hold(key: Key, hold: u32, repeat: u32) -> bool {
-    pyxel::pyxel().is_button_pressed(key, Some(hold), Some(repeat))
+pub fn btn(key: u32) -> bool {
+    dispatch!(soft: s().input.btn(key), pyxel: pyxel::pyxel().is_button_down(key))
 }
-
-/// Check if key was released this frame
-pub fn btnr(key: Key) -> bool {
-    pyxel::pyxel().is_button_released(key)
+pub fn btnp(key: u32) -> bool {
+    dispatch!(soft: s().input.btnp(key), pyxel: pyxel::pyxel().is_button_pressed(key, None, None))
 }
-
-/// Get mouse X position
+pub fn btnp_hold(key: u32, _hold: u32, _repeat: u32) -> bool {
+    dispatch!(
+        soft:  s().input.btnp(key),
+        pyxel: pyxel::pyxel().is_button_pressed(key, Some(_hold), Some(_repeat))
+    )
+}
+pub fn btnr(key: u32) -> bool {
+    dispatch!(soft: s().input.btnr(key), pyxel: pyxel::pyxel().is_button_released(key))
+}
 pub fn mouse_x() -> i32 {
-    *pyxel::mouse_x()
+    dispatch!(soft: s().input.mouse_x, pyxel: *pyxel::mouse_x())
 }
-
-/// Get mouse Y position
 pub fn mouse_y() -> i32 {
-    *pyxel::mouse_y()
+    dispatch!(soft: s().input.mouse_y, pyxel: *pyxel::mouse_y())
 }
-
-/// Get mouse wheel value
 pub fn mouse_wheel() -> i32 {
-    *pyxel::mouse_wheel()
+    dispatch!(soft: 0, pyxel: *pyxel::mouse_wheel())
 }
-
-/// Set mouse visibility
 pub fn set_mouse_visible(visible: bool) {
-    pyxel::pyxel().set_mouse_visible(visible);
+    dispatch!(soft: { let _ = visible; }, pyxel: pyxel::pyxel().set_mouse_visible(visible));
 }

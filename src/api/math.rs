@@ -20,25 +20,24 @@ pub fn abs(x: f32) -> f32 {
 
 /// Random float between a and b
 pub fn rnd(a: f32, b: Option<f32>) -> f32 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    use std::time::SystemTime;
+    let mut h = DefaultHasher::new();
+    SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().subsec_nanos().hash(&mut h);
+    let r = (h.finish() as f32) / (u64::MAX as f32); // 0.0..1.0
     match b {
-        Some(b) => {
-            let min = a.min(b);
-            let max = a.max(b);
-            min + (pyxel::Pyxel::random_float(0.0, 1.0) * (max - min))
-        },
-        None => pyxel::Pyxel::random_float(0.0, a),
+        Some(b) => { let lo = a.min(b); let hi = a.max(b); lo + r * (hi - lo) },
+        None => r * a,
     }
 }
 
 /// Random integer between a and b
 pub fn rnd_int(a: i32, b: Option<i32>) -> i32 {
+    let f = rnd(0.0, None);
     match b {
-        Some(b) => {
-            let min = a.min(b);
-            let max = a.max(b);
-            pyxel::Pyxel::random_int(min, max)
-        },
-        None => pyxel::Pyxel::random_int(0, a),
+        Some(b) => { let lo = a.min(b); let hi = a.max(b); lo + (f * (hi - lo + 1) as f32) as i32 },
+        None => (f * a as f32) as i32,
     }
 }
 

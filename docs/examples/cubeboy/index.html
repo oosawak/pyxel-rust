@@ -1,257 +1,58 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cubeboy WASM Test</title>
+    <title>Cubeboy — Pyxel-Rust WASM</title>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            margin: 0;
-            padding: 0;
+            background: #1a1a2e;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
+            justify-content: center;
             min-height: 100vh;
-            background: #1a1a1a;
             font-family: monospace;
-            color: #fff;
-            overflow-x: hidden;
+            color: #eee;
+            gap: 12px;
         }
-        h1 { 
-            margin-top: 10px;
-            margin-bottom: 10px;
-            font-size: 20px;
-        }
-        #canvas {
-            border: 4px solid #0f0;
-            background: #000;
-            display: block;
-            width: 90vmin;
-            height: 90vmin;
-            max-width: 512px;
-            max-height: 512px;
+        h1 { font-size: 1.2rem; color: #7ec8e3; }
+        canvas {
             image-rendering: pixelated;
             image-rendering: crisp-edges;
+            border: 2px solid #444;
+            display: block;
         }
-        #status {
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #0f0;
-            border-radius: 5px;
-            width: 90%;
-            max-width: 400px;
-            font-size: 12px;
+        .controls {
+            font-size: 0.7rem;
+            color: #888;
+            text-align: center;
+            line-height: 1.8;
         }
-        .status-item {
-            margin: 3px 0;
-            font-size: 11px;
-        }
-        .good { color: #0f0; }
-        .bad { color: #f00; }
-        #controls {
-            margin-top: 20px;
-            padding: 15px;
-            border: 1px solid #0f0;
-            border-radius: 5px;
-            width: 90%;
-            max-width: 400px;
-            background: #0a0a0a;
-        }
-        .control-row {
-            margin: 8px 0;
-            font-size: 13px;
-        }
-        button {
-            padding: 10px 15px;
-            margin: 5px;
-            background: #0f0;
-            color: #000;
-            border: none;
-            border-radius: 3px;
-            font-family: monospace;
-            font-weight: bold;
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            min-width: 50px;
-            min-height: 40px;
-            font-size: 14px;
-        }
-        button:active {
-            background: #0d0;
-            transform: scale(0.95);
-        }
-        #debug-log {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #0f0;
-            background: #000;
-            color: #0f0;
-            width: 90%;
-            max-width: 400px;
-            height: 150px;
-            overflow-y: auto;
-            font-size: 10px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            border-radius: 3px;
-        }
+        .back { font-size: 0.7rem; }
+        .back a { color: #7ec8e3; text-decoration: none; }
+        #status { font-size: 0.75rem; color: #aaa; }
     </style>
 </head>
 <body>
-    <h1>🎮 Cubeboy WASM Test</h1>
-    <canvas id="canvas" width="128" height="128"></canvas>
-    <div id="status">
-        <div class="status-item good">✅ Canvas initialized</div>
-        <div class="status-item" id="wasm-status">⏳ Loading WASM...</div>
-        <div class="status-item" id="game-status">⏳ Initializing game...</div>
+    <h1>🎮 Cubeboy</h1>
+    <div id="status">Loading...</div>
+    <canvas id="pyxel_canvas"></canvas>
+    <div class="controls">
+        Arrow / WASD: move &nbsp;|&nbsp; Z / Space / Up: jump &nbsp;|&nbsp; X / Ctrl: dash
     </div>
-
-    <div id="controls">
-        <div class="control-row">
-            <strong>⬅️ LEFT button / ← arrow</strong> - Move left<br>
-            <strong>➡️ RIGHT button / → arrow</strong> - Move right<br>
-            <strong>⬆️ JUMP button / Space</strong> - Jump
-        </div>
-        <div style="margin-top: 10px;">
-            <button id="btn-left">⬅️ LEFT</button>
-            <button id="btn-right">➡️ RIGHT</button>
-            <button id="btn-jump">⬆️ JUMP</button>
-        </div>
-    </div>
-
-    <div id="debug-log">Debug Log - will show errors</div>
+    <div class="back"><a href="../../">← Back to docs</a></div>
 
     <script type="module">
-        const log = (msg) => {
-            const logEl = document.getElementById('debug-log');
-            const now = new Date().toLocaleTimeString();
-            logEl.textContent += `${now} > ${msg}\n`;
-            logEl.scrollTop = logEl.scrollHeight;
-            console.log(msg);
-        };
-
-        const updateStatus = (id, msg) => {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = msg;
-        };
-
-        import init, * as cubeboy from './cubeboy/cubeboy.js';
-
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const palette = new Uint8ClampedArray([
-            0,0,0,255,           // 0: black
-            0,0,139,255,          // 1: navy
-            147,112,219,255,      // 2: purple
-            0,255,0,255,          // 3: green
-            139,69,19,255,        // 4: brown
-            64,64,64,255,         // 5: dark gray
-            192,192,192,255,      // 6: light gray
-            255,255,255,255,      // 7: white
-            255,0,0,255,          // 8: red
-            255,165,0,255,        // 9: orange
-            255,255,0,255,        // 10: yellow
-            0,255,0,255,          // 11: lime
-            0,255,255,255,        // 12: cyan
-            128,128,128,255,      // 13: gray
-            255,192,203,255,      // 14: pink
-            255,218,185,255       // 15: peach
-        ]);
-
-        const keys = {
-            ArrowLeft: false,
-            ArrowRight: false,
-            ' ': false
-        };
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key in keys) {
-                keys[e.key] = true;
-                if (e.key === ' ') e.preventDefault();
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            if (e.key in keys) {
-                keys[e.key] = false;
-            }
-        });
-
-        const setupButton = (id, key) => {
-            const btn = document.getElementById(id);
-            btn.addEventListener('mousedown', () => keys[key] = true);
-            btn.addEventListener('mouseup', () => keys[key] = false);
-            btn.addEventListener('touchstart', (e) => { keys[key] = true; e.preventDefault(); });
-            btn.addEventListener('touchend', (e) => { keys[key] = false; e.preventDefault(); });
-        };
-
-        setupButton('btn-left', 'ArrowLeft');
-        setupButton('btn-right', 'ArrowRight');
-        setupButton('btn-jump', ' ');
-
-        log('📍 Page loaded, starting initialization...');
-
-        (async () => {
-            try {
-                log('⏳ Loading WASM module...');
-                await init();
-                updateStatus('wasm-status', '✅ WASM module loaded');
-                log('✅ WASM module loaded');
-
-                log('⏳ Initializing game...');
-                cubeboy.init();
-                updateStatus('game-status', '✅ Game initialized');
-                log('✅ Game initialized');
-
-                log('▶️ Starting game loop');
-
-                const gameLoop = () => {
-                    cubeboy.update(keys['ArrowLeft'], keys['ArrowRight'], keys[' ']);
-                    cubeboy.render();
-                    const fb = cubeboy.get_framebuffer();
-                    
-                    // Display game at 128x128 (framebuffer is 32-bit ARGB)
-                    const imgData = ctx.createImageData(128, 128);
-                    const data = imgData.data;
-                    const fbArray = new Uint32Array(fb, 0, 128 * 128);
-                    
-                    for (let i = 0; i < 128 * 128; i++) {
-                        const color = fbArray[i];
-                        data[i * 4 + 0] = (color >> 16) & 0xFF;  // R
-                        data[i * 4 + 1] = (color >> 8) & 0xFF;   // G
-                        data[i * 4 + 2] = color & 0xFF;          // B
-                        data[i * 4 + 3] = 0xFF;                  // A (fully opaque)
-                    }
-                    ctx.putImageData(imgData, 0, 0);
-                    
-                    // Display FPS
-                    frameCount++;
-                    const now = performance.now();
-                    if (now - lastFpsTime >= 1000) {
-                        fps = frameCount;
-                        frameCount = 0;
-                        lastFpsTime = now;
-                    }
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 20px monospace';
-                    ctx.fillText(`FPS: ${fps}`, 10, 30);
-                    
-                    requestAnimationFrame(gameLoop);
-                };
-
-                let fps = 60;
-                let frameCount = 0;
-                let lastFpsTime = performance.now();
-
-                gameLoop();
-            } catch (err) {
-                updateStatus('game-status', `❌ ERROR: ${err.message}`);
-                log(`❌ ERROR: ${err}`);
-            }
-        })();
+        import init from './pkg/cubeboy_rust_lib.js';
+        try {
+            await init();
+            document.getElementById('status').textContent = '▶ Running';
+        } catch (e) {
+            document.getElementById('status').textContent = '❌ ' + e;
+            console.error(e);
+        }
     </script>
 </body>
 </html>
