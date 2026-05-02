@@ -245,6 +245,20 @@ pub(crate) fn state() -> &'static mut WasmState {
     unsafe { STATE.as_mut().expect("wasm-backend not initialized") }
 }
 
+/// タッチ UI から直接呼べるキー状態セット関数
+#[wasm_bindgen]
+pub fn set_key(idx: u32, down: bool) {
+    if unsafe { STATE.is_some() } {
+        state().input.set_key(idx, down);
+    }
+}
+
+/// キーインデックスの定数マップを返す (JS から参照用)
+#[wasm_bindgen]
+pub fn key_index(code: &str) -> u32 {
+    code_to_idx(code)
+}
+
 pub fn init(width: u32, height: u32, _title: &str, fps: u32) {
     unsafe { STATE = Some(WasmState::new(width, height, fps)); }
     let scale = state().display_scale;

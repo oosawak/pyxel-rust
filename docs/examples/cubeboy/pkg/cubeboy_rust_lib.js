@@ -1,5 +1,26 @@
 /* @ts-self-types="./cubeboy_rust_lib.d.ts" */
 
+/**
+ * キーインデックスの定数マップを返す (JS から参照用)
+ * @param {string} code
+ * @returns {number}
+ */
+export function key_index(code) {
+    const ptr0 = passStringToWasm0(code, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.key_index(ptr0, len0);
+    return ret >>> 0;
+}
+
+/**
+ * タッチ UI から直接呼べるキー状態セット関数
+ * @param {number} idx
+ * @param {boolean} down
+ */
+export function set_key(idx, down) {
+    wasm.set_key(idx, down);
+}
+
 export function wasm_main() {
     wasm.wasm_main();
 }

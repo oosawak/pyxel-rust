@@ -1,6 +1,16 @@
 /* tslint:disable */
 /* eslint-disable */
 
+/**
+ * キーインデックスの定数マップを返す (JS から参照用)
+ */
+export function key_index(code: string): number;
+
+/**
+ * タッチ UI から直接呼べるキー状態セット関数
+ */
+export function set_key(idx: number, down: boolean): void;
+
 export function wasm_main(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -8,6 +18,8 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly wasm_main: () => void;
+    readonly key_index: (a: number, b: number) => number;
+    readonly set_key: (a: number, b: number) => void;
     readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_5bbe641191e3e9a4___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_5bbe641191e3e9a4___features__gen_MouseEvent__MouseEvent______true__1: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke_______true_: (a: number, b: number) => void;
