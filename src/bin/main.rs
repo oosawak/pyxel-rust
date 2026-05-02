@@ -15,13 +15,6 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// Path to game file or resource
-    file: Option<PathBuf>,
-
-    /// Open resource editor
-    #[arg(long)]
-    editor: bool,
-
     /// Verbose output
     #[arg(short, long)]
     verbose: bool,
@@ -37,7 +30,7 @@ enum Commands {
     },
 
     /// Convert Rust game to HTML/WASM and serve
-    #[command(about = "Convert Rust game to HTML/WASM and serve locally")]
+    #[command(name = "app2html", about = "Convert Rust game to HTML/WASM and serve locally")]
     App2Html {
         /// Game name (example directory name)
         name: String,
