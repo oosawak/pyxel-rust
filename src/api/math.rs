@@ -90,3 +90,29 @@ pub fn max(a: f32, b: f32) -> f32 {
 pub fn min(a: f32, b: f32) -> f32 {
     a.min(b)
 }
+
+/// Random float between a and b (alias for rnd with both bounds)
+pub fn rndf(a: f32, b: f32) -> f32 {
+    rnd(a, Some(b))
+}
+
+/// Sine of angle in degrees (Pyxel-compatible: pyxel.sin(deg))
+pub fn sin(deg: f32) -> f32 {
+    (deg * std::f32::consts::PI / 180.0).sin()
+}
+
+/// Cosine of angle in degrees
+pub fn cos(deg: f32) -> f32 {
+    (deg * std::f32::consts::PI / 180.0).cos()
+}
+
+/// Square root
+pub fn sqrt(x: f32) -> f32 {
+    x.sqrt()
+}
+
+/// Floor division (floor of x)
+pub fn floor(x: f32) -> i32 {
+    x.floor() as i32
+}
+

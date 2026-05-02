@@ -87,3 +87,58 @@ pub fn pal_reset() {
 pub fn dither(alpha: f32) {
     dispatch!(soft: { s().dither_alpha = alpha; }, pyxel: pyxel::pyxel().set_dithering(alpha));
 }
+
+/// Set palette color: rgb is 0xRRGGBB
+pub fn set_palette_color(idx: u8, rgb: u32) {
+    dispatch!(
+        soft: {
+            let i = (idx & 0x0f) as usize;
+            s().palette[i] = [
+                ((rgb >> 16) & 0xff) as u8,
+                ((rgb >> 8) & 0xff) as u8,
+                (rgb & 0xff) as u8,
+                0xff,
+            ];
+        },
+        pyxel: { let _ = (idx, rgb); }
+    );
+}
+pub fn get_palette_color(idx: u8) -> u32 {
+    dispatch!(
+        soft: {
+            let i = (idx & 0x0f) as usize;
+            let [r, g, b, _] = s().palette[i];
+            ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
+        },
+        pyxel: { let _ = idx; 0 }
+    )
+}
+
+/// Image bank: draw filled rect into offscreen image buffer
+pub fn image_rect(bank: u32, x: f32, y: f32, w: f32, h: f32, col: u8) {
+    dispatch!(soft: s().image_rect(bank, x, y, w, h, col), pyxel: { let _ = (bank,x,y,w,h,col); });
+}
+/// Image bank: set single pixel
+pub fn image_pset(bank: u32, x: f32, y: f32, col: u8) {
+    dispatch!(soft: s().image_pset(bank, x, y, col), pyxel: { let _ = (bank,x,y,col); });
+}
+/// Image bank: draw line
+pub fn image_line(bank: u32, x1: f32, y1: f32, x2: f32, y2: f32, col: u8) {
+    dispatch!(soft: s().image_line(bank, x1, y1, x2, y2, col), pyxel: { let _ = (bank,x1,y1,x2,y2,col); });
+}
+/// Image bank: draw filled triangle
+pub fn image_tri(bank: u32, x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32, col: u8) {
+    dispatch!(soft: s().image_tri(bank, x1, y1, x2, y2, x3, y3, col), pyxel: { let _ = (bank,x1,y1,x2,y2,x3,y3,col); });
+}
+/// Tilemap: clear all tiles
+pub fn tilemap_cls(tm: u32, tile: (u8, u8)) {
+    dispatch!(soft: s().tilemap_cls(tm, tile), pyxel: { let _ = (tm, tile); });
+}
+/// Tilemap: get tile at (x, y)
+pub fn tilemap_pget(tm: u32, x: u32, y: u32) -> (u8, u8) {
+    dispatch!(soft: s().tilemap_pget(tm, x, y), pyxel: { let _ = (tm,x,y); (0,0) })
+}
+/// Tilemap: set tile at (x, y)
+pub fn tilemap_pset(tm: u32, x: u32, y: u32, tile: (u8, u8)) {
+    dispatch!(soft: s().tilemap_pset(tm, x, y, tile), pyxel: { let _ = (tm,x,y,tile); });
+}
