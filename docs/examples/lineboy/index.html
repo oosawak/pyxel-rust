@@ -59,10 +59,10 @@
     <div id="canvas-area"><canvas id="pyxel_canvas"></canvas></div>
 
     <div id="gamepad">
-        <!-- D-pad -->
+        <!-- D-pad (left/right for movement, up=jump=Space) -->
         <div id="dpad">
             <div class="dp-empty"></div>
-            <button class="dp" data-idx="5">▲</button>
+            <button class="dp" data-idx="1">▲</button>
             <div class="dp-empty"></div>
             <button class="dp" data-idx="7">◀</button>
             <div class="dp-empty"></div>
@@ -71,17 +71,15 @@
             <button class="dp" data-idx="6">▼</button>
             <div class="dp-empty"></div>
         </div>
-        <!-- L / T(Start) / R -->
+        <!-- center: Start -->
         <div id="center-btns">
-            <button class="sm" data-idx="36">L</button>
-            <button class="sm" data-idx="2">T</button>
-            <button class="sm" data-idx="37">R</button>
+            <button class="sm" data-idx="1" style="width:60px">START</button>
         </div>
-        <!-- Face: A=Z(45) B=X(43) C=C(22) D=Space(1) -->
+        <!-- Face: all = Space(1) = jump/start -->
         <div id="face-btns">
-            <button class="fb" id="fb-top"  data-idx="45">A</button>
-            <button class="fb" id="fb-left" data-idx="43">B</button>
-            <button class="fb" id="fb-rght" data-idx="22">C</button>
+            <button class="fb" id="fb-top"  data-idx="1">A</button>
+            <button class="fb" id="fb-left" data-idx="1">B</button>
+            <button class="fb" id="fb-rght" data-idx="1">C</button>
             <button class="fb" id="fb-bot"  data-idx="1">D</button>
         </div>
     </div>
