@@ -30,6 +30,7 @@ def cli():
         # Rust-specific commands
         (["run", "PROJECT_NAME"], run_rust_project),
         (["app2html", "PROJECT_NAME", "[PORT]"], app2html_rust_project),
+        (["app2wasm", "PROJECT_NAME", "[PORT]"], app2wasm_rust_project),
         
         # Original Pyxel commands (for compatibility)
         (["pyrun", "PYTHON_SCRIPT_FILE(.py)"], run_python_script),
@@ -217,6 +218,158 @@ else:
     # Start HTTP server
     print(f"\n🌐 Starting web server on http://localhost:{port}")
     print(f"✓ Access at: http://localhost:{port}/{project_name}/")
+    print("   Press Ctrl+C to stop")
+    
+    try:
+        subprocess.run(
+            [sys.executable, '-m', 'http.server', str(port)],
+            cwd=base_dir
+        )
+    except KeyboardInterrupt:
+        print("\r✓ Server stopped")
+        sys.exit(0)
+
+
+def app2wasm_rust_project(project_name, port_str='8000'):
+    """Build Rust project to WASM target and serve as HTML
+    
+    Compiles to wasm32-unknown-unknown target, generates WebAssembly
+    binary, and serves with HTML wrapper via HTTP server.
+    """
+    try:
+        port = int(port_str)
+    except ValueError:
+        print(f"invalid port: {port_str}")
+        sys.exit(1)
+    
+    project_path = os.path.abspath(os.path.join(
+        os.path.dirname(__file__), '..', f'{project_name}_rust'
+    ))
+    
+    if not os.path.isdir(project_path):
+        print(f"project not found: {project_path}")
+        sys.exit(1)
+    
+    base_dir = os.path.dirname(__file__)
+    
+    print(f"🔨 Building {project_name} to WASM (wasm32-unknown-unknown)...")
+    
+    # Build to WASM target
+    env = os.environ.copy()
+    env['RUSTFLAGS'] = '-C target-feature=+bulk-memory'
+    
+    result = subprocess.run(
+        ['cargo', 'build', '--target', 'wasm32-unknown-unknown', '--release'],
+        cwd=project_path,
+        env=env
+    )
+    
+    if result.returncode != 0:
+        print(f"❌ WASM build failed")
+        print("Note: Ensure dependencies support wasm32 target")
+        sys.exit(1)
+    
+    print("✓ WASM build complete")
+    
+    # Create output directory
+    output_dir = os.path.join(base_dir, 'docs', f'{project_name}_wasm')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Copy WASM binary
+    binary_name = project_name.replace('-', '_')
+    wasm_src = os.path.join(
+        project_path, 'target', 'wasm32-unknown-unknown', 'release',
+        f'{binary_name}.wasm'
+    )
+    
+    if os.path.isfile(wasm_src):
+        wasm_dst = os.path.join(output_dir, f'{binary_name}.wasm')
+        shutil.copy(wasm_src, wasm_dst)
+        print(f"✓ Deployed WASM: {wasm_dst}")
+    else:
+        print(f"⚠️  WASM file not found: {wasm_src}")
+    
+    # Generate HTML with WASM loader
+    html_file = os.path.join(output_dir, 'index.html')
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{project_name} WASM</title>
+    <style>
+        body {{
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }}
+        #container {{
+            text-align: center;
+        }}
+        canvas {{
+            border: 3px solid #fff;
+            image-rendering: pixelated;
+            display: block;
+            margin: 20px auto;
+        }}
+        h1 {{
+            margin-top: 0;
+        }}
+        #loading {{
+            margin: 20px 0;
+            color: #aaa;
+        }}
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>{project_name} (WASM)</h1>
+        <canvas id="game" width="800" height="600"></canvas>
+        <div id="loading">Loading WASM module...</div>
+    </div>
+    
+    <script>
+        // WASM module loader
+        async function loadWasm() {{
+            try {{
+                const response = await fetch('{binary_name}.wasm');
+                const buffer = await response.arrayBuffer();
+                const {{ memory }} = new WebAssembly.Memory({{ initial: 256, maximum: 512 }});
+                const wasm = await WebAssembly.instantiate(buffer, {{
+                    env: {{ memory }}
+                }});
+                
+                document.getElementById('loading').innerHTML = '✓ WASM loaded';
+                
+                // Call game init if available
+                if (wasm.instance.exports.init) {{
+                    wasm.instance.exports.init();
+                }}
+            }} catch (e) {{
+                document.getElementById('loading').innerHTML = '❌ Failed to load WASM: ' + e.message;
+                console.error('WASM load error:', e);
+            }}
+        }}
+        
+        // Load WASM on page load
+        window.addEventListener('load', loadWasm);
+    </script>
+</body>
+</html>"""
+    
+    with open(html_file, 'w') as f:
+        f.write(html_content)
+    print(f"✓ Generated HTML: {html_file}")
+    
+    # Start HTTP server
+    print(f"\n🌐 Starting web server on http://localhost:{port}")
+    print(f"✓ WASM app ready at: http://localhost:{port}/{project_name}_wasm/")
     print("   Press Ctrl+C to stop")
     
     try:
