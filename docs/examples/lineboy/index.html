@@ -1,61 +1,329 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lineboy - Pyxel Rust</title>
-    <link rel="stylesheet" href="pyxel.css">
+    <title>Lineboy WASM Test</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #000;
-        }
-        #error-container {
-            color: #ff6b6b;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            background: #1a1a1a;
             font-family: monospace;
-            white-space: pre-wrap;
-            max-width: 800px;
+            color: #fff;
+            overflow-x: hidden;
         }
-        #debug-info {
-            color: #6bff6b;
+        h1 { 
+            margin-top: 10px;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        #canvas {
+            border: 4px solid #0f0;
+            background: #000;
+            display: block;
+            width: 90vmin;
+            height: 90vmin;
+            max-width: 512px;
+            max-height: 512px;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            width: 90%;
+            max-width: 400px;
             font-size: 12px;
+        }
+        .status-item {
+            margin: 3px 0;
+            font-size: 11px;
+        }
+        .good { color: #0f0; }
+        .bad { color: #f00; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        button:hover { background: #0a0; }
+        #controls {
+            margin: 10px 0;
+            text-align: center;
+        }
+        #touch-controls {
             margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            width: 90%;
+            max-width: 500px;
+        }
+        .touch-btn {
+            padding: 12px 25px;
+            font-size: 14px;
+            background: #f90;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            user-select: none;
+            min-width: 50px;
+        }
+        .touch-btn:active {
+            background: #f00;
+            transform: scale(0.95);
+        }
+        .touch-btn.jump {
+            background: #0f0;
+            min-width: 100px;
+        }
+        .touch-btn.jump:active {
+            background: #0a0;
+        }
+        #debug-log {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #f00;
+            border-radius: 5px;
+            width: 90%;
+            max-width: 400px;
+            min-height: 80px;
+            max-height: 250px;
+            overflow-y: auto;
+            background: #0a0a0a;
+            font-size: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="error-container"></div>
-    <div id="debug-info"></div>
+    <h1>🎮 Lineboy WASM Test</h1>
     
-    <script src="pyxel.js"></script>
-    <script>
-        const errorDiv = document.getElementById('error-container');
-        const debugDiv = document.getElementById('debug-info');
+    <canvas id="canvas" width="512" height="512"></canvas>
+
+    <div id="status">
+        <div class="status-item">WASM Module: <span id="wasm-status" class="bad">Loading...</span></div>
+        <div class="status-item">Game State: <span id="game-status" class="bad">Waiting...</span></div>
+        <div class="status-item">Frame: <span id="frame-count">0</span></div>
+        <div class="status-item">FPS: <span id="fps">0</span></div>
+        <div class="status-item">Last Error: <span id="error-status" class="good">None</span></div>
+    </div>
+
+    <div id="touch-controls">
+        <button class="touch-btn" id="btn-left">⬅️ LEFT</button>
+        <button class="touch-btn" id="btn-right">➡️ RIGHT</button>
+        <button class="touch-btn jump" id="btn-jump">⬆️ JUMP</button>
+    </div>
+
+    <div id="debug-log">
+        <div style="color: #888;">[Debug Log - will show errors]</div>
+    </div>
+
+    <div style="margin-top: 20px; font-size: 12px; color: #888;">
+        <p>Controls: Arrow Keys (Move) | Space (Jump) | R (Reset)</p>
+        <p>This is a test of the Nantaraquad WASM engine with Lineboy game.</p>
+    </div>
+
+    <script type="module">
+        import init, * as lineboy from './lineboy/lineboy.js';
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const debugLog = document.getElementById('debug-log');
         
-        // Log all resource loads
-        window.addEventListener('error', (event) => {
-            debugDiv.innerHTML += `Error: ${event.message} at ${event.filename}:${event.lineno}\n`;
-        });
-        
-        // Launch Lineboy
-        if (typeof launchPyxel !== 'undefined') {
-            debugDiv.innerHTML += 'Launching Lineboy...\n';
-            launchPyxel({
-                command: `
-import sys
-sys.path.insert(0, ".")
-exec(open("lineboy.py").read())
-`,
-            }).catch(error => {
-                console.error('Failed to load Pyxel:', error);
-                errorDiv.innerHTML = 'Error loading Lineboy:\n\n' + error.toString() + '\n\nStack:\n' + error.stack;
-                debugDiv.innerHTML += '\n❌ Error occurred\n';
-            });
-        } else {
-            errorDiv.innerHTML = 'Error: launchPyxel function not found. pyxel.js may not have loaded correctly.';
+        let gameRunning = false;
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let fps = 0;
+
+        // Page-based logging
+        function addLog(msg) {
+            const line = document.createElement('div');
+            line.textContent = new Date().toLocaleTimeString() + ' > ' + msg;
+            line.style.color = msg.includes('ERROR') || msg.includes('❌') ? '#f00' : '#0f0';
+            debugLog.appendChild(line);
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(msg);
         }
+
+        // Override window.onerror
+        window.onerror = (msg, url, line, col, err) => {
+            addLog('❌ ERROR: ' + msg + ' at ' + url + ':' + line);
+            return true;
+        };
+
+        // Override console.error
+        const originalError = console.error;
+        console.error = function(...args) {
+            addLog('❌ ERROR: ' + args.join(' '));
+            originalError.apply(console, args);
+        };
+
+        addLog('📍 Page loaded, starting initialization...');
+
+        // Input state
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') e.preventDefault();
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // Touch button handlers
+        document.getElementById('btn-left').addEventListener('mousedown', () => keys['arrowleft'] = true);
+        document.getElementById('btn-left').addEventListener('mouseup', () => keys['arrowleft'] = false);
+        document.getElementById('btn-left').addEventListener('touchstart', (e) => { keys['arrowleft'] = true; e.preventDefault(); });
+        document.getElementById('btn-left').addEventListener('touchend', (e) => { keys['arrowleft'] = false; e.preventDefault(); });
+
+        document.getElementById('btn-right').addEventListener('mousedown', () => keys['arrowright'] = true);
+        document.getElementById('btn-right').addEventListener('mouseup', () => keys['arrowright'] = false);
+        document.getElementById('btn-right').addEventListener('touchstart', (e) => { keys['arrowright'] = true; e.preventDefault(); });
+        document.getElementById('btn-right').addEventListener('touchend', (e) => { keys['arrowright'] = false; e.preventDefault(); });
+
+        document.getElementById('btn-jump').addEventListener('mousedown', () => keys[' '] = true);
+        document.getElementById('btn-jump').addEventListener('mouseup', () => keys[' '] = false);
+        document.getElementById('btn-jump').addEventListener('touchstart', (e) => { keys[' '] = true; e.preventDefault(); });
+        document.getElementById('btn-jump').addEventListener('touchend', (e) => { keys[' '] = false; e.preventDefault(); });
+
+        // Initialize WASM
+        async function start() {
+            try {
+                addLog('⏳ Loading WASM module...');
+                await init();
+                addLog('✅ WASM module loaded');
+                addLog('✅ Available functions: ' + Object.keys(lineboy).join(', '));
+                
+                addLog('⏳ Initializing game...');
+                lineboy.init();
+                addLog('✅ Game initialized');
+                document.getElementById('wasm-status').textContent = '✓ Loaded';
+                document.getElementById('wasm-status').className = 'good';
+                document.getElementById('game-status').textContent = '✓ Ready';
+                document.getElementById('game-status').className = 'good';
+                
+                gameRunning = true;
+                addLog('▶️ Starting game loop');
+                gameLoop();
+            } catch (err) {
+                addLog('❌ FATAL: ' + err.message);
+                addLog('❌ Stack: ' + (err.stack || 'No stack trace'));
+                document.getElementById('error-status').textContent = err.message;
+                document.getElementById('error-status').className = 'bad';
+            }
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            try {
+                // Extract input flags
+                const left = keys['arrowleft'] || keys['a'] || false;
+                const right = keys['arrowright'] || keys['d'] || false;
+                const jump = keys[' '] || false;
+
+                // Update and render
+                lineboy.update(left, right, jump);
+                lineboy.render();
+
+                // Get framebuffer as Vec<u8>
+                const buffer = lineboy.get_framebuffer();
+
+                // Debug: Check buffer content
+                if (frameCount === 0) {
+                    addLog('✅ Frame 1: Buffer type = ' + (buffer ? buffer.constructor.name : 'null'));
+                    addLog('✅ Frame 1: Buffer length = ' + (buffer ? buffer.length : 'N/A'));
+                    if (buffer) {
+                        const nonZero = buffer.filter(x => x !== 0).length;
+                        addLog('✅ Frame 1: Non-zero pixels = ' + nonZero + ' / ' + buffer.length);
+                    }
+                }
+
+                // Convert palette to RGBA and draw
+                if (!buffer || buffer.length === 0) {
+                    addLog('❌ ERROR: Buffer is null or empty!');
+                    gameRunning = false;
+                    return;
+                }
+
+                const imageData = ctx.createImageData(512, 512);
+                const data = imageData.data;
+                
+                // Simple 16-color palette
+                const palette = [
+                    [0,0,0,255],           // 0: Black
+                    [29,43,83,255],        // 1: Navy
+                    [126,37,83,255],       // 2: Purple
+                    [0,135,81,255],        // 3: Green
+                    [171,82,54,255],       // 4: Brown
+                    [95,87,79,255],        // 5: Dark Gray
+                    [194,195,199,255],     // 6: Light Gray
+                    [255,241,232,255],     // 7: White
+                    [255,0,77,255],        // 8: Red
+                    [255,163,0,255],       // 9: Orange
+                    [255,236,39,255],      // 10: Yellow
+                    [0,228,54,255],        // 11: Lime
+                    [41,173,255,255],      // 12: Cyan
+                    [131,118,156,255],     // 13: Gray
+                    [255,119,168,255],     // 14: Pink
+                    [255,204,170,255],     // 15: Peach
+                ];
+
+                for (let i = 0; i < buffer.length; i++) {
+                    const colorIdx = buffer[i] & 0x0F;
+                    const [r, g, b, a] = palette[colorIdx];
+                    data[i * 4 + 0] = r;
+                    data[i * 4 + 1] = g;
+                    data[i * 4 + 2] = b;
+                    data[i * 4 + 3] = a;
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+
+                // Update stats
+                frameCount++;
+                const now = performance.now();
+                const elapsed = (now - lastTime) / 1000;
+                if (elapsed >= 1.0) {
+                    fps = Math.round(frameCount / elapsed);
+                    frameCount = 0;
+                    lastTime = now;
+                }
+                
+                document.getElementById('frame-count').textContent = frameCount;
+                document.getElementById('fps').textContent = fps;
+                
+            } catch (err) {
+                document.getElementById('error-status').textContent = err.message;
+                document.getElementById('error-status').className = 'bad';
+                console.error('Game loop error:', err);
+                gameRunning = false;
+                return;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Auto-start
+        start();
     </script>
 </body>
 </html>
