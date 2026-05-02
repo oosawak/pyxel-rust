@@ -18,14 +18,29 @@ pub fn abs(x: f32) -> f32 {
     x.abs()
 }
 
+// xorshift32 PRNG — no SystemTime, works on WASM
+static RNG_STATE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(12345);
+
+fn next_rand() -> f32 {
+    use std::sync::atomic::Ordering;
+    let mut x = RNG_STATE.load(Ordering::Relaxed);
+    if x == 0 { x = 12345; }
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    RNG_STATE.store(x, Ordering::Relaxed);
+    (x as f32) / (u32::MAX as f32)
+}
+
+/// Seed the RNG (call with a timestamp or frame counter)
+pub fn rseed(seed: u32) {
+    use std::sync::atomic::Ordering;
+    RNG_STATE.store(if seed == 0 { 1 } else { seed }, Ordering::Relaxed);
+}
+
 /// Random float between a and b
 pub fn rnd(a: f32, b: Option<f32>) -> f32 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    use std::time::SystemTime;
-    let mut h = DefaultHasher::new();
-    SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().subsec_nanos().hash(&mut h);
-    let r = (h.finish() as f32) / (u64::MAX as f32); // 0.0..1.0
+    let r = next_rand();
     match b {
         Some(b) => { let lo = a.min(b); let hi = a.max(b); lo + r * (hi - lo) },
         None => r * a,
