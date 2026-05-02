@@ -11,23 +11,51 @@
             padding: 0;
             background-color: #000;
         }
-        #error-message {
+        #error-container {
             color: #ff6b6b;
             padding: 20px;
             font-family: monospace;
             white-space: pre-wrap;
+            max-width: 800px;
+        }
+        #debug-info {
+            color: #6bff6b;
+            font-size: 12px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
+    <div id="error-container"></div>
+    <div id="debug-info"></div>
+    
     <script src="pyxel.js"></script>
     <script>
-        // Launch Lineboy
-        launchPyxel({
-            command: 'import sys; sys.path.insert(0, "."); import lineboy; lineboy.main()',
-        }).catch(error => {
-            document.body.innerHTML = '<div id="error-message">Error loading Lineboy:\n\n' + error.toString() + '</div>';
+        const errorDiv = document.getElementById('error-container');
+        const debugDiv = document.getElementById('debug-info');
+        
+        // Log all resource loads
+        window.addEventListener('error', (event) => {
+            debugDiv.innerHTML += `Error: ${event.message} at ${event.filename}:${event.lineno}\n`;
         });
+        
+        // Launch Lineboy
+        if (typeof launchPyxel !== 'undefined') {
+            debugDiv.innerHTML += 'Launching Lineboy...\n';
+            launchPyxel({
+                command: `
+import sys
+sys.path.insert(0, ".")
+exec(open("lineboy.py").read())
+`,
+            }).catch(error => {
+                console.error('Failed to load Pyxel:', error);
+                errorDiv.innerHTML = 'Error loading Lineboy:\n\n' + error.toString() + '\n\nStack:\n' + error.stack;
+                debugDiv.innerHTML += '\n❌ Error occurred\n';
+            });
+        } else {
+            errorDiv.innerHTML = 'Error: launchPyxel function not found. pyxel.js may not have loaded correctly.';
+        }
     </script>
 </body>
 </html>

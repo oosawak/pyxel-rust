@@ -39,29 +39,19 @@
             debugDiv.innerHTML += `Error: ${event.message} at ${event.filename}:${event.lineno}\n`;
         });
         
-        // Check if files are accessible
-        async function checkResources() {
-            const files = ['pyxel.js', 'pyxel.css', 'pyxel-2.7.9-cp38-abi3-emscripten_4_0_9_wasm32.whl'];
-            debugDiv.innerHTML += 'Checking resources:\n';
-            for (const file of files) {
-                try {
-                    const response = await fetch(file, { method: 'HEAD' });
-                    debugDiv.innerHTML += `✓ ${file}: ${response.status}\n`;
-                } catch (e) {
-                    debugDiv.innerHTML += `✗ ${file}: ${e.message}\n`;
-                }
-            }
-        }
-        
-        checkResources();
-        
         // Launch Cubeboy
         if (typeof launchPyxel !== 'undefined') {
+            debugDiv.innerHTML += 'Launching Cubeboy...\n';
             launchPyxel({
-                command: 'print("Cubeboy loaded!")',
+                command: `
+import sys
+sys.path.insert(0, ".")
+exec(open("cubeboy.py").read())
+`,
             }).catch(error => {
                 console.error('Failed to load Pyxel:', error);
                 errorDiv.innerHTML = 'Error loading Cubeboy:\n\n' + error.toString() + '\n\nStack:\n' + error.stack;
+                debugDiv.innerHTML += '\n❌ Error occurred\n';
             });
         } else {
             errorDiv.innerHTML = 'Error: launchPyxel function not found. pyxel.js may not have loaded correctly.';
