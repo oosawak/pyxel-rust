@@ -1,27 +1,23 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export function get_framebuffer(): Uint8Array;
-
-export function init(): void;
-
-export function render(): void;
-
-export function reset(): void;
-
-export function update(left: boolean, right: boolean, jump: boolean): void;
+export function wasm_main(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly get_framebuffer: (a: number) => void;
-    readonly init: () => void;
-    readonly render: () => void;
-    readonly reset: () => void;
-    readonly update: (a: number, b: number, c: number) => void;
-    readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
-    readonly __wbindgen_export: (a: number, b: number, c: number) => void;
+    readonly wasm_main: () => void;
+    readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_5bbe641191e3e9a4___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_5bbe641191e3e9a4___features__gen_MouseEvent__MouseEvent______true__1: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke_______true_: (a: number, b: number) => void;
+    readonly __wbindgen_exn_store: (a: number) => void;
+    readonly __externref_table_alloc: () => number;
+    readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+    readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
+    readonly __wbindgen_start: () => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

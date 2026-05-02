@@ -1,0 +1,15 @@
+{
+  "name": "lineboy_rust",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "lineboy_rust_lib_bg.wasm",
+    "lineboy_rust_lib.js",
+    "lineboy_rust_lib.d.ts"
+  ],
+  "main": "lineboy_rust_lib.js",
+  "types": "lineboy_rust_lib.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

@@ -1,0 +1,6 @@
+[target.wasm32-unknown-emscripten]
+rustflags = [
+    "-C", "panic=abort",
+    "-C", "link-arg=-fwasm-exceptions",
+    "-C", "link-arg=--use-port=sdl2",
+]

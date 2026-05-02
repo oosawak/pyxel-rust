@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyxel-rust"
+version = "0.1.0"
+description = "Pyxel CLI extended with Rust game support"
+requires-python = ">=3.9"
+dependencies = ["pyxel"]
+
+[project.scripts]
+pyxel-rust = "pyxel_rust_cli:cli"
+
+[tool.setuptools]
+py-modules = ["pyxel_rust_cli"]
