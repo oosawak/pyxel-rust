@@ -6,18 +6,18 @@
  */
 export function key_index(code: string): number;
 
+export function main(): void;
+
 /**
  * タッチ UI から直接呼べるキー状態セット関数
  */
 export function set_key(idx: number, down: boolean): void;
 
-export function wasm_main(): void;
-
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly wasm_main: () => void;
+    readonly main: () => void;
     readonly key_index: (a: number, b: number) => number;
     readonly set_key: (a: number, b: number) => void;
     readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_5bbe641191e3e9a4___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;

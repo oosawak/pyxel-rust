@@ -1,7 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
-export const wasm_main: () => void;
+export const main: () => void;
 export const key_index: (a: number, b: number) => number;
 export const set_key: (a: number, b: number) => void;
 export const wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_5bbe641191e3e9a4___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
