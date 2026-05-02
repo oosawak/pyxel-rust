@@ -76,6 +76,9 @@ function __wbg_get_imports() {
         __wbg_error_f7e7b4bb4e0734a3: function(arg0) {
             console.error(arg0);
         },
+        __wbg_fillText_2197e78c63886f26: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
+            arg0.fillText(getStringFromWasm0(arg1, arg2), arg3, arg4);
+        }, arguments); },
         __wbg_getContext_24426d8c38c5768a: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = arg0.getContext(getStringFromWasm0(arg1, arg2));
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
@@ -144,6 +147,12 @@ function __wbg_get_imports() {
             const ret = arg0.requestAnimationFrame(arg1);
             return ret;
         }, arguments); },
+        __wbg_set_fillStyle_cc6cfa51075228ba: function(arg0, arg1) {
+            arg0.fillStyle = arg1;
+        },
+        __wbg_set_font_6821748eba07a366: function(arg0, arg1, arg2) {
+            arg0.font = getStringFromWasm0(arg1, arg2);
+        },
         __wbg_set_height_fd216dfebfffa20c: function(arg0, arg1) {
             arg0.height = arg1 >>> 0;
         },
@@ -152,6 +161,9 @@ function __wbg_get_imports() {
         },
         __wbg_set_imageSmoothingEnabled_7a5ed8e6fa757cbe: function(arg0, arg1) {
             arg0.imageSmoothingEnabled = arg1 !== 0;
+        },
+        __wbg_set_textBaseline_8d560a315d161283: function(arg0, arg1, arg2) {
+            arg0.textBaseline = getStringFromWasm0(arg1, arg2);
         },
         __wbg_set_width_ef87472e074e959b: function(arg0, arg1) {
             arg0.width = arg1 >>> 0;
