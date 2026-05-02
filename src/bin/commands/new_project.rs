@@ -62,8 +62,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Pyxel-core from parent directory
-pyxel = {{ path = "../../pyxel_fork/crates/pyxel-core" }}
+# Pyxel-rust wrapper library with complete Pyxel API
+pyxel-rust = {{ path = "../pyxel-rust" }}
 
 [[bin]]
 name = "{}"
@@ -81,8 +81,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Pyxel-core from parent directory
-pyxel = {{ path = "../../pyxel_fork/crates/pyxel-core" }}
+# Pyxel-rust wrapper library with complete Pyxel API
+pyxel-rust = {{ path = "../pyxel-rust" }}
 
 [[bin]]
 name = "{}"
@@ -93,7 +93,7 @@ path = "src/main.rs"
 }
 
 fn create_game_template() -> String {
-    r#"use pyxel::prelude::*;
+    r#"use pyxel_rust::prelude::*;
 
 fn main() {
     init(128, 128, "My Game", 60);
@@ -114,17 +114,17 @@ fn draw() {
     // Draw a circle in the center
     let x = width() / 2;
     let y = height() / 2;
-    circ(x as i32, y as i32, 20, COLOR_ORANGE);
+    circfill(x as f32, y as f32, 20.0, COLOR_ORANGE);
     
     // Draw text
-    text(10, 10, "Press Q to quit", COLOR_WHITE);
+    text(10.0, 10.0, "Press Q to quit", COLOR_WHITE);
 }
 "#
     .to_string()
 }
 
 fn create_basic_template() -> String {
-    r#"use pyxel::prelude::*;
+    r#"use pyxel_rust::prelude::*;
 
 fn main() {
     init(160, 120, "Game", 60);
@@ -139,20 +139,25 @@ fn update() {
 
 fn draw() {
     cls(COLOR_BLACK);
-    text(70, 55, "Hello, Pyxel!", COLOR_WHITE);
+    text(70.0, 55.0, "Hello, Pyxel!", COLOR_WHITE);
 }
 "#
     .to_string()
 }
 
 fn create_minimal_template() -> String {
-    r#"use pyxel::prelude::*;
+    r#"use pyxel_rust::prelude::*;
 
 fn main() {
     init(128, 128, "Game", 60);
-    run(|_| {}, |_| {
-        cls(COLOR_BLACK);
-    });
+    run(update, draw);
+}
+
+fn update() {
+}
+
+fn draw() {
+    cls(COLOR_BLACK);
 }
 "#
     .to_string()
