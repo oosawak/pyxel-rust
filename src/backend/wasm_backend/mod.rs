@@ -37,8 +37,13 @@ pub const DEFAULT_PALETTE: [[u8; 4]; 16] = [
     [0xed, 0xc7, 0xb0, 0xff],
 ];
 
-const DISPLAY_SCALE: u32 = 4;
 const KEY_COUNT: usize = 256;
+
+/// 表示サイズが約512pxになるようなスケールを計算
+fn compute_scale(w: u32, h: u32) -> u32 {
+    let max_dim = w.max(h);
+    (512u32 / max_dim).max(1)
+}
 
 // --------------------------------------------------------------------------
 // InputState
@@ -80,6 +85,7 @@ impl InputState {
 pub struct WasmState {
     pub width: u32,
     pub height: u32,
+    pub display_scale: u32,
     pub fps: u32,
     pub pixel_buffer: Vec<u8>,
     pub rgba_buffer: Vec<u8>,   // pre-allocated RGBA output
@@ -100,7 +106,7 @@ impl WasmState {
         for i in 0..16u8 { color_map[i as usize] = i; }
         let pixels = (width * height) as usize;
         Self {
-            width, height, fps,
+            width, height, display_scale: compute_scale(width, height), fps,
             pixel_buffer: vec![0u8; pixels],
             rgba_buffer: vec![0u8; pixels * 4],
             palette: DEFAULT_PALETTE, color_map,
@@ -241,11 +247,12 @@ pub(crate) fn state() -> &'static mut WasmState {
 
 pub fn init(width: u32, height: u32, _title: &str, fps: u32) {
     unsafe { STATE = Some(WasmState::new(width, height, fps)); }
+    let scale = state().display_scale;
 
     // Set canvas size
     if let Some(canvas) = get_canvas() {
-        canvas.set_width(width * DISPLAY_SCALE);
-        canvas.set_height(height * DISPLAY_SCALE);
+        canvas.set_width(width * scale);
+        canvas.set_height(height * scale);
     }
 
     // Register keyboard input
@@ -323,7 +330,7 @@ fn register_keyboard_events() {
 
     // Mouse events on canvas
     if let Some(canvas) = get_canvas() {
-        let scale = DISPLAY_SCALE;
+        let scale = state().display_scale;
         let mousemove = Closure::<dyn FnMut(MouseEvent)>::new(move |e: MouseEvent| {
             let s = state();
             s.input.mouse_x = (e.offset_x() / scale as i32).max(0);
@@ -366,24 +373,33 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
                 s.compose_rgba();
                 let w = s.width;
                 let h = s.height;
-                let scale = DISPLAY_SCALE;
-                let rgba = &s.rgba_buffer;
+                let scale = s.display_scale;
+                let rgba = s.rgba_buffer.clone();
 
-                let arr = unsafe {
-                    Uint8ClampedArray::view(rgba)
-                };
                 if let Ok(img_data) = ImageData::new_with_u8_clamped_array_and_sh(
-                    wasm_bindgen::Clamped(rgba), w, h
+                    wasm_bindgen::Clamped(&rgba), w, h
                 ) {
-                    let _ = ctx.put_image_data(&img_data, 0.0, 0.0);
-                    ctx.set_image_smoothing_enabled(false);
-                    // Scale up: draw the small canvas scaled to display size
-                    let _ = ctx.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                        &get_canvas().unwrap(), 0.0, 0.0,
-                        w as f64, h as f64, 0.0, 0.0,
-                        (w * scale) as f64, (h * scale) as f64,
-                    );
-                    drop(arr);
+                    if scale == 1 {
+                        // No scaling needed — write directly
+                        let _ = ctx.put_image_data(&img_data, 0.0, 0.0);
+                    } else {
+                        // Write to a temp offscreen canvas, then scale onto main canvas
+                        let document = web_sys::window().unwrap().document().unwrap();
+                        let off = document.create_element("canvas").unwrap()
+                            .dyn_into::<HtmlCanvasElement>().unwrap();
+                        off.set_width(w);
+                        off.set_height(h);
+                        let off_ctx = off.get_context("2d").unwrap().unwrap()
+                            .dyn_into::<CanvasRenderingContext2d>().unwrap();
+                        let _ = off_ctx.put_image_data(&img_data, 0.0, 0.0);
+                        ctx.set_image_smoothing_enabled(false);
+                        let _ = ctx.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                            &off, 0.0, 0.0,
+                            w as f64, h as f64,
+                            0.0, 0.0,
+                            (w * scale) as f64, (h * scale) as f64,
+                        );
+                    }
                 }
             }
 
