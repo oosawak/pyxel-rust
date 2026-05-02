@@ -164,25 +164,27 @@
         const ASSET_BASE = '../../assets/design/';
 
         // Sprite sheet grid constants
-        const ENE_COLS = 4, ENE_CW = 384, ENE_CH = 512;   // enemy sheets: 4×2 grid, 384×512 per cell
-        const BG_COLS  = 7, BG_CW  = 219, BG_CH  = 256;   // world-backgrounds-2: 7×4 grid, 219×256 per cell
-        const ARI_CW   = 384, ARI_CH = 512;                // arisa sheet: use first cell (4×2 layout)
+        // enemy-sprites.png: 6 cols × 4 rows, 256×256 per cell
+        //   col 0 = labels (skip), col 1 = large ref sprite (top 128px = enemy A, bottom 128px = enemy B)
+        const BG_COLS = 6, BG_CW = 256, BG_CH = 256;  // world-backgrounds-2: 6×4 grid, 256×256 per cell (24 total)
 
-        // Map game enemy index → [sheet filename, sprite index in sheet]
+        // Map game enemy index → sprite source { sheet, sx, sy, sw, sh }
+        // Using col=1 (x=256) of enemy-sprites.png, each row has 2 enemies stacked (128px each)
         const ENEMY_MAP = [
-            ['enemy-sprites',   0],   // 0: スライム
-            ['enemy-sprites',   1],   // 1: シャドウキャット
-            ['enemy-sprites',   2],   // 2: フレイムインプ
-            ['enemy-sprites',   3],   // 3: ゴースト
-            ['enemy-sprites',   4],   // 4: ロックゴーレム
+            { sheet: 'enemy-sprites', sx: 256, sy: 256, sw: 256, sh: 128 },  // 0: スライム      (row1 top)
+            { sheet: 'enemy-sprites', sx: 256, sy:   0, sw: 256, sh: 128 },  // 1: シャドウキャット (row0 top)
+            { sheet: 'enemy-sprites', sx: 256, sy: 384, sw: 256, sh: 128 },  // 2: フレイムインプ  (row1 bot)
+            { sheet: 'enemy-sprites', sx: 256, sy: 768, sw: 256, sh: 128 },  // 3: ゴースト       (row3 top)
+            { sheet: 'enemy-sprites', sx: 256, sy: 896, sw: 256, sh: 128 },  // 4: ロックゴーレム  (row3 bot)
         ];
 
-        // Preload sprite sheets
+        // Preload sprite sheets + title art
         const SHEETS = {};
         const SHEET_LIST = [
             'enemy-sprites', 'enemy-sprites-2', 'enemy-sprites-3',
             'enemy-sprites-4', 'enemy-sprites-5',
             'arisa-player-sprites', 'arisa-world-backgrounds-2',
+            'arisa-3d-art',
         ];
         let loadedCount = 0;
         for (const name of SHEET_LIST) {
@@ -195,21 +197,52 @@
 
         // Display regions in 160×120 game pixels
         const SCENE_H = 84;  // y=0..83 = battle scene; y=84..119 = UI
-        // Enemy: centered in left portion of scene
-        const ENE_DEST  = { x: 14, y: 12, w: 52, h: 70 };
-        // Arisa: right portion, slightly smaller (back/side view)
-        const ARISA_DEST = { x: 105, y: 25, w: 44, h: 58 };
+        // Arisa: LEFT side
+        const ARISA_DEST = { x: 8, y: 8, w: 58, h: 76 };
+        // Enemy: RIGHT side, slightly higher
+        const ENE_DEST   = { x: 95, y: 4, w: 58, h: 72 };
 
         const bgCanvas = document.getElementById('bg-canvas');
         const bgCtx    = bgCanvas.getContext('2d');
+
+        function renderTitle() {
+            bgCtx.clearRect(0, 0, 160, 120);
+            // Dark gradient background
+            const grad = bgCtx.createLinearGradient(0, 0, 0, 120);
+            grad.addColorStop(0, '#0a0520');
+            grad.addColorStop(1, '#1a0535');
+            bgCtx.fillStyle = grad;
+            bgCtx.fillRect(0, 0, 160, 120);
+
+            const arisa3d = SHEETS['arisa-3d-art'];
+            if (arisa3d && arisa3d.complete) {
+                // Draw Arisa 3D art — right-center, portrait crop
+                const srcW = arisa3d.naturalWidth;
+                const srcH = arisa3d.naturalHeight;
+                // Crop: use middle 70% of width, full height
+                const cropX = srcW * 0.15;
+                const cropW = srcW * 0.70;
+                // Display: right portion of title, large
+                const dstH = 105;
+                const dstW = dstH * cropW / srcH;
+                const dstX = 160 - dstW - 4;
+                bgCtx.drawImage(arisa3d, cropX, 0, cropW, srcH, dstX, 8, dstW, dstH);
+            }
+        }
 
         function renderBg() {
             if (!window.wasmModule) return;
 
             const state = window.wasmModule.get_game_state?.() ?? 0;
 
+            if (state === 0) {
+                // Title screen
+                renderTitle();
+                return;
+            }
+
             if (state !== 2) {
-                // Not in battle — clear art layer completely
+                // Map or other non-battle state — clear art layer
                 bgCtx.clearRect(0, 0, 160, 120);
                 return;
             }
@@ -225,7 +258,7 @@
             bgCtx.clearRect(0, 0, 160, 120);
 
             // ── Battle background (scene area only, y=0..SCENE_H) ────────────
-            const bgI  = ((bgIdx % 28) + 28) % 28;
+            const bgI  = ((bgIdx % 24) + 24) % 24;
             const bgSx = (bgI % BG_COLS) * BG_CW;
             const bgSy = Math.floor(bgI / BG_COLS) * BG_CH;
             bgCtx.drawImage(
@@ -234,32 +267,30 @@
                 0, 0, 160, SCENE_H
             );
 
-            // ── Enemy sprite ─────────────────────────────────────────────────
+            // ── Arisa sprite (LEFT side) ──────────────────────────────────────
+            const showArisa = playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0;
+            if (showArisa) {
+                bgCtx.globalAlpha = 1.0;
+                // col=0, row=0 first cell (待機), use left half (128px wide = one pose column)
+                bgCtx.drawImage(
+                    SHEETS['arisa-player-sprites'],
+                    0, 0, 128, 256,
+                    ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h
+                );
+            }
+
+            // ── Enemy sprite (RIGHT side, slightly higher) ────────────────────
             if (enemyIdx >= 0 && enemyIdx < ENEMY_MAP.length) {
-                const [sheetName, spriteIdx] = ENEMY_MAP[enemyIdx];
-                const sx = (spriteIdx % ENE_COLS) * ENE_CW;
-                const sy = Math.floor(spriteIdx / ENE_COLS) * ENE_CH;
-                // Flash: alternate visibility every 4 frames (matches Rust logic)
+                const e = ENEMY_MAP[enemyIdx];
                 const showEnemy = enemyFlash <= 0 || Math.floor(enemyFlash / 4) % 2 === 0;
                 if (showEnemy) {
                     bgCtx.globalAlpha = 1.0;
                     bgCtx.drawImage(
-                        SHEETS[sheetName],
-                        sx, sy, ENE_CW, ENE_CH,
+                        SHEETS[e.sheet],
+                        e.sx, e.sy, e.sw, e.sh,
                         ENE_DEST.x, ENE_DEST.y, ENE_DEST.w, ENE_DEST.h
                     );
                 }
-            }
-
-            // ── Arisa sprite (first pose = battle idle) ───────────────────────
-            const showArisa = playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0;
-            if (showArisa) {
-                bgCtx.globalAlpha = 1.0;
-                bgCtx.drawImage(
-                    SHEETS['arisa-player-sprites'],
-                    0, 0, ARI_CW, ARI_CH,
-                    ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h
-                );
             }
 
             bgCtx.globalAlpha = 1.0;
