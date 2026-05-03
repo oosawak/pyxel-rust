@@ -361,6 +361,10 @@ struct Game {
 impl Game {
     fn new() -> Self {
         Game {
+            // WASMではtitleスクリーンを非表示のためMapから直接開始
+            #[cfg(target_arch = "wasm32")]
+            state: GameState::Map,
+            #[cfg(not(target_arch = "wasm32"))]
             state:   GameState::Title,
             player:  Player::new(),
             enemy:   None,
@@ -416,6 +420,17 @@ impl Game {
         }
         if self.player.flash > 0 { self.player.flash -= 1; }
 
+        // JS から start_battle_from_js(idx) が呼ばれた場合はどの状態からでも受け付ける
+        #[cfg(target_arch = "wasm32")]
+        {
+            let req = wb::take_battle_request();
+            if req >= 0 && self.state != GameState::Battle {
+                let idx = (req as usize).min(ENEMIES.len() - 1);
+                self.start_battle(idx);
+                return;
+            }
+        }
+
         match self.state {
             GameState::Title  => self.upd_title(),
             GameState::Map    => self.upd_map(),
@@ -431,16 +446,6 @@ impl Game {
 
     fn upd_map(&mut self) {
         // JS から start_battle_from_js(idx) が呼ばれた場合
-        #[cfg(target_arch = "wasm32")]
-        {
-            let req = wb::take_battle_request();
-            if req >= 0 {
-                let idx = (req as usize).min(ENEMIES.len() - 1);
-                self.start_battle(idx);
-                return;
-            }
-        }
-
         self.enc_t += 1;
         let (mut nx, mut ny) = (self.player.map_x, self.player.map_y);
         let mut moved = false;
