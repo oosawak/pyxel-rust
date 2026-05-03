@@ -131,6 +131,17 @@
 
         /* ── Map layer ───────────────────────────────────────────── */
         #map-layer { position: absolute; inset: 0; bottom: var(--tab-h); z-index: 1; }
+
+        /* タイル切り替えボタン */
+        #btn-tile-switch {
+            position: absolute; bottom: 10px; right: 10px; z-index: 500;
+            background: rgba(0,0,20,0.82); border: 1px solid #447;
+            border-radius: 8px; color: #aac8ff; font-size: 0.62rem;
+            font-family: 'DotGothic16', monospace; padding: 4px 9px;
+            cursor: pointer; pointer-events: auto; white-space: nowrap;
+        }
+        #btn-tile-switch:active { background: rgba(60,60,180,0.7); }
+
         /* Dark overlay with multiply blend — darkens map while keeping contrast */
         #map-dark-overlay {
             position: absolute; inset: 0; z-index: 2;
@@ -895,6 +906,7 @@
         <!-- OpenStreetMap -->
         <div id="map-layer">
             <div id="map" style="width:100%;height:100%"></div>
+            <button id="btn-tile-switch">🗺 標準</button>
             <div id="map-dark-overlay"></div>
             <!-- 電子空間オーバーレイ（GPS確定前） -->
             <div id="cyber-overlay">
@@ -1467,10 +1479,40 @@
         window.addEventListener('resize', () => { mapEl.style.height = mainEl.clientHeight + 'px'; map.invalidateSize(); });
 
         const map = L.map('map', { zoomControl: true }).setView([38.2553, 140.3394], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
-            maxZoom: 19,
-        }).addTo(map);
+
+        // タイルスタイル定義
+        const TILE_STYLES = [
+            {
+                name: '標準',
+                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                opts: { attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors', maxZoom: 19 }
+            },
+            {
+                name: 'Bright日本語',
+                url: 'https://tile.openstreetmap.jp/styles/osm-bright-ja/512/{z}/{x}/{y}.png',
+                opts: { attribution: '© <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 20, tileSize: 512, zoomOffset: -1 }
+            },
+            {
+                name: 'Basic日本語',
+                url: 'https://tile.openstreetmap.jp/styles/maptiler-basic-ja/512/{z}/{x}/{y}.png',
+                opts: { attribution: '© <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 20, tileSize: 512, zoomOffset: -1 }
+            },
+            {
+                name: 'Toner日本語',
+                url: 'https://tile.openstreetmap.jp/styles/maptiler-toner-ja/512/{z}/{x}/{y}.png',
+                opts: { attribution: '© <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 20, tileSize: 512, zoomOffset: -1 }
+            },
+        ];
+        let currentTileIdx = 0;
+        let currentTileLayer = L.tileLayer(TILE_STYLES[0].url, TILE_STYLES[0].opts).addTo(map);
+
+        document.getElementById('btn-tile-switch').addEventListener('click', () => {
+            currentTileIdx = (currentTileIdx + 1) % TILE_STYLES.length;
+            const style = TILE_STYLES[currentTileIdx];
+            map.removeLayer(currentTileLayer);
+            currentTileLayer = L.tileLayer(style.url, style.opts).addTo(map);
+            document.getElementById('btn-tile-switch').textContent = `🗺 ${style.name}`;
+        });
 
         let playerMarker = null, arisaMarker = null, arisaPos = null;
         let enemyMarkers = [];
