@@ -9,7 +9,6 @@ extern crate pyxel;
 
 pub mod backend;
 pub mod api;
-pub mod games;
 
 // Re-export pyxel-core types when using pyxel-core-backend
 #[cfg(feature = "pyxel-core-backend")]

@@ -362,18 +362,6 @@
             width: 100%; height: 100%;
             image-rendering: auto; pointer-events: none; z-index: 0;
         }
-        /* WASM戦闘モード: pyxel_canvasを全面表示、bg-canvasを非表示 */
-        #game-wrapper.wasm-battle #pyxel_canvas {
-            position: absolute !important;
-            top: 0 !important; left: 0 !important;
-            width: 100% !important; height: 100% !important;
-            visibility: visible !important;
-            image-rendering: pixelated;
-            z-index: 5;
-        }
-        #game-wrapper.wasm-battle #bg-canvas {
-            visibility: hidden;
-        }
 
         /* ── Arisa Quest バトルUI ─────────────────────────────────── */
         #battle-ui {
@@ -857,7 +845,7 @@
             0%,100%{ opacity:1; box-shadow:0 0 10px rgba(255,68,170,0.9), 0 2px 6px rgba(0,0,0,0.8); }
             50%    { opacity:0.75; box-shadow:0 0 20px rgba(255,68,170,1), 0 2px 6px rgba(0,0,0,0.8); }
         }
-        .enemy-marker { display: flex; flex-direction: column; align-items: center; cursor: pointer; position: relative; }
+        .enemy-marker { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
         .enemy-sprite { image-rendering: pixelated; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9)); }
         .enemy-lbl {
             background: rgba(10,5,30,0.88); border: 1px solid #6633aa;
@@ -869,27 +857,6 @@
         @keyframes pulse {
             0%,100% { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9)); }
             50%      { filter: drop-shadow(0 0 10px rgba(180,80,255,0.9)) drop-shadow(0 2px 6px rgba(0,0,0,0.9)); }
-        }
-        /* 選択リングアニメーション */
-        .enemy-marker.selected::before,
-        .enemy-marker.selected::after {
-            content: '';
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 60px; height: 60px;
-            margin: -30px 0 0 -30px;
-            border-radius: 50%;
-            border: 3px solid #ffee44;
-            box-sizing: border-box;
-            animation: selectRipple 0.9s ease-out infinite;
-            pointer-events: none;
-        }
-        .enemy-marker.selected::after {
-            animation-delay: 0.45s;
-        }
-        @keyframes selectRipple {
-            0%   { transform: scale(0.8); opacity: 1; }
-            100% { transform: scale(1.8); opacity: 0; }
         }
 
         /* ── Toast notification ──────────────────────────────────── */
@@ -1226,7 +1193,6 @@
     <script>
         const ASSET_BASE = '../../assets/design/';
         const BG_COLS = 6, BG_CW = 256, BG_CH = 256;
-        const CROP_W = 256, CROP_H = 200; // 背景クロップサイズ（固定）
 
         // アリサ: hはSRC比率から自動計算（縦横比を維持）
         const ARISA_DEST = { x: 25, y: 82, w: 60 };
@@ -1289,7 +1255,8 @@
         let bgPanActive = false;
 
         function bgPanClamp() {
-            const maxOff = (BG_CW - CROP_W) / 2;
+            const cropW = BG_CW / BG_ZOOM;
+            const maxOff = (BG_CW - cropW) / 2;
             bgXOffset = Math.max(-maxOff, Math.min(maxOff, bgXOffset));
         }
 
@@ -1306,8 +1273,9 @@
             const dx = e.touches[0].clientX - bgPanLastX;
             bgPanLastX = e.touches[0].clientX;
             // CSS px → スプライト px 変換（ドラッグ方向と逆に背景が動く）
-            bgXOffset  -= dx * (CROP_W / canvasArea.offsetWidth);
-            bgPanVelX   = -dx * (CROP_W / canvasArea.offsetWidth);
+            const cropW = BG_CW / BG_ZOOM;
+            bgXOffset  -= dx * (cropW / canvasArea.offsetWidth);
+            bgPanVelX   = -dx * (cropW / canvasArea.offsetWidth);
             bgPanClamp();
         }, { passive: true });
         canvasArea.addEventListener('touchend', () => { bgPanActive = false; }, { passive: true });
@@ -1382,8 +1350,6 @@
             if (!window.wasmModule) return;
             const state = window.wasmModule.get_game_state?.() ?? 0;
             // ── 戦闘終了の確実な検知（simulateKeys後の一時的state≠2を無視する） ──
-            // inBattle=true なら WASMがstate=2を返す前でも描画開始（起動遅延を解消）
-            const isBattleScene = inBattle || state === 2;
             if (state === 2) {
                 _bgLoopHadBattle = true;
                 _bgEndDebounce   = 0;
@@ -1396,68 +1362,62 @@
                 }
                 return; // デバウンス中は前フレームの描画を維持
             }
-
-            // ── ライブデバッグ更新（バトル外でも常に更新） ──────────────────────
-            {
-                const dbgEl = document.getElementById('debug-overlay');
-                if (dbgEl.classList.contains('visible')) {
-                    const bgIdxD    = window.wasmModule.get_bg_idx?.() ?? 0;
-                    const hp    = window.wasmModule.get_player_hp?.()     ?? '?';
-                    const maxHp = window.wasmModule.get_player_max_hp?.() ?? '?';
-                    const mp    = window.wasmModule.get_player_mp?.()     ?? '?';
-                    const maxMp = window.wasmModule.get_player_max_mp?.() ?? '?';
-                    const lv    = window.wasmModule.get_player_level?.()  ?? '?';
-                    const bgI2  = ((bgIdxD % 24) + 24) % 24;
-                    const bgZoom    = 'なし（全体使用）';
-                    const bgYAnchor = BG_Y_ANCHOR;
-                    const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
-                    const baseSrcY = Math.floor(bgI2 / BG_COLS) * BG_CH;
-                    const cropX    = baseSrcX + Math.round((BG_CW - CROP_W) / 2);
-                    const cropY    = baseSrcY + Math.round((BG_CH - CROP_H) * bgYAnchor);
-                    const dpr      = window.devicePixelRatio || 1;
-                    dbgEl.textContent = [
-                        `── ゲーム状態 ──`,
-                        `state=${state}  inBattle=${inBattle}  Lv=${lv}`,
-                        `HP=${hp}/${maxHp}  MP=${mp}/${maxMp}`,
-                        `bgIdx=${bgIdxD}  bgI=${bgI2}`,
-                        ``,
-                        `── 背景情報 ──`,
-                        `シート位置: 列${bgI2 % BG_COLS} 行${Math.floor(bgI2/BG_COLS)}`,
-                        `セル原点: (${baseSrcX}, ${baseSrcY})  ${BG_CW}×${BG_CH}px`,
-                        `XOffset: ${bgXOffset.toFixed(1)}px (vel:${bgPanVelX.toFixed(2)})`,
-                        `クロップ領域: x=${cropX} y=${cropY}`,
-                        `クロップサイズ: ${CROP_W}×${CROP_H}px（固定）`,
-                        ``,
-                        `── キャンバス ──`,
-                        `CSS: ${bgCanvas.style.width} × ${bgCanvas.style.height}`,
-                        `バッファ: ${bgCanvas.width}×${bgCanvas.height}px`,
-                        `DPR: ${dpr}`,
-                        ``,
-                        `── 敵スプライト ──`,
-                        dbgStaticText,
-                        ``,
-                        `── アリサスプライト ──`,
-                        dbgArisaText,
-                    ].join('\n');
-                }
-            }
-
-            if (!isBattleScene) {
+            if (state !== 2) {
                 bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
                 return;
             }
-            // wasm-battle モード中は bg-canvas 非表示・WASM が全描画担当
-            if (document.getElementById('game-wrapper').classList.contains('wasm-battle')) return;
             if (loadedCount < SHEET_LIST.length) return;
 
-            // inBattle開始直後はWASMのenemyIdxがまだ-1の場合があるので currentEnemyInfo で補完
-            const enemyIdx    = (() => {
-                const v = window.wasmModule.get_enemy_idx?.() ?? -1;
-                return v >= 0 ? v : (currentEnemyInfo?.eIdx ?? -1);
-            })();
+            const enemyIdx    = window.wasmModule.get_enemy_idx?.()    ?? -1;
             const bgIdx       = window.wasmModule.get_bg_idx?.()       ??  0;
             const enemyFlash  = window.wasmModule.get_enemy_flash?.()  ??  0;
             const playerFlash = window.wasmModule.get_player_flash?.() ??  0;
+
+            // ライブデバッグ更新
+            const dbgEl = document.getElementById('debug-overlay');
+            if (dbgEl.classList.contains('visible')) {
+                const hp    = window.wasmModule.get_player_hp?.()     ?? '?';
+                const maxHp = window.wasmModule.get_player_max_hp?.() ?? '?';
+                const mp    = window.wasmModule.get_player_mp?.()     ?? '?';
+                const maxMp = window.wasmModule.get_player_max_mp?.() ?? '?';
+                const lv    = window.wasmModule.get_player_level?.()  ?? '?';
+                const bgI2  = ((bgIdx % 24) + 24) % 24;
+                const bgZoom    = 'なし（全体使用）';
+                const bgYAnchor = BG_Y_ANCHOR;
+                const canvasAsp = bgCanvas.width / bgCanvas.height;
+                const cropW2 = canvasAsp >= 1 ? BG_CW : Math.round(BG_CH * canvasAsp);
+                const cropH2 = canvasAsp >= 1 ? Math.round(BG_CW / canvasAsp) : BG_CH;
+                const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
+                const baseSrcY = Math.floor(bgI2 / BG_COLS) * BG_CH;
+                const cropX    = baseSrcX + Math.round((BG_CW - cropW2) / 2);
+                const cropY    = baseSrcY + Math.round((BG_CH - cropH2) * bgYAnchor);
+                const dpr      = window.devicePixelRatio || 1;
+                dbgEl.textContent = [
+                    `── ゲーム状態 ──`,
+                    `state=${state}  Lv=${lv}`,
+                    `HP=${hp}/${maxHp}  MP=${mp}/${maxMp}`,
+                    `bgIdx=${bgIdx}  bgI=${bgI2}`,
+                    ``,
+                    `── 背景情報 ──`,
+                    `シート位置: 列${bgI2 % BG_COLS} 行${Math.floor(bgI2/BG_COLS)}`,
+                    `セル原点: (${baseSrcX}, ${baseSrcY})  ${BG_CW}×${BG_CH}px`,
+                    `ZOOM: ×${bgZoom}`,
+                    `XOffset: ${bgXOffset.toFixed(1)}px (vel:${bgPanVelX.toFixed(2)})`,
+                    `クロップ領域: x=${cropX} y=${cropY}`,
+                    `クロップサイズ: ${cropW2}×${cropH2}px`,
+                    ``,
+                    `── キャンバス ──`,
+                    `CSS: ${bgCanvas.style.width} × ${bgCanvas.style.height}`,
+                    `バッファ: ${bgCanvas.width}×${bgCanvas.height}px`,
+                    `DPR: ${dpr}`,
+                    ``,
+                    `── 敵スプライト ──`,
+                    dbgStaticText,
+                    ``,
+                    `── アリサスプライト ──`,
+                    dbgArisaText,
+                ].join('\n');
+            }
 
             resizeBgCanvas();
 
@@ -1954,10 +1914,10 @@
                 if (firstFix) {
                     firstFix = false;
                     clearTimeout(fallbackTimer);
-                    revealMap(lat, lng, '📍 現在地に到着しました！');
+                    revealMap(lat, lng, '📍 現在地を特定しました！');
                 } else if (!gpsResolved) {
                     // まだ確定前なら更新
-                    revealMap(lat, lng, '📍 現在地に到着しました！');
+                    revealMap(lat, lng, '📍 現在地を特定しました！');
                 } else {
                     // 確定済み → マーカー位置のみ更新
                     arisaPos = [lat, lng];
@@ -2034,7 +1994,7 @@
 
         const battleOverlay = document.getElementById('battle-overlay');
         const battleUI      = document.getElementById('battle-ui');
-        let inBattle = false, watchInterval = null, endBattleOverlayTimer = null;
+        let inBattle = false, watchInterval = null;
 
         // ── 落下コマンドタイムライン ─────────────────────────────────────────
         // 敵ごとの設定（fallMs=落下時間＝攻撃ラグ、intervalMs=次の攻撃カード間隔）
@@ -2377,13 +2337,7 @@
         }
 
         // ── デバッグ静的テキスト ──────────────────────────────────────────────
-        // 初期値: 全敵スプライト一覧を表示（バトル前から確認可能）
-        function buildAllEnemyDbgText() {
-            return ENEMY_MAP.map((e, i) =>
-                `[${i}] ${ENEMY_NAMES[i] ?? '?'}  sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}`
-            ).join('\n');
-        }
-        let dbgStaticText = buildAllEnemyDbgText();
+        let dbgStaticText = '(戦闘前)';
         let dbgArisaText  = `sx=${ARISA_SRC.sx} sy=${ARISA_SRC.sy} sw=${ARISA_SRC.sw} sh=${ARISA_SRC.sh}`;
 
         // デバッグトグルボタン
@@ -2703,26 +2657,14 @@
         function triggerBattle(enemyInfo) {
             if (inBattle || !window.wasmModule) return;
             inBattle = true;
-            // 前回バトル終了のoverlay非表示タイマーが残っていればキャンセル
-            if (endBattleOverlayTimer) { clearTimeout(endBattleOverlayTimer); endBattleOverlayTimer = null; }
             currentEnemyInfo = enemyInfo;
             window.currentEnemyInfo = enemyInfo;
-            // クリックしたマーカーに選択リング表示
-            enemyInfo.marker.getElement()?.querySelector('.enemy-marker')?.classList.add('selected');
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
-            // transition を一瞬停止して opacity/filter を即座にリセット（ending フェードアウト中でも確実に表示）
-            battleOverlay.style.transition = 'none';
-            battleOverlay.style.opacity   = '1';
-            battleOverlay.style.filter    = '';
-            battleOverlay.style.display   = 'flex';
+            battleOverlay.style.display = ''; // endBattle の念押しをリセット
             battleOverlay.classList.remove('ending');
             battleOverlay.classList.add('active');
-            // 次フレームで transition を CSS に戻す
-            requestAnimationFrame(() => { battleOverlay.style.transition = ''; });
             battleUI.classList.add('active');
             setActiveTab('tab-battle');
-            // WASMキャンバスを戦闘中に表示（WASMが全描画を担当）
-            document.getElementById('game-wrapper').classList.add('wasm-battle');
             requestAnimationFrame(() => resizeBgCanvas());
 
             // タイムライン開始
@@ -2736,21 +2678,15 @@
             currentEnemyMaxHp = eMapEntry?.maxHp ?? 30;
             currentEnemyHp    = currentEnemyMaxHp;
             const eName = ENEMY_NAMES[enemyInfo.eIdx] ?? '???';
-            // 即座にメッセージを出してバトル画面を起動（WASMのstate=2待ちを回避）
-            pushBattleMsg(`バトル開始！`, 'system');
-            pushBattleMsg(`${eName} が現れた！`, 'system');
-            // NOTE: _bgLoopHadBattle はここでセットしない
-            // renderBg()がstate===2を実際に確認してからセットする（誤検知防止）
-            _bgLoopHadBattle = false;
-            _bgEndDebounce = 0;
+            setTimeout(() => pushBattleMsg(`${eName} が現れた！`, 'system'), 300);
 
-            // 静的スプライト情報をセット（全敵一覧 + 現在の敵をハイライト）
+            // 静的スプライト情報をセット
             const e = ENEMY_MAP[enemyInfo.eIdx];
-            const eneDest = calcEnemyDest();
-            dbgStaticText = buildAllEnemyDbgText() +
-                `\n\n▶ 戦闘中: [${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]}\n` +
-                `  sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}\n` +
-                `  dest x=${eneDest.x.toFixed(0)} y=${eneDest.y.toFixed(0)} w=${eneDest.w.toFixed(0)}`;
+            dbgStaticText = [
+                `[${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]}`,
+                `sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}`,
+                `dest x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`,
+            ].join('\n');
             dbgArisaText = [
                 `sx=${ARISA_SRC.sx} sy=${ARISA_SRC.sy} sw=${ARISA_SRC.sw} sh=${ARISA_SRC.sh}`,
                 `dest x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
@@ -2788,19 +2724,14 @@
             stopTimeline();
             stopSP();
             if (autoInterval) { autoInterval = null; document.getElementById('cmd-auto')?.classList.remove('active-auto'); updateAutoCmdHighlight(); }
-            // 選択リングを外す
-            currentEnemyInfo?.marker?.getElement()?.querySelector('.enemy-marker')?.classList.remove('selected');
-            // WASMキャンバスを非表示に戻す
-            document.getElementById('game-wrapper').classList.remove('wasm-battle');
             inBattle = false;
             _bgLoopHadBattle = false;
             _bgEndDebounce   = 0;
             // バトルオーバーレイをぼかし＋フェードアウト
             battleOverlay.classList.add('ending');
             battleUI.classList.remove('active');
-            // overlay非表示＋マップ復帰（IDを保存してtriggerBattleでキャンセル可能に）
-            endBattleOverlayTimer = setTimeout(() => {
-                endBattleOverlayTimer = null;
+            // 1.6秒後にoverlay非表示＋マップ復帰
+            setTimeout(() => {
                 battleOverlay.classList.remove('active', 'ending');
                 battleOverlay.style.display = 'none';
                 setActiveTab('tab-map');
@@ -2854,8 +2785,10 @@
                 titleEl.classList.add('fled');
                 msgEl.textContent = '';
             }
-            resultEl.classList.add('active');
-            updateStatusBar();
+            setTimeout(() => {
+                resultEl.classList.add('active');
+                updateStatusBar();
+            }, 1200);
         }
 
         // ── Status bar update ────────────────────────────────────────────────
@@ -2878,7 +2811,6 @@
     <!-- ── WASM init ──────────────────────────────────────────────────────── -->
     <script type="module">
         import init, {
-            main as wasmMain,
             set_key,
             get_game_state, get_enemy_idx, get_bg_idx,
             get_enemy_flash, get_player_flash,
@@ -2898,7 +2830,6 @@
                 get_enemy_hp, get_enemy_max_hp,
                 start_battle_from_js,
             };
-            wasmMain();
         } catch(e) {
             console.error('WASM init failed:', e);
         }

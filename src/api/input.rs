@@ -13,8 +13,6 @@ macro_rules! dispatch {
     (soft: $soft:expr, pyxel: $p:expr) => {{
         #[cfg(any(feature = "wgpu-backend", feature = "wasm-backend"))] { $soft }
         #[cfg(feature = "pyxel-core-backend")] { $p }
-        #[cfg(not(any(feature = "wgpu-backend", feature = "wasm-backend", feature = "pyxel-core-backend")))]
-        { unreachable!("No backend feature enabled") }
     }};
 }
 

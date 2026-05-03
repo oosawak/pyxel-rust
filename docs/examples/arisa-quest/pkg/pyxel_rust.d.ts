@@ -31,18 +31,6 @@ export function get_player_mp(): number;
 export function key_index(code: string): number;
 
 /**
- * WASM entry point — JS calls `main()` after `await init()` to start the game.
- */
-export function main(): void;
-
-/**
- * Register a sprite sheet for use with blt_sp().
- * `canvas` must be an HtmlCanvasElement with magenta pixels already made transparent.
- * `cols` is the number of frames per row.
- */
-export function register_sprite_sheet(slot: number, canvas: any, frame_w: number, frame_h: number, cols: number): void;
-
-/**
  * タッチ UI から直接呼べるキー状態セット関数
  */
 export function set_key(idx: number, down: boolean): void;
@@ -71,18 +59,10 @@ export interface InitOutput {
     readonly get_player_mp: () => number;
     readonly key_index: (a: number, b: number) => number;
     readonly set_key: (a: number, b: number) => void;
-    readonly register_sprite_sheet: (a: number, b: any, c: number, d: number, e: number) => void;
     readonly start_battle_from_js: (a: number) => void;
-    readonly main: () => void;
-    readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_e2dca692cdd4c806___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_e2dca692cdd4c806___features__gen_MouseEvent__MouseEvent______true__1: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke_______true_: (a: number, b: number) => void;
+    readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
-    readonly __wbindgen_exn_store: (a: number) => void;
-    readonly __externref_table_alloc: () => number;
-    readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
     readonly __wbindgen_start: () => void;
 }
 
