@@ -372,7 +372,17 @@
         }
         .battle-msg-item .msg-icon { font-size: 0.9rem; flex-shrink: 0; }
         .battle-msg-item.type-attack  { border-left-color: #ff6644; color: #ffe8d8; text-shadow: 0 0 8px rgba(255,100,50,0.4); }
-        .battle-msg-item.type-damage  { border-left-color: #ff3366; color: #ffc8d8; text-shadow: 0 0 8px rgba(255,50,100,0.4); }
+        /* 敵の攻撃：右帯・右からスライイン */
+        .battle-msg-item.type-damage  {
+            border-left: none;
+            border-right: 3px solid #ff3366;
+            border-radius: 7px 0 0 7px;
+            color: #ffc8d8; text-shadow: 0 0 8px rgba(255,50,100,0.4);
+            flex-direction: row-reverse;
+            text-align: right;
+            transform-origin: right center;
+            animation: msgSlideInRight 0.22s ease-out, msgFadeOutRight 0.5s 2.6s ease-in forwards;
+        }
         .battle-msg-item.type-skill   { border-left-color: #44aaff; color: #c8e8ff; text-shadow: 0 0 8px rgba(50,160,255,0.4); }
         .battle-msg-item.type-item    { border-left-color: #44cc88; color: #c8ffdc; text-shadow: 0 0 8px rgba(50,200,120,0.4); }
         .battle-msg-item.type-run     { border-left-color: #aabbcc; color: #dde8f0; text-shadow: 0 0 8px rgba(170,190,210,0.3); }
@@ -385,6 +395,14 @@
         @keyframes msgFadeOut {
             from { opacity: 1; }
             to   { opacity: 0; transform: translateX(-6px); }
+        }
+        @keyframes msgSlideInRight {
+            from { opacity: 0; transform: translateX(14px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes msgFadeOutRight {
+            from { opacity: 1; }
+            to   { opacity: 0; transform: translateX(6px); }
         }
 
         /* ── バトル結果画面 ─────────────────────────────────────── */
