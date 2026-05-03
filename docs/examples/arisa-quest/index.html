@@ -415,9 +415,11 @@
         /* ── バトル結果画面 ─────────────────────────────────────── */
         #battle-result {
             display: none;
-            position: absolute; inset: 0; z-index: 50;
-            background: rgba(0, 0, 18, 0.45);
-            backdrop-filter: blur(2px);
+            position: absolute;
+            top: 56px; left: 0; right: 0;
+            bottom: calc(var(--tab-h) + 56px);
+            z-index: 20;
+            background: rgba(0, 0, 18, 0.92);
             flex-direction: column; align-items: center; justify-content: center;
             gap: 18px;
         }
@@ -820,13 +822,6 @@
                 <div id="battle-msg-log"></div>
             </div>
 
-            <!-- バトル結果画面 -->
-            <div id="battle-result">
-                <div id="battle-result-title">勝利！</div>
-                <div id="battle-result-msg"></div>
-                <button id="btn-back-to-map">🗺 マップに戻る</button>
-            </div>
-
             <!-- Arisa Quest バトルUI（十字キーの代替） -->
             <div id="battle-ui">
                 <div id="battle-commands">
@@ -839,6 +834,13 @@
                     <button class="battle-cmd" id="cmd-lure">🎵 誘う</button>
                 </div>
             </div>
+        </div>
+
+        <!-- バトル結果画面（battle-overlayの外：canvas消去後に表示） -->
+        <div id="battle-result">
+            <div id="battle-result-title">勝利！</div>
+            <div id="battle-result-msg"></div>
+            <button id="btn-back-to-map">🗺 マップに戻る</button>
         </div>
 
         <!-- つぶやくパネル -->
@@ -1889,6 +1891,7 @@
             if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('cmd-auto')?.classList.remove('active-auto'); }
             inBattle = false;
             battleUI.classList.remove('active');
+            battleOverlay.classList.remove('active');  // キャンバスを即座に非表示
 
             const state = window.wasmModule?.get_game_state?.() ?? 0;
             if (state === 1) {
