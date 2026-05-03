@@ -692,18 +692,18 @@
         function spawnEnemies(lat, lng) {
             enemyMarkers.forEach(m => m.marker.remove());
             enemyMarkers = [];
-            // 全5種類を必ず1体ずつ + ランダム追加3体
-            const indices = [0, 1, 2, 3, 4];
-            for (let i = 0; i < 3; i++) indices.push(Math.floor(Math.random() * ENEMY_NAMES.length));
-            // シャッフル
-            for (let i = indices.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [indices[i], indices[j]] = [indices[j], indices[i]];
+            addEnemies(lat, lng, MAX_ENEMIES);
+        }
+
+        // 不足分だけ追加スポーン（既存の敵はそのまま）
+        function addEnemies(lat, lng, count) {
+            const indices = [];
+            for (let i = 0; i < count; i++) {
+                indices.push(Math.floor(Math.random() * ENEMY_NAMES.length));
             }
-            // 1体ずつ時間差で出現
             indices.forEach((eIdx, i) => {
                 const angle = Math.random() * Math.PI * 2;
-                const dist  = 0.0005 + Math.random() * 0.002; // 約50m〜250m
+                const dist  = 0.0005 + Math.random() * 0.002;
                 const eLat  = lat + Math.cos(angle) * dist;
                 const eLng  = lng + Math.sin(angle) * dist;
                 setTimeout(() => {
@@ -772,18 +772,20 @@
         document.getElementById('btn-gps').addEventListener('click', startGPS);
 
         // ── アリサタップ → サーチ演出 → 敵スポーン ───────────────────────────
+        const MAX_ENEMIES = 5; // フィールドの最大敵数
         let isSearching = false;
         let searchRipple = null;
 
         function onArisaTap() {
-            if (isSearching || inBattle || enemyMarkers.length > 0) return;
+            if (isSearching || inBattle) return;
             if (!arisaPos) return;
+            const needed = MAX_ENEMIES - enemyMarkers.length;
+            if (needed <= 0) return; // 満員なら何もしない
             isSearching = true;
 
-            // サーチ中トースト
-            showToast('🔍 エリアをサーチ中…');
+            const isReplenish = enemyMarkers.length > 0;
+            showToast(isReplenish ? '🔍 追加サーチ中…' : '🔍 エリアをサーチ中…');
 
-            // レーダー波紋エフェクト (Leaflet circle を拡張させる)
             const [lat, lng] = arisaPos;
             searchRipple = L.circle([lat, lng], {
                 radius: 10, color: '#ff88cc', fillColor: '#ff88cc',
@@ -799,11 +801,16 @@
                     searchRipple.remove();
                     searchRipple = null;
 
-                    // スポーン実行
                     const trySpawn = () => {
                         if (loadedCount >= SHEET_LIST.length) {
-                            spawnEnemies(lat, lng);
-                            showToast('⚠️ 敵が出現した！');
+                            addEnemies(lat, lng, needed);
+                            showToast(isReplenish
+                                ? `⚠️ 敵が ${needed}体 補充された！`
+                                : '⚠️ 敵が出現した！');
+                            // まだ満員でなければヒントを維持
+                            if (arisaMarker) {
+                                arisaMarker.setIcon(arisaIcon(enemyMarkers.length < MAX_ENEMIES));
+                            }
                             isSearching = false;
                         } else {
                             setTimeout(trySpawn, 200);
@@ -931,17 +938,19 @@
 
             titleEl.className = '';
             if (state === 1) {
-                // マップ状態に戻った = 勝利 or 逃走
                 titleEl.textContent = '勝利！';
                 titleEl.classList.add('win');
-                msgEl.textContent = '敵を倒した！';
                 enemyInfo.marker.remove();
                 const idx = enemyMarkers.indexOf(enemyInfo);
                 if (idx >= 0) enemyMarkers.splice(idx, 1);
-                if (enemyMarkers.length === 0) {
+                const remaining = enemyMarkers.length;
+                if (remaining === 0) {
                     msgEl.textContent = '全員倒した！\nアリサをタップしてサーチ';
-                    if (arisaMarker) arisaMarker.setIcon(arisaIcon(true));
+                } else {
+                    msgEl.textContent = `残り ${remaining}体\nアリサをタップして補充できます`;
                 }
+                // 敵が減ったらアリサにサーチヒント表示
+                if (arisaMarker) arisaMarker.setIcon(arisaIcon(true));
             } else if (state === 0) {
                 // タイトルに戻った = ゲームオーバー
                 titleEl.textContent = 'ゲームオーバー';
