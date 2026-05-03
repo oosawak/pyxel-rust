@@ -2674,9 +2674,15 @@
             currentEnemyInfo = enemyInfo;
             window.currentEnemyInfo = enemyInfo;
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
-            battleOverlay.style.display = ''; // endBattle の念押しをリセット
+            // transition を一瞬停止して opacity/filter を即座にリセット（ending フェードアウト中でも確実に表示）
+            battleOverlay.style.transition = 'none';
+            battleOverlay.style.opacity   = '1';
+            battleOverlay.style.filter    = '';
+            battleOverlay.style.display   = 'flex';
             battleOverlay.classList.remove('ending');
             battleOverlay.classList.add('active');
+            // 次フレームで transition を CSS に戻す
+            requestAnimationFrame(() => { battleOverlay.style.transition = ''; });
             battleUI.classList.add('active');
             setActiveTab('tab-battle');
             requestAnimationFrame(() => resizeBgCanvas());
