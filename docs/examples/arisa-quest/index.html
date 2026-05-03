@@ -145,6 +145,17 @@
             0%,100% { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9)); }
             50%      { filter: drop-shadow(0 0 10px rgba(180,80,255,0.9)) drop-shadow(0 2px 6px rgba(0,0,0,0.9)); }
         }
+
+        /* ── Toast notification ──────────────────────────────────── */
+        #toast {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(20,10,40,0.92); border: 1px solid #6633aa;
+            border-radius: 8px; padding: 8px 16px;
+            font-size: 0.78rem; color: #eee; white-space: nowrap;
+            z-index: 30; pointer-events: none;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        #toast.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -173,6 +184,7 @@
         <!-- OpenStreetMap -->
         <div id="map-layer">
             <div id="map" style="width:100%;height:100%"></div>
+            <div id="toast"></div>
             <div id="loc-overlay">
                 <h2>🐱 アリサクエスト</h2>
                 <p>現在地の周辺に敵が出現します<br>敵マーカーをタップして戦闘開始！</p>
@@ -341,6 +353,14 @@
     <script>
         const ENEMY_NAMES = ['スライム','シャドウキャット','フレイムインプ','ゴースト','ロックゴーレム'];
 
+        let toastTimer = null;
+        function showToast(msg, duration = 3500) {
+            const el = document.getElementById('toast');
+            el.textContent = msg; el.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+        }
+
         const mapEl = document.getElementById('map');
         // size map to fill #main
         const mainEl = document.getElementById('main');
@@ -348,8 +368,9 @@
         window.addEventListener('resize', () => { mapEl.style.height = mainEl.clientHeight + 'px'; map.invalidateSize(); });
 
         const map = L.map('map', { zoomControl: true }).setView([35.6895, 139.6917], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors © <a href="https://carto.com">CARTO</a>',
+            subdomains: 'abcd',
             maxZoom: 19,
         }).addTo(map);
 
@@ -367,18 +388,21 @@
         }
 
         function makeEnemyIcon(idx) {
-            const c = document.createElement('canvas');
-            c.width = 56; c.height = 36;
-            const ctx2 = c.getContext('2d');
-            ctx2.imageSmoothingEnabled = true;
             const e = ENEMY_MAP[idx];
-            const sheet = SHEETS[e.sheet];
-            if (sheet && sheet.complete && sheet.naturalWidth > 0) {
-                ctx2.drawImage(sheet, e.sx, e.sy, e.sw, e.sh, 0, 0, 56, 36);
-            }
+            // CSS sprite clipping — no canvas/CORS needed
+            const scaleX = 56 / e.sw, scaleY = 36 / e.sh;
+            const bgW = Math.round(1536 * scaleX), bgH = Math.round(1024 * scaleY);
+            const bgX = -Math.round(e.sx * scaleX), bgY = -Math.round(e.sy * scaleY);
+            const spriteStyle = [
+                `width:56px;height:36px;overflow:hidden`,
+                `background-image:url('${ASSET_BASE}${e.sheet}.png')`,
+                `background-size:${bgW}px ${bgH}px`,
+                `background-position:${bgX}px ${bgY}px`,
+                `image-rendering:pixelated`,
+            ].join(';');
             return L.divIcon({
                 html: `<div class="enemy-marker">
-                    <img class="enemy-sprite enemy-pulse" src="${c.toDataURL()}" width="56" height="36">
+                    <div class="enemy-sprite enemy-pulse" style="${spriteStyle}"></div>
                     <div class="enemy-lbl">${ENEMY_NAMES[idx]}</div>
                 </div>`,
                 iconSize: [56, 52], iconAnchor: [28, 52], className: '',
@@ -420,11 +444,12 @@
                 }
             };
             const onErr = () => {
-                // Fallback: Tokyo
+                // Fallback: Tokyo with notice
                 const lat = 35.6895, lng = 139.6917;
                 arisaPos = [lat, lng];
                 map.setView([lat, lng], 17);
                 if (!arisaMarker) arisaMarker = L.marker([lat, lng], { icon: arisaIcon(), zIndexOffset: 1000 }).addTo(map);
+                showToast('📍 位置情報を取得できませんでした。東京をデモ表示中。');
                 const trySpawn = () => loadedCount >= SHEET_LIST.length ? spawnEnemies(lat, lng) : setTimeout(trySpawn, 200);
                 trySpawn();
             };
