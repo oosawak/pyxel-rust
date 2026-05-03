@@ -1856,9 +1856,9 @@
             const LNG_OFFSET = -0.110;
             let firstFix = true;
             const onPos = pos => {
-                // 小数点4桁に丸めてGPSジッターを抑制（約11m精度）
-                const lat = Math.round((pos.coords.latitude  + LAT_OFFSET) * 10000) / 10000;
-                const lng = Math.round((pos.coords.longitude + LNG_OFFSET) * 10000) / 10000;
+                // 小数点5桁に丸めてGPSジッターを抑制（約1m精度）
+                const lat = Math.round((pos.coords.latitude  + LAT_OFFSET) * 100000) / 100000;
+                const lng = Math.round((pos.coords.longitude + LNG_OFFSET) * 100000) / 100000;
                 if (firstFix) {
                     firstFix = false;
                     clearTimeout(fallbackTimer);
