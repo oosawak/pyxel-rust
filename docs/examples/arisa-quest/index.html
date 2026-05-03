@@ -270,7 +270,7 @@
         }
         #debug-overlay.visible { display: block; }
         #btn-debug {
-            position: absolute; top: 4px; left: 4px; z-index: 100;
+            position: absolute; top: 4px; left: 28px; z-index: 100;
             background: rgba(0,0,0,0.7); border: 1px solid #555;
             border-radius: 4px; color: #888; font-size: 0.55rem;
             font-family: monospace; padding: 3px 6px; cursor: pointer;
@@ -279,7 +279,7 @@
 
         /* HUDトグルボタン */
         #btn-hud {
-            position: absolute; top: 4px; left: 40px; z-index: 100;
+            position: absolute; top: 4px; left: 64px; z-index: 100;
             background: rgba(0,0,0,0.7); border: 1px solid #555;
             border-radius: 4px; color: #888; font-size: 0.55rem;
             font-family: monospace; padding: 3px 6px; cursor: pointer;
@@ -288,7 +288,7 @@
 
         /* バトル距離バッジ（常時表示・右上固定） */
         #battle-dist-badge {
-            position: absolute; top: 6px; right: 8px; z-index: 95;
+            position: absolute; top: 6px; right: 28px; z-index: 95;
             display: none;
             align-items: center; gap: 5px;
             background: rgba(0,0,20,0.72); border: 1px solid #446;
@@ -303,7 +303,7 @@
         #battle-dist-badge #badge-dist.far  { color: #88ddff; }
         /* 距離グラデーションバー（バッジ直下） */
         #battle-dist-bar {
-            position: absolute; top: 36px; right: 8px; z-index: 95;
+            position: absolute; top: 36px; right: 28px; z-index: 95;
             display: none; width: 100px; height: 7px;
             background: rgba(0,0,20,0.6); border-radius: 4px;
             overflow: hidden; pointer-events: none;
@@ -321,7 +321,7 @@
             display: none;
             position: absolute; top: 0; left: 0; right: 0; z-index: 90;
             pointer-events: none;
-            padding: 6px 10px 8px;
+            padding: 6px 28px 8px 28px;
             background: linear-gradient(to bottom, rgba(0,0,10,0.7) 0%, transparent 100%);
         }
         #battle-hud.active { display: block; }
@@ -562,7 +562,7 @@
         #battle-msg-log {
             position: absolute; left: 0; right: 0; bottom: 18px; z-index: 20;
             pointer-events: none;
-            padding: 0 8px;
+            padding: 0 28px;
             display: flex; flex-direction: column; gap: 3px;
             justify-content: flex-end;
         }
