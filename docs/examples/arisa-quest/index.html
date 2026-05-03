@@ -2049,9 +2049,14 @@
         let spRegenInterval = null;
 
         function getSpRegen() {
-            // レベルが上がるほど回復速度アップ（Lv1: 20/sec → Lv10: 38/sec）
-            const lv = arisaSave.level ?? 1;
-            return Math.min(4, 2 + (lv - 1) * 0.2); // per 100ms
+            // レベルスケール: Lv1=10/sec → Lv15+=40/sec
+            const lv = wasmModule ? (wasmModule.get_player_level?.() ?? 1) : (arisaSave.level ?? 1);
+            return Math.min(4.0, 1.0 + (lv - 1) * 0.214); // per 100ms (Lv1≈1.0, Lv10≈2.93, Lv15≈4.0)
+        }
+        function getAutoCooldown() {
+            // レベルスケール: Lv1=3000ms → Lv10=1200ms → Lv15+=700ms
+            const lv = wasmModule ? (wasmModule.get_player_level?.() ?? 1) : (arisaSave.level ?? 1);
+            return Math.max(700, 3000 - (lv - 1) * 200);
         }
         function updateSPBar() {
             const fill = document.getElementById('sp-bar-fill');
@@ -2110,7 +2115,7 @@
             if (!autoInterval || !autoCmd) return;
             if (playerQueueCnt >= MAX_QUEUE) return;
             const now = Date.now();
-            if (now - _autoLastFire < AUTO_COOLDOWN_MS) return; // クールダウン中
+            if (now - _autoLastFire < getAutoCooldown()) return; // レベルスケールCD
             if (!consumeSP(autoCmd)) return;
             _autoLastFire = now;
             const cfg = getAutoCmdCfg(autoCmd);
@@ -2460,7 +2465,6 @@
         let autoInterval = null;
         let autoCmd      = null; // 現在オート選択中のコマンドID
         let _autoLastFire = 0;   // オートコマンド最終発火時刻（クールダウン用）
-        const AUTO_COOLDOWN_MS = 2000; // オート発火間隔
 
         function updateCmdButtons() {
             for (const [id, cost] of Object.entries(SP_COSTS)) {
