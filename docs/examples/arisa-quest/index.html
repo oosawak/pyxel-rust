@@ -1364,6 +1364,56 @@
                 }
                 return; // デバウンス中は前フレームの描画を維持
             }
+
+            // ── ライブデバッグ更新（バトル外でも常に更新） ──────────────────────
+            {
+                const dbgEl = document.getElementById('debug-overlay');
+                if (dbgEl.classList.contains('visible')) {
+                    const bgIdxD    = window.wasmModule.get_bg_idx?.() ?? 0;
+                    const hp    = window.wasmModule.get_player_hp?.()     ?? '?';
+                    const maxHp = window.wasmModule.get_player_max_hp?.() ?? '?';
+                    const mp    = window.wasmModule.get_player_mp?.()     ?? '?';
+                    const maxMp = window.wasmModule.get_player_max_mp?.() ?? '?';
+                    const lv    = window.wasmModule.get_player_level?.()  ?? '?';
+                    const bgI2  = ((bgIdxD % 24) + 24) % 24;
+                    const bgZoom    = 'なし（全体使用）';
+                    const bgYAnchor = BG_Y_ANCHOR;
+                    const canvasAsp = bgCanvas.width / bgCanvas.height;
+                    const cropW2 = canvasAsp >= 1 ? BG_CW : Math.round(BG_CH * canvasAsp);
+                    const cropH2 = canvasAsp >= 1 ? Math.round(BG_CW / canvasAsp) : BG_CH;
+                    const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
+                    const baseSrcY = Math.floor(bgI2 / BG_COLS) * BG_CH;
+                    const cropX    = baseSrcX + Math.round((BG_CW - cropW2) / 2);
+                    const cropY    = baseSrcY + Math.round((BG_CH - cropH2) * bgYAnchor);
+                    const dpr      = window.devicePixelRatio || 1;
+                    dbgEl.textContent = [
+                        `── ゲーム状態 ──`,
+                        `state=${state}  inBattle=${inBattle}  Lv=${lv}`,
+                        `HP=${hp}/${maxHp}  MP=${mp}/${maxMp}`,
+                        `bgIdx=${bgIdxD}  bgI=${bgI2}`,
+                        ``,
+                        `── 背景情報 ──`,
+                        `シート位置: 列${bgI2 % BG_COLS} 行${Math.floor(bgI2/BG_COLS)}`,
+                        `セル原点: (${baseSrcX}, ${baseSrcY})  ${BG_CW}×${BG_CH}px`,
+                        `ZOOM: ×${bgZoom}`,
+                        `XOffset: ${bgXOffset.toFixed(1)}px (vel:${bgPanVelX.toFixed(2)})`,
+                        `クロップ領域: x=${cropX} y=${cropY}`,
+                        `クロップサイズ: ${cropW2}×${cropH2}px`,
+                        ``,
+                        `── キャンバス ──`,
+                        `CSS: ${bgCanvas.style.width} × ${bgCanvas.style.height}`,
+                        `バッファ: ${bgCanvas.width}×${bgCanvas.height}px`,
+                        `DPR: ${dpr}`,
+                        ``,
+                        `── 敵スプライト ──`,
+                        dbgStaticText,
+                        ``,
+                        `── アリサスプライト ──`,
+                        dbgArisaText,
+                    ].join('\n');
+                }
+            }
+
             if (!isBattleScene) {
                 bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
                 return;
@@ -1378,52 +1428,6 @@
             const bgIdx       = window.wasmModule.get_bg_idx?.()       ??  0;
             const enemyFlash  = window.wasmModule.get_enemy_flash?.()  ??  0;
             const playerFlash = window.wasmModule.get_player_flash?.() ??  0;
-
-            // ライブデバッグ更新
-            const dbgEl = document.getElementById('debug-overlay');
-            if (dbgEl.classList.contains('visible')) {
-                const hp    = window.wasmModule.get_player_hp?.()     ?? '?';
-                const maxHp = window.wasmModule.get_player_max_hp?.() ?? '?';
-                const mp    = window.wasmModule.get_player_mp?.()     ?? '?';
-                const maxMp = window.wasmModule.get_player_max_mp?.() ?? '?';
-                const lv    = window.wasmModule.get_player_level?.()  ?? '?';
-                const bgI2  = ((bgIdx % 24) + 24) % 24;
-                const bgZoom    = 'なし（全体使用）';
-                const bgYAnchor = BG_Y_ANCHOR;
-                const canvasAsp = bgCanvas.width / bgCanvas.height;
-                const cropW2 = canvasAsp >= 1 ? BG_CW : Math.round(BG_CH * canvasAsp);
-                const cropH2 = canvasAsp >= 1 ? Math.round(BG_CW / canvasAsp) : BG_CH;
-                const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
-                const baseSrcY = Math.floor(bgI2 / BG_COLS) * BG_CH;
-                const cropX    = baseSrcX + Math.round((BG_CW - cropW2) / 2);
-                const cropY    = baseSrcY + Math.round((BG_CH - cropH2) * bgYAnchor);
-                const dpr      = window.devicePixelRatio || 1;
-                dbgEl.textContent = [
-                    `── ゲーム状態 ──`,
-                    `state=${state}  Lv=${lv}`,
-                    `HP=${hp}/${maxHp}  MP=${mp}/${maxMp}`,
-                    `bgIdx=${bgIdx}  bgI=${bgI2}`,
-                    ``,
-                    `── 背景情報 ──`,
-                    `シート位置: 列${bgI2 % BG_COLS} 行${Math.floor(bgI2/BG_COLS)}`,
-                    `セル原点: (${baseSrcX}, ${baseSrcY})  ${BG_CW}×${BG_CH}px`,
-                    `ZOOM: ×${bgZoom}`,
-                    `XOffset: ${bgXOffset.toFixed(1)}px (vel:${bgPanVelX.toFixed(2)})`,
-                    `クロップ領域: x=${cropX} y=${cropY}`,
-                    `クロップサイズ: ${cropW2}×${cropH2}px`,
-                    ``,
-                    `── キャンバス ──`,
-                    `CSS: ${bgCanvas.style.width} × ${bgCanvas.style.height}`,
-                    `バッファ: ${bgCanvas.width}×${bgCanvas.height}px`,
-                    `DPR: ${dpr}`,
-                    ``,
-                    `── 敵スプライト ──`,
-                    dbgStaticText,
-                    ``,
-                    `── アリサスプライト ──`,
-                    dbgArisaText,
-                ].join('\n');
-            }
 
             resizeBgCanvas();
 
