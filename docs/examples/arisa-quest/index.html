@@ -257,8 +257,13 @@
             display: none; flex-direction: column;
             background: rgba(0, 0, 18, 0.62);
             border-radius: 12px;
+            transition: opacity 1.2s ease, filter 1.2s ease;
         }
         #battle-overlay.active { display: flex; }
+        #battle-overlay.ending {
+            opacity: 0;
+            filter: blur(6px) brightness(0.3);
+        }
         #debug-overlay {
             display: none;
             position: absolute; top: 4px; right: 4px; z-index: 99;
@@ -2631,6 +2636,7 @@
             window.currentEnemyInfo = enemyInfo;
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
             battleOverlay.style.display = ''; // endBattle の念押しをリセット
+            battleOverlay.classList.remove('ending');
             battleOverlay.classList.add('active');
             battleUI.classList.add('active');
             setActiveTab('tab-battle');
@@ -2696,14 +2702,18 @@
             inBattle = false;
             _bgLoopHadBattle = false;
             _bgEndDebounce   = 0;
-            // overlay・UI を確実に非表示
-            battleOverlay.classList.remove('active');
+            // バトルオーバーレイをぼかし＋フェードアウト
+            battleOverlay.classList.add('ending');
             battleUI.classList.remove('active');
-            battleOverlay.style.display = 'none'; // 念押し（次の戦闘開始時に '' に戻す）
-            setActiveTab('tab-map');
+            // 1.6秒後にoverlay非表示＋マップ復帰
+            setTimeout(() => {
+                battleOverlay.classList.remove('active', 'ending');
+                battleOverlay.style.display = 'none';
+                setActiveTab('tab-map');
+            }, 1600);
             // battle-msg-log を次の戦闘のためにクリア
             const msgLog = document.getElementById('battle-msg-log');
-            if (msgLog) setTimeout(() => { msgLog.innerHTML = ''; }, 800);
+            if (msgLog) setTimeout(() => { msgLog.innerHTML = ''; }, 2000);
 
             const state = window.wasmModule?.get_game_state?.() ?? 0;
             if (state === 1) {
