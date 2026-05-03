@@ -2839,7 +2839,11 @@
             start_battle_from_js,
         } from './pkg/pyxel_rust.js';
         try {
+            const wasmUrl = new URL('./pkg/pyxel_rust_bg.wasm', import.meta.url).href;
+            console.log('[WASM] loading:', wasmUrl);
+            console.log('[WASM] JS module:', new URL('./pkg/pyxel_rust.js', import.meta.url).href);
             await init({ module_or_path: './pkg/pyxel_rust_bg.wasm' });
+            console.log('[WASM] init OK — exports:', Object.keys(window.wasmModule ?? {}).join(', ') || '(not yet set)');
             window.wasmModule = {
                 set_key,
                 get_game_state, get_enemy_idx, get_bg_idx,
@@ -2850,6 +2854,7 @@
                 start_battle_from_js,
             };
             wasmMain();
+            console.log('[WASM] wasmMain() called — game started');
         } catch(e) {
             console.error('WASM init failed:', e);
         }
