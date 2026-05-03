@@ -342,8 +342,135 @@
             cursor: pointer; transition: all 0.15s;
             -webkit-tap-highlight-color: transparent;
         }
+        .tab-btn { font-size: 0.62rem; }
         .tab-btn.active { color: #ff88cc; border-top-color: #ff88cc; background: #110828; }
         .tab-btn:not(.active):active { color: #aa66cc; }
+
+        /* ── つぶやくパネル ──────────────────────────────────────── */
+        #panel-tsubuyaku {
+            display: none;
+            position: absolute; top: 0; left: 0; right: 0;
+            bottom: var(--tab-h);
+            background: #06020f;
+            flex-direction: column; overflow: hidden; z-index: 5;
+        }
+        #panel-tsubuyaku.active { display: flex; }
+        .panel-header {
+            padding: 12px 16px 10px;
+            background: linear-gradient(to bottom, #0e0624, #06020f);
+            border-bottom: 1px solid #2a1045;
+            font-size: 0.8rem; color: #cc99ff; letter-spacing: 0.1em;
+            flex-shrink: 0;
+        }
+        #tsubuyaku-compose {
+            padding: 10px 12px;
+            background: #0a041a;
+            border-bottom: 1px solid #1a0830;
+            display: flex; gap: 8px; align-items: flex-end;
+            flex-shrink: 0;
+        }
+        #tsubuyaku-input {
+            flex: 1; background: #150830; border: 1px solid #5533aa;
+            border-radius: 8px; color: #eeddff;
+            font-family: 'DotGothic16', monospace; font-size: 0.8rem;
+            padding: 8px 10px; resize: none; outline: none;
+            line-height: 1.5;
+        }
+        #tsubuyaku-input::placeholder { color: #554466; }
+        #btn-tsubuyaku-post {
+            background: linear-gradient(135deg, #3a1060, #5520a0);
+            border: 1px solid #aa66ff; border-radius: 8px;
+            color: #eeddff; font-family: 'DotGothic16', monospace;
+            font-size: 0.75rem; padding: 8px 12px; cursor: pointer;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        #btn-tsubuyaku-post:active { transform: scale(0.95); background: #2a0850; }
+        #tsubuyaku-feed {
+            flex: 1; overflow-y: auto; padding: 8px 12px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .tsubuyaki-item {
+            background: #0e0520; border: 1px solid #2a1045;
+            border-radius: 10px; padding: 10px 12px;
+            display: flex; gap: 10px; align-items: flex-start;
+        }
+        .tsubuyaki-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            flex-shrink: 0; font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center;
+            background: #1a0835; border: 1px solid #3a1860;
+        }
+        .tsubuyaki-body { flex: 1; min-width: 0; }
+        .tsubuyaki-name {
+            font-size: 0.68rem; color: #aa77dd; margin-bottom: 3px;
+            letter-spacing: 0.05em;
+        }
+        .tsubuyaki-text {
+            font-size: 0.78rem; color: #ddd8ff; line-height: 1.6;
+            word-break: break-all;
+        }
+        .tsubuyaki-meta {
+            font-size: 0.6rem; color: #553366; margin-top: 4px;
+        }
+
+        /* ── 領地パネル ──────────────────────────────────────────── */
+        #panel-territory {
+            display: none;
+            position: absolute; top: 0; left: 0; right: 0;
+            bottom: var(--tab-h);
+            background: #06020f;
+            flex-direction: column; overflow: hidden; z-index: 5;
+        }
+        #panel-territory.active { display: flex; }
+        .territory-stats {
+            padding: 12px 14px;
+            background: linear-gradient(to bottom, #0e0624, #06020f);
+            border-bottom: 1px solid #2a1045;
+            display: flex; gap: 10px; flex-shrink: 0;
+        }
+        .terr-stat-card {
+            flex: 1; background: #0d0520; border: 1px solid #3a1860;
+            border-radius: 8px; padding: 8px 6px; text-align: center;
+        }
+        .terr-stat-val {
+            font-family: 'DotGothic16', monospace;
+            font-size: 1.3rem; color: #cc88ff;
+            display: block; letter-spacing: 1px;
+        }
+        .terr-stat-lbl {
+            font-size: 0.58rem; color: #775599; margin-top: 2px;
+            display: block; letter-spacing: 0.08em;
+        }
+        #territory-list {
+            flex: 1; overflow-y: auto; padding: 8px 12px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .territory-item {
+            background: #0e0520; border: 1px solid #2a1045;
+            border-radius: 10px; padding: 10px 14px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .territory-icon { font-size: 1.4rem; flex-shrink: 0; }
+        .territory-info { flex: 1; }
+        .territory-name {
+            font-family: 'DotGothic16', monospace;
+            font-size: 0.82rem; color: #eeddff; margin-bottom: 3px;
+        }
+        .territory-coords {
+            font-size: 0.6rem; color: #664488; font-family: monospace;
+        }
+        .territory-badge {
+            font-size: 0.62rem; padding: 3px 8px;
+            border-radius: 10px; font-family: 'DotGothic16', monospace;
+            border: 1px solid;
+        }
+        .territory-badge.own   { color: #88ffcc; border-color: #44cc88; background: #001a0e; }
+        .territory-badge.enemy { color: #ff88aa; border-color: #cc4466; background: #1a0010; }
+        .territory-badge.neutral { color: #aabbcc; border-color: #667788; background: #0a1015; }
+        .territory-empty {
+            text-align: center; padding: 40px 20px;
+            color: #443355; font-size: 0.78rem; line-height: 2;
+        }
 
         /* ── Leaflet marker styles ───────────────────────────────── */
         /* 自分（GPS）マーカー */
@@ -535,6 +662,8 @@
                         <canvas id="pyxel_canvas"></canvas>
                     </div>
                 </div>
+                <!-- バトルメッセージログ -->
+                <div id="battle-msg-log"></div>
             </div>
 
             <!-- バトル結果画面 -->
@@ -555,11 +684,83 @@
             </div>
         </div>
 
+        <!-- つぶやくパネル -->
+        <div id="panel-tsubuyaku">
+            <div class="panel-header">💬 つぶやく — ネコテックワールド掲示板</div>
+            <div id="tsubuyaku-compose">
+                <textarea id="tsubuyaku-input" rows="2" maxlength="140"
+                    placeholder="今の状況をつぶやく... (140字)"></textarea>
+                <button id="btn-tsubuyaku-post">つぶやく</button>
+            </div>
+            <div id="tsubuyaku-feed">
+                <div class="tsubuyaki-item">
+                    <div class="tsubuyaki-avatar">🐱</div>
+                    <div class="tsubuyaki-body">
+                        <div class="tsubuyaki-name">ネコ戦士 @nekosen_lv8</div>
+                        <div class="tsubuyaki-text">山形城付近でスライムキング出た…Lv足りなくてボコられた😭</div>
+                        <div class="tsubuyaki-meta">2分前 · 山形市</div>
+                    </div>
+                </div>
+                <div class="tsubuyaki-item">
+                    <div class="tsubuyaki-avatar">🏯</div>
+                    <div class="tsubuyaki-body">
+                        <div class="tsubuyaki-name">城将アリサ @arisa_quest</div>
+                        <div class="tsubuyaki-text">霞城公園の領地を守り切った！防衛ポイント+50 ✨</div>
+                        <div class="tsubuyaki-meta">15分前 · 山形城</div>
+                    </div>
+                </div>
+                <div class="tsubuyaki-item">
+                    <div class="tsubuyaki-avatar">⚡</div>
+                    <div class="tsubuyaki-body">
+                        <div class="tsubuyaki-name">デンパくん @denpa_42</div>
+                        <div class="tsubuyaki-text">電子空間のGPS演出かっこよすぎる件について</div>
+                        <div class="tsubuyaki-meta">32分前 · 仙台市</div>
+                    </div>
+                </div>
+                <div class="tsubuyaki-item">
+                    <div class="tsubuyaki-avatar">🌙</div>
+                    <div class="tsubuyaki-body">
+                        <div class="tsubuyaki-name">月詠さん @tsukiyomi_rpg</div>
+                        <div class="tsubuyaki-text">ツユトオチ　ツユトキエニシ　ワガミカナ — 辞世の句ってエモい</div>
+                        <div class="tsubuyaki-meta">1時間前 · 京都市</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 領地パネル -->
+        <div id="panel-territory">
+            <div class="panel-header">🏰 領地 — 占領マップ</div>
+            <div class="territory-stats">
+                <div class="terr-stat-card">
+                    <span class="terr-stat-val" id="terr-owned">0</span>
+                    <span class="terr-stat-lbl">占領中</span>
+                </div>
+                <div class="terr-stat-card">
+                    <span class="terr-stat-val" id="terr-defense">0</span>
+                    <span class="terr-stat-lbl">防衛Pt</span>
+                </div>
+                <div class="terr-stat-card">
+                    <span class="terr-stat-val" id="terr-battles">0</span>
+                    <span class="terr-stat-lbl">戦闘数</span>
+                </div>
+            </div>
+            <div id="territory-list">
+                <div class="territory-empty">
+                    🗺<br>
+                    まだ占領した領地がありません<br>
+                    <span style="color:#332244">GPS で移動して敵を倒すと<br>その場所が領地になります</span>
+                </div>
+            </div>
+        </div>
+
         <!-- タブバー（常時表示） -->
         <div id="tab-bar">
             <button class="tab-btn active" id="tab-map">🗺 マップ</button>
             <button class="tab-btn" id="tab-battle">⚔ バトル</button>
-            <button class="tab-btn" id="tab-status">📋 ステータス</button>
+            <button class="tab-btn" id="tab-status">📋 ステ</button>
+            <button class="tab-btn" id="tab-tsubuyaku">💬 つぶやく</button>
+            <button class="tab-btn" id="tab-territory">🏰 領地</button>
         </div>
 
     </div><!-- #main -->
@@ -1241,7 +1442,47 @@
         }
         setInterval(updateBattleHud, 500);
 
-        // ── バトルコマンド キーシミュレーション ──────────────────────────────
+        // ── バトルメッセージログ ──────────────────────────────────────────────
+        const battleMsgLog = document.getElementById('battle-msg-log');
+        const MSG_MAX = 3;
+        const MSG_ICONS = {
+            attack: '⚔', damage: '💥', skill: '✨',
+            item: '🎒', run: '💨', info: '⚡', system: '🌟'
+        };
+        function pushBattleMsg(text, type = 'info') {
+            const el = document.createElement('div');
+            el.className = `battle-msg-item type-${type}`;
+            el.innerHTML = `<span class="msg-icon">${MSG_ICONS[type] ?? '▶'}</span>${text}`;
+            battleMsgLog.appendChild(el);
+            while (battleMsgLog.children.length > MSG_MAX) {
+                battleMsgLog.removeChild(battleMsgLog.firstChild);
+            }
+            setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 3200);
+        }
+
+        // フラッシュ変化でアタック検出
+        let prevEnemyFlash = 0, prevPlayerFlash = 0, prevPlayerHp = null;
+        setInterval(() => {
+            if (!inBattle || !window.wasmModule) return;
+            const ef = window.wasmModule.get_enemy_flash?.()  ?? 0;
+            const pf = window.wasmModule.get_player_flash?.() ?? 0;
+            const hp = window.wasmModule.get_player_hp?.()    ?? null;
+            const eName = currentEnemyInfo ? (ENEMY_NAMES[currentEnemyInfo.eIdx] ?? '敵') : '敵';
+
+            if (ef > 0 && prevEnemyFlash <= 0) {
+                pushBattleMsg(`アリサの攻撃！`, 'attack');
+            }
+            if (pf > 0 && prevPlayerFlash <= 0) {
+                pushBattleMsg(`${eName}の攻撃！`, 'damage');
+            }
+            if (prevPlayerHp !== null && hp !== null && hp < prevPlayerHp) {
+                const dmg = prevPlayerHp - hp;
+                pushBattleMsg(`アリサは ${dmg} のダメージ`, 'damage');
+            }
+            prevEnemyFlash  = ef;
+            prevPlayerFlash = pf;
+            prevPlayerHp    = hp;
+        }, 120);
         // IDX: 5=↑ 6=↓ 7=← 8=→ 45=決定 43=キャンセル
         function simulateKeys(steps) {
             steps.forEach(([idx, down], i) => {
@@ -1255,10 +1496,22 @@
         const CMD_ITEM   = [[6,true],[6,false],[45,true],[45,false]];
         const CMD_RUN    = [[6,true],[6,false],[8,true],[8,false],[45,true],[45,false]];
 
-        document.getElementById('cmd-attack').addEventListener('click', () => simulateKeys(CMD_ATTACK));
-        document.getElementById('cmd-skill').addEventListener('click',  () => simulateKeys(CMD_SKILL));
-        document.getElementById('cmd-item').addEventListener('click',   () => simulateKeys(CMD_ITEM));
-        document.getElementById('cmd-run').addEventListener('click',    () => simulateKeys(CMD_RUN));
+        document.getElementById('cmd-attack').addEventListener('click', () => {
+            simulateKeys(CMD_ATTACK);
+            pushBattleMsg('たたかう！', 'attack');
+        });
+        document.getElementById('cmd-skill').addEventListener('click', () => {
+            simulateKeys(CMD_SKILL);
+            pushBattleMsg('スキルを使う！', 'skill');
+        });
+        document.getElementById('cmd-item').addEventListener('click', () => {
+            simulateKeys(CMD_ITEM);
+            pushBattleMsg('どうぐを使う', 'item');
+        });
+        document.getElementById('cmd-run').addEventListener('click', () => {
+            simulateKeys(CMD_RUN);
+            pushBattleMsg('逃げようとしている...', 'run');
+        });
 
         // バトル結果画面「マップに戻る」ボタン
         document.getElementById('btn-back-to-map').addEventListener('click', () => {
@@ -1277,9 +1530,13 @@
             battleOverlay.classList.remove('active');
             battleUI.classList.remove('active');
             document.getElementById('battle-result').classList.remove('active');
+            document.getElementById('panel-tsubuyaku').classList.remove('active');
+            document.getElementById('panel-territory').classList.remove('active');
         });
         document.getElementById('tab-battle').addEventListener('click', () => {
             setActiveTab('tab-battle');
+            document.getElementById('panel-tsubuyaku').classList.remove('active');
+            document.getElementById('panel-territory').classList.remove('active');
             if (inBattle) {
                 battleOverlay.classList.add('active');
                 battleUI.classList.add('active');
@@ -1287,9 +1544,76 @@
         });
         document.getElementById('tab-status').addEventListener('click', () => {
             setActiveTab('tab-status');
+            document.getElementById('panel-tsubuyaku').classList.remove('active');
+            document.getElementById('panel-territory').classList.remove('active');
             const on = dbgOverlay.classList.toggle('visible');
             btnDebug.classList.toggle('on', on);
         });
+        document.getElementById('tab-tsubuyaku').addEventListener('click', () => {
+            setActiveTab('tab-tsubuyaku');
+            battleOverlay.classList.remove('active');
+            battleUI.classList.remove('active');
+            document.getElementById('battle-result').classList.remove('active');
+            document.getElementById('panel-territory').classList.remove('active');
+            document.getElementById('panel-tsubuyaku').classList.add('active');
+        });
+        document.getElementById('tab-territory').addEventListener('click', () => {
+            setActiveTab('tab-territory');
+            battleOverlay.classList.remove('active');
+            battleUI.classList.remove('active');
+            document.getElementById('battle-result').classList.remove('active');
+            document.getElementById('panel-tsubuyaku').classList.remove('active');
+            document.getElementById('panel-territory').classList.add('active');
+        });
+
+        // つぶやく投稿
+        document.getElementById('btn-tsubuyaku-post').addEventListener('click', () => {
+            const input = document.getElementById('tsubuyaku-input');
+            const text = input.value.trim();
+            if (!text) return;
+            const feed = document.getElementById('tsubuyaku-feed');
+            const item = document.createElement('div');
+            item.className = 'tsubuyaki-item';
+            const now = new Date();
+            const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+            const locStr = window.arisaPos ? `付近` : 'ネコテックワールド';
+            item.innerHTML = `
+                <div class="tsubuyaki-avatar">🌟</div>
+                <div class="tsubuyaki-body">
+                    <div class="tsubuyaki-name">アリサ @player</div>
+                    <div class="tsubuyaki-text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                    <div class="tsubuyaki-meta">${timeStr} · ${locStr}</div>
+                </div>`;
+            feed.insertBefore(item, feed.firstChild);
+            input.value = '';
+        });
+
+        // 勝利時に領地を追加
+        function addTerritory(enemyInfo) {
+            const list = document.getElementById('territory-list');
+            const empty = list.querySelector('.territory-empty');
+            if (empty) empty.remove();
+
+            const item = document.createElement('div');
+            item.className = 'territory-item';
+            const lat = enemyInfo.lat?.toFixed(4) ?? '---';
+            const lng = enemyInfo.lng?.toFixed(4) ?? '---';
+            const name = `${ENEMY_NAMES[enemyInfo.eIdx] ?? '???'}の生息地`;
+            item.innerHTML = `
+                <div class="territory-icon">🏳</div>
+                <div class="territory-info">
+                    <div class="territory-name">${name}</div>
+                    <div class="territory-coords">${lat}, ${lng}</div>
+                </div>
+                <span class="territory-badge own">占領中</span>`;
+            list.insertBefore(item, list.firstChild);
+
+            // カウンター更新
+            const owned = list.querySelectorAll('.territory-item').length;
+            document.getElementById('terr-owned').textContent = owned;
+            const def = parseInt(document.getElementById('terr-defense').textContent || '0');
+            document.getElementById('terr-defense').textContent = def + 50;
+        }
 
         function triggerBattle(enemyInfo) {
             if (inBattle || !window.wasmModule) return;
@@ -1301,6 +1625,12 @@
             battleUI.classList.add('active');
             setActiveTab('tab-battle');
             requestAnimationFrame(() => resizeBgCanvas());
+
+            // バトル開始メッセージ
+            prevEnemyFlash = 0; prevPlayerFlash = 0;
+            prevPlayerHp = window.wasmModule.get_player_hp?.() ?? null;
+            const eName = ENEMY_NAMES[enemyInfo.eIdx] ?? '???';
+            setTimeout(() => pushBattleMsg(`${eName} が現れた！`, 'system'), 300);
 
             // 静的スプライト情報をセット
             const e = ENEMY_MAP[enemyInfo.eIdx];
@@ -1325,9 +1655,16 @@
             clearInterval(watchInterval);
             inBattle = false;
             battleUI.classList.remove('active');
-            // マップに自動遷移せず、結果画面を表示する
 
             const state = window.wasmModule?.get_game_state?.() ?? 0;
+            if (state === 1) {
+                pushBattleMsg('勝利！', 'system');
+                addTerritory(enemyInfo);
+                const battles = parseInt(document.getElementById('terr-battles').textContent || '0');
+                document.getElementById('terr-battles').textContent = battles + 1;
+            } else if (state === 0) {
+                pushBattleMsg('アリサは倒れてしまった…', 'damage');
+            }
             const resultEl    = document.getElementById('battle-result');
             const titleEl     = document.getElementById('battle-result-title');
             const msgEl       = document.getElementById('battle-result-msg');
