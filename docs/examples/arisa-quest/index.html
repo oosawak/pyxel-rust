@@ -2811,6 +2811,7 @@
     <!-- ── WASM init ──────────────────────────────────────────────────────── -->
     <script type="module">
         import init, {
+            main as wasmMain,
             set_key,
             get_game_state, get_enemy_idx, get_bg_idx,
             get_enemy_flash, get_player_flash,
@@ -2830,6 +2831,7 @@
                 get_enemy_hp, get_enemy_max_hp,
                 start_battle_from_js,
             };
+            wasmMain();
         } catch(e) {
             console.error('WASM init failed:', e);
         }

@@ -56,6 +56,12 @@ pub fn start_battle_from_js(idx: i32) {
     BATTLE_REQUEST.store(idx, Ordering::Relaxed);
 }
 
+/// WASM entry point — JS calls `main()` after `await init()` to start the game.
+#[wasm_bindgen]
+pub fn main() {
+    crate::games::arisa::start();
+}
+
 // ── Rust → JS: internal setters (called each frame from game draw/update) ────
 pub fn set_game_state(v: i32)    { GAME_STATE.store(v, Ordering::Relaxed); }
 pub fn set_player_hp(v: i32)     { PLAYER_HP.store(v, Ordering::Relaxed); }
