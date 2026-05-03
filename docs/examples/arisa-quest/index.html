@@ -403,6 +403,28 @@
             0%   { opacity: 1; transform: scale(1.4) translateY(0); filter: brightness(2.5); }
             100% { opacity: 0; transform: scale(0.4) translateY(0); }
         }
+        .tl-card.clash-flash { animation: clashAnim 0.5s ease-out forwards; }
+        @keyframes clashAnim {
+            0%   { opacity: 1; transform: scale(1.8) translateY(0); filter: brightness(3) hue-rotate(30deg); }
+            40%  { opacity: 1; transform: scale(2.4) translateY(0); filter: brightness(4); }
+            100% { opacity: 0; transform: scale(0.6) translateY(0); }
+        }
+        #clash-banner {
+            position: absolute; left: 50%; top: 40%; transform: translate(-50%,-50%) scale(0);
+            z-index: 50; font-family: 'DotGothic16', monospace;
+            font-size: 1.6rem; color: #fff; text-shadow: 0 0 12px #ff0, 0 0 24px #f80;
+            pointer-events: none; white-space: nowrap;
+            animation: none;
+        }
+        #clash-banner.show {
+            animation: clashBanner 0.7s ease-out forwards;
+        }
+        @keyframes clashBanner {
+            0%   { transform: translate(-50%,-50%) scale(0); opacity: 1; }
+            30%  { transform: translate(-50%,-50%) scale(1.3); opacity: 1; }
+            70%  { transform: translate(-50%,-50%) scale(1.0); opacity: 1; }
+            100% { transform: translate(-50%,-50%) scale(1.2); opacity: 0; }
+        }
         #battle-commands {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
             padding: 8px 12px 6px;
@@ -946,6 +968,7 @@
                 <div id="battle-msg-log"></div>
                 <!-- 落下コマンドタイムライン -->
                 <div id="battle-timeline">
+                    <div id="clash-banner">⚡ 相殺！</div>
                     <div class="tl-lane" id="tl-left">
                         <div class="tl-header">🧝</div>
                         <div class="tl-execute-line"></div>
@@ -1749,6 +1772,20 @@
         const MAX_QUEUE      = 4;
         let   playerQueueCnt = 0;
 
+        // ── クラッシュ（相殺）システム ──────────────────────────────────────
+        const CLASH_WINDOW_MS = 220; // この時間内に両者が着地したらクラッシュ
+        let pendingPlayerAtk  = null; // { timer, cancelFn }
+        let pendingEnemyAtk   = null;
+
+        function showClashBanner() {
+            const el = document.getElementById('clash-banner');
+            if (!el) return;
+            el.classList.remove('show');
+            void el.offsetWidth; // reflow
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 750);
+        }
+
         // ── SP システム ──────────────────────────────────────────────────────
         const MAX_SP   = 100;
         const SP_COSTS = { melee: 20, ranged: 20, skill: 40, item: 30, run: 15, lure: 25 };
@@ -1851,7 +1888,7 @@
             return Math.max(600, 2200 - (lv - 1) * 150);
         }
 
-        function spawnFallCard(laneEl, icon, label, cssClass, fallMs, onArrive) {
+        function spawnFallCard(laneEl, icon, label, cssClass, fallMs, onArrive, side) {
             const headerH = laneEl.querySelector('.tl-header')?.offsetHeight ?? 36;
             const laneH   = laneEl.clientHeight || 280;
             const barH    = 6;
@@ -1870,14 +1907,47 @@
                 card.style.transform  = `translateY(${travelPx}px)`;
             }));
 
+            const removeCard = () => {
+                const i = tlLiveCards.indexOf(card);
+                if (i >= 0) tlLiveCards.splice(i, 1);
+                setTimeout(() => card.remove(), 500);
+            };
+
             const t = setTimeout(() => {
+                // ── クラッシュ判定 ──
+                const other = side === 'player' ? pendingEnemyAtk : (side === 'enemy' ? pendingPlayerAtk : null);
+                if (side && other) {
+                    // 相手の攻撃がまだ pending → 相殺！
+                    other.cancelFn();
+                    if (side === 'player') { pendingEnemyAtk  = null; }
+                    else                   { pendingPlayerAtk = null; }
+                    card.classList.add('clash-flash');
+                    showClashBanner();
+                    pushBattleMsg('⚡ 相殺！', 'system');
+                    if (side === 'player') playerQueueCnt = Math.max(0, playerQueueCnt - 1);
+                    removeCard();
+                    return;
+                }
+                // ── 通常発動（CLASH_WINDOW_MS 後に実行 / その間に相手が来たら相殺） ──
                 card.classList.add('execute-flash');
-                onArrive();
-                setTimeout(() => {
-                    card.remove();
-                    const i = tlLiveCards.indexOf(card);
-                    if (i >= 0) tlLiveCards.splice(i, 1);
-                }, 400);
+                const execTimer = setTimeout(() => {
+                    onArrive();
+                    if (side === 'player') pendingPlayerAtk = null;
+                    else if (side === 'enemy') pendingEnemyAtk = null;
+                    removeCard();
+                }, CLASH_WINDOW_MS);
+                const pending = {
+                    cancelFn: () => {
+                        clearTimeout(execTimer);
+                        card.classList.remove('execute-flash');
+                        card.classList.add('clash-flash');
+                        if (side === 'player') { playerQueueCnt = Math.max(0, playerQueueCnt - 1); pendingPlayerAtk = null; }
+                        else if (side === 'enemy') pendingEnemyAtk = null;
+                        removeCard();
+                    }
+                };
+                if (side === 'player') pendingPlayerAtk = pending;
+                else if (side === 'enemy') pendingEnemyAtk = pending;
             }, fallMs);
             tlCardTimers.push(t);
             return t;
@@ -1904,7 +1974,7 @@
                     if (!inBattle) return;
                     simulateKeys([[45,true],[45,false]]);
                     pushBattleMsg(`💀 ${cfg.atkLabel}！`, 'damage');
-                });
+                }, 'enemy');
                 scheduleEnemyCard(cfg);
             });
         }
@@ -1922,6 +1992,8 @@
             tlLiveCards.forEach(c => c.remove());
             tlLiveCards.length = 0;
             playerQueueCnt = 0;
+            pendingPlayerAtk = null;
+            pendingEnemyAtk  = null;
             document.getElementById('battle-timeline')?.classList.remove('active');
             ['tl-player-bar','tl-enemy-bar'].forEach(id => {
                 const el = document.getElementById(id);
@@ -1943,7 +2015,7 @@
                 if (!inBattle) return;
                 if (keyCodes.length > 0) simulateKeys(keyCodes);
                 pushBattleMsg(`${icon} ${label}！`, 'attack');
-            });
+            }, 'player');
         }
 
         // ── デバッグ静的テキスト ──────────────────────────────────────────────
