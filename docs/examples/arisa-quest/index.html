@@ -2321,7 +2321,7 @@
                                   : cmdId === 'ranged' ? (5 + Math.floor(Math.random() * 8))
                                   : (3 + Math.floor(Math.random() * 8));
                     const dmg = Math.round(baseDmg * mult);
-                    currentEnemyHp = Math.max(1, currentEnemyHp - dmg);
+                    currentEnemyHp = Math.max(0, currentEnemyHp - dmg);
                     pushBattleMsg(`${icon} ${label}！ ${dmg} ダメージ`, 'attack');
                 } else {
                     pushBattleMsg(`${icon} ${label}！`, 'system');
