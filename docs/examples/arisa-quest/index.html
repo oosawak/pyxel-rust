@@ -2367,8 +2367,7 @@
         function buildAllEnemyDbgText() {
             return ENEMY_MAP.map((e, i) =>
                 `[${i}] ${ENEMY_NAMES[i] ?? '?'}  sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}`
-            ).join('\n') +
-            `\ndest x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`;
+            ).join('\n');
         }
         let dbgStaticText = buildAllEnemyDbgText();
         let dbgArisaText  = `sx=${ARISA_SRC.sx} sy=${ARISA_SRC.sy} sw=${ARISA_SRC.sw} sh=${ARISA_SRC.sh}`;
@@ -2731,10 +2730,11 @@
 
             // 静的スプライト情報をセット（全敵一覧 + 現在の敵をハイライト）
             const e = ENEMY_MAP[enemyInfo.eIdx];
+            const eneDest = calcEnemyDest();
             dbgStaticText = buildAllEnemyDbgText() +
                 `\n\n▶ 戦闘中: [${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]}\n` +
                 `  sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}\n` +
-                `  dest x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`;
+                `  dest x=${eneDest.x.toFixed(0)} y=${eneDest.y.toFixed(0)} w=${eneDest.w.toFixed(0)}`;
             dbgArisaText = [
                 `sx=${ARISA_SRC.sx} sy=${ARISA_SRC.sy} sw=${ARISA_SRC.sw} sh=${ARISA_SRC.sh}`,
                 `dest x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
