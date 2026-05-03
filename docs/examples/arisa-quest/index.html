@@ -1242,7 +1242,7 @@
         const bgCtx    = bgCanvas.getContext('2d');
 
         // 背景スワイプパン
-        const BG_ZOOM     = 1.6;
+        // BG_ZOOM は廃止 - タイル全体を使い画面比率でクロップ（品質最大化）
         const BG_Y_ANCHOR = 0.15;
         let bgXOffset  = 0;   // スプライト空間のX方向オフセット（px）
         let bgPanVelX  = 0;   // 慣性速度
@@ -1352,10 +1352,11 @@
                 const maxMp = window.wasmModule.get_player_max_mp?.() ?? '?';
                 const lv    = window.wasmModule.get_player_level?.()  ?? '?';
                 const bgI2  = ((bgIdx % 24) + 24) % 24;
-                const bgZoom    = BG_ZOOM;
+                const bgZoom    = 'なし（全体使用）';
                 const bgYAnchor = BG_Y_ANCHOR;
-                const cropW2   = Math.round(BG_CW / bgZoom);
-                const cropH2   = Math.round(cropW2 * bgCanvas.height / bgCanvas.width);
+                const canvasAsp = bgCanvas.width / bgCanvas.height;
+                const cropW2 = canvasAsp >= 1 ? BG_CW : Math.round(BG_CH * canvasAsp);
+                const cropH2 = canvasAsp >= 1 ? Math.round(BG_CW / canvasAsp) : BG_CH;
                 const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
                 const baseSrcY = Math.floor(bgI2 / BG_COLS) * BG_CH;
                 const cropX    = baseSrcX + Math.round((BG_CW - cropW2) / 2);
@@ -1391,12 +1392,17 @@
             resizeBgCanvas();
 
             // Draw background to fill entire canvas (before scaled transform)
-            // BG_ZOOM/BG_Y_ANCHOR はスクリプト上部で定義
             const bgI  = ((bgIdx % 24) + 24) % 24;
             const bgBaseX = (bgI % BG_COLS) * BG_CW;
             const bgBaseY = Math.floor(bgI / BG_COLS) * BG_CH;
-            const cropW = BG_CW / BG_ZOOM;
-            const cropH = cropW * bgCanvas.height / bgCanvas.width; // 縦横比を維持
+            // タイル全体を最大限使い、画面比率に合わせてクロップ（品質最大化）
+            const canvasAspect = bgCanvas.width / bgCanvas.height;
+            const cropW = canvasAspect >= 1
+                ? BG_CW
+                : Math.round(BG_CH * canvasAspect);
+            const cropH = canvasAspect >= 1
+                ? Math.round(BG_CW / canvasAspect)
+                : BG_CH;
             bgCtx.drawImage(
                 SHEETS['arisa-world-backgrounds-2'],
                 bgBaseX + (BG_CW - cropW) / 2 + bgXOffset,
@@ -2061,6 +2067,7 @@
         }
         function triggerAutoCmd() {
             if (!autoInterval || !autoCmd) return;
+            if (playerQueueCnt >= MAX_QUEUE) return; // キュー満杯ならSPを消費しない
             if (!consumeSP(autoCmd)) return;
             const cfg = getAutoCmdCfg(autoCmd);
             if (cfg) queuePlayerCmd(cfg.keyCodes, cfg.icon, cfg.label, autoCmd);
@@ -2086,7 +2093,7 @@
             clearInterval(spRegenInterval);
             spRegenInterval = null;
             battleSP = 0;
-            autoCmd = null;
+            // autoCmd は保持する（次のバトルでオートモードを継続するため）
             updateSPBar();
             updateCmdButtons();
             updateAutoCmdHighlight();
