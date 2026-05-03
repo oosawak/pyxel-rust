@@ -205,6 +205,40 @@
         #cmd-run    { border-color: #888899; color: #ccccdd; }
         #cmd-run:active    { background: #111122; border-color: #aaaacc; }
 
+        /* ── バトル結果画面 ─────────────────────────────────────── */
+        #battle-result {
+            display: none;
+            position: absolute; inset: 0; z-index: 50;
+            background: rgba(0, 0, 18, 0.88);
+            flex-direction: column; align-items: center; justify-content: center;
+            gap: 18px;
+        }
+        #battle-result.active { display: flex; }
+        #battle-result-title {
+            font-family: 'DotGothic16', monospace;
+            font-size: 2rem; letter-spacing: 4px;
+            text-shadow: 0 0 18px currentColor;
+        }
+        #battle-result-title.win  { color: #ffee44; }
+        #battle-result-title.lose { color: #ff4466; }
+        #battle-result-title.fled { color: #99aacc; }
+        #battle-result-msg {
+            font-family: 'DotGothic16', monospace;
+            font-size: 0.85rem; color: #aa99cc; text-align: center;
+            line-height: 1.8;
+        }
+        #btn-back-to-map {
+            margin-top: 8px;
+            padding: 14px 36px;
+            background: linear-gradient(135deg, #2a1045, #3d1868);
+            border: 2px solid #aa66ff; border-radius: 14px;
+            color: #eeddff; font-family: 'DotGothic16', monospace;
+            font-size: 1rem; cursor: pointer;
+            box-shadow: 0 0 12px rgba(170,102,255,0.4);
+            -webkit-tap-highlight-color: transparent;
+        }
+        #btn-back-to-map:active { transform: scale(0.96); }
+
         /* ── タブバー ─────────────────────────────────────────────── */
         #tab-bar {
             position: absolute; bottom: 0; left: 0; right: 0; z-index: 30;
@@ -385,6 +419,13 @@
                     <button class="fb" id="fb-rght" data-idx="1">C</button>
                     <button class="fb" id="fb-bot"  data-idx="2">Menu</button>
                 </div>
+            </div>
+
+            <!-- バトル結果画面 -->
+            <div id="battle-result">
+                <div id="battle-result-title">勝利！</div>
+                <div id="battle-result-msg"></div>
+                <button id="btn-back-to-map">🗺 マップに戻る</button>
             </div>
 
             <!-- Arisa Quest バトルUI（十字キーの代替） -->
@@ -783,7 +824,6 @@
 
         // WASM HUDトグルボタン（下部UIの表示/非表示）
         const btnWasmHud = document.getElementById('btn-wasm-hud');
-        const wasmUiCover = document.getElementById('wasm-ui-cover');
         btnWasmHud.addEventListener('click', () => {
             hudRevealed = !hudRevealed;
             btnWasmHud.classList.toggle('on', hudRevealed);
@@ -810,6 +850,13 @@
         document.getElementById('cmd-item').addEventListener('click',   () => simulateKeys(CMD_ITEM));
         document.getElementById('cmd-run').addEventListener('click',    () => simulateKeys(CMD_RUN));
 
+        // バトル結果画面「マップに戻る」ボタン
+        document.getElementById('btn-back-to-map').addEventListener('click', () => {
+            document.getElementById('battle-result').classList.remove('active');
+            battleOverlay.classList.remove('active');
+            setActiveTab('tab-map');
+        });
+
         // タブ切り替え
         function setActiveTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -819,6 +866,7 @@
             setActiveTab('tab-map');
             battleOverlay.classList.remove('active');
             battleUI.classList.remove('active');
+            document.getElementById('battle-result').classList.remove('active');
         });
         document.getElementById('tab-battle').addEventListener('click', () => {
             setActiveTab('tab-battle');
@@ -864,22 +912,39 @@
         function endBattle(enemyInfo) {
             clearInterval(watchInterval);
             inBattle = false;
-            battleOverlay.classList.remove('active');
             battleUI.classList.remove('active');
-            setActiveTab('tab-map');
+            // マップに自動遷移せず、結果画面を表示する
 
-            // Remove defeated enemy marker (if enemy still alive, keep it)
             const state = window.wasmModule?.get_game_state?.() ?? 0;
-            if (state === 1) { // returned to map = enemy defeated or fled
+            const resultEl    = document.getElementById('battle-result');
+            const titleEl     = document.getElementById('battle-result-title');
+            const msgEl       = document.getElementById('battle-result-msg');
+
+            titleEl.className = '';
+            if (state === 1) {
+                // マップ状態に戻った = 勝利 or 逃走
+                titleEl.textContent = '勝利！';
+                titleEl.classList.add('win');
+                msgEl.textContent = '敵を倒した！';
                 enemyInfo.marker.remove();
                 const idx = enemyMarkers.indexOf(enemyInfo);
                 if (idx >= 0) enemyMarkers.splice(idx, 1);
-                // 全滅したらアリサマーカーをサーチ可能状態に戻す
                 if (enemyMarkers.length === 0) {
-                    showToast('✨ 全員倒した！アリサをタップしてサーチ');
+                    msgEl.textContent = '全員倒した！\nアリサをタップしてサーチ';
                     if (arisaMarker) arisaMarker.setIcon(arisaIcon(true));
                 }
+            } else if (state === 0) {
+                // タイトルに戻った = ゲームオーバー
+                titleEl.textContent = 'ゲームオーバー';
+                titleEl.classList.add('lose');
+                msgEl.textContent = 'アリサは倒れてしまった…';
+            } else {
+                // 予期しない状態（早期終了など）
+                titleEl.textContent = '逃走した';
+                titleEl.classList.add('fled');
+                msgEl.textContent = '';
             }
+            resultEl.classList.add('active');
             updateStatusBar();
         }
 
