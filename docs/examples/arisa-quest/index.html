@@ -462,8 +462,20 @@
         /* オートモード選択中コマンドのハイライト */
         .battle-cmd.auto-selected {
             border-width: 3px;
-            box-shadow: 0 0 14px rgba(255,220,0,0.7), inset 0 0 8px rgba(255,200,0,0.1);
+            transform: scale(1.06);
+            animation: selectedPulse 0.8s infinite;
         }
+        @keyframes selectedPulse {
+            0%, 100% { filter: brightness(1.0); }
+            50%       { filter: brightness(1.5); }
+        }
+        /* 各ボタン固有の選択色 */
+        #cmd-melee.auto-selected  { background: linear-gradient(160deg,#5a1a00,#8a2800); box-shadow: 0 0 16px rgba(255,100,60,0.8); }
+        #cmd-ranged.auto-selected { background: linear-gradient(160deg,#4a2000,#7a3800); box-shadow: 0 0 16px rgba(255,160,60,0.8); }
+        #cmd-skill.auto-selected  { background: linear-gradient(160deg,#001a55,#003090); box-shadow: 0 0 16px rgba(80,160,255,0.8); }
+        #cmd-item.auto-selected   { background: linear-gradient(160deg,#003320,#005a38); box-shadow: 0 0 16px rgba(80,220,150,0.8); }
+        #cmd-run.auto-selected    { background: linear-gradient(160deg,#222233,#383858); box-shadow: 0 0 16px rgba(160,160,220,0.8); }
+        #cmd-lure.auto-selected   { background: linear-gradient(160deg,#3a0033,#680055); box-shadow: 0 0 16px rgba(255,100,200,0.8); }
 
         /* ── バトルメッセージログ ──────────────────────────────── */
         #battle-msg-log {
@@ -1761,9 +1773,24 @@
             }
         }
         function updateAutoCmdHighlight() {
-            document.querySelectorAll('.battle-cmd').forEach(b => b.classList.remove('auto-selected'));
+            // auto-selected クラスをリセット
+            document.querySelectorAll('.battle-cmd').forEach(b => {
+                b.classList.remove('auto-selected');
+                // ▶ マーカーを除去
+                const marker = b.querySelector('.auto-marker');
+                if (marker) marker.remove();
+            });
             if (autoInterval && autoCmd) {
-                document.getElementById(`cmd-${autoCmd}`)?.classList.add('auto-selected');
+                const btn = document.getElementById(`cmd-${autoCmd}`);
+                if (btn) {
+                    btn.classList.add('auto-selected');
+                    // ▶ 選択中マーカーを先頭に追加
+                    const marker = document.createElement('span');
+                    marker.className = 'auto-marker';
+                    marker.textContent = '▶ ';
+                    marker.style.cssText = 'color:#fff176;font-size:0.7rem;';
+                    btn.prepend(marker);
+                }
             }
         }
         function consumeSP(cmdId) {
