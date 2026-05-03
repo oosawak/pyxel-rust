@@ -112,69 +112,24 @@
             font-family: monospace; padding: 3px 6px; cursor: pointer;
         }
         #btn-debug.on { color: #0f0; border-color: #0f0; }
-        #btn-wasm-hud {
-            position: absolute; top: 4px; left: 40px; z-index: 100;
-            background: rgba(0,0,0,0.7); border: 1px solid #555;
-            border-radius: 4px; color: #888; font-size: 0.55rem;
-            font-family: monospace; padding: 3px 6px; cursor: pointer;
-        }
-        #btn-wasm-hud.on { color: #ffcc66; border-color: #ffcc66; }
-
         /* Canvas area */
         #canvas-area {
             flex: 1; min-height: 0;
-            display: flex; align-items: center; justify-content: center;
             position: relative;
         }
-        /* クリッピングコンテナ：WASM UIエリア（下30%）を非表示にする */
         #canvas-scene {
-            overflow: hidden; line-height: 0;
-            border: 2px solid #2a1a3a;
-            transition: height 0.2s ease;
+            width: 100%; height: 100%;
         }
-        #game-wrapper { position: relative; line-height: 0; }
+        #game-wrapper { position: relative; width: 100%; height: 100%; }
         #pyxel_canvas {
-            image-rendering: pixelated; image-rendering: crisp-edges;
-            max-width: calc(100vw - 8px);
-            max-height: calc(100dvh - 220px);
-            display: block; mix-blend-mode: screen; position: relative; z-index: 1;
+            position: absolute; top: -9999px; left: -9999px;
+            width: 320px; height: 240px; visibility: hidden;
         }
         #bg-canvas {
-            position: absolute; top: 0; left: 0;
+            position: absolute; inset: 0;
             width: 100%; height: 100%;
-            image-rendering: auto; pointer-events: none;
+            image-rendering: auto; pointer-events: none; z-index: 0;
         }
-
-        /* ── Gamepad (only during battle) ────────────────────────── */
-        #gamepad {
-            flex-shrink: 0; display: none; /* Arisa Questではbattle-uiに置き換え */
-            width: 100%; max-width: 480px; margin: 0 auto;
-            padding: 5px 12px 10px;
-            align-items: center; justify-content: space-between;
-        }
-        #gamepad.visible { display: flex; }
-        #dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); gap: 2px; }
-        .dp { background: #1a1a2a; border: 2px solid #444; border-radius: 8px; color: #ccc; font-size: 16px;
-              display: flex; align-items: center; justify-content: center; cursor: pointer;
-              -webkit-tap-highlight-color: transparent; user-select: none; }
-        .dp.active { background: #3a2a5a; border-color: #ff88cc; color: #fff; }
-        .dp-empty   { background: #0a0a1a; border: 2px solid #0a0a1a; border-radius: 8px; }
-        #center-btns { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-        .sm { background: #1e1e3a; border: 2px solid #444; border-radius: 10px; color: #aaa;
-              font-size: 10px; font-weight: bold; width: 42px; height: 28px;
-              display: flex; align-items: center; justify-content: center;
-              cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
-        .sm.active { background: #3e3e6a; color: #fff; border-color: #ff88cc; }
-        #face-btns { width: 140px; height: 140px; position: relative; }
-        .fb { position: absolute; width: 50px; height: 50px; border-radius: 50%;
-              border: 2px solid #664488; background: #2a1a3a; color: #ddd;
-              font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center;
-              cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
-        .fb.active { background: #5a2a7a; border-color: #ff88cc; color: #fff; }
-        #fb-top  { top: 0;    left: 50%; transform: translateX(-50%); }
-        #fb-left { left: 0;   top:  50%; transform: translateY(-50%); }
-        #fb-rght { right: 0;  top:  50%; transform: translateY(-50%); }
-        #fb-bot  { bottom: 0; left: 50%; transform: translateX(-50%); }
 
         /* ── Arisa Quest バトルUI ─────────────────────────────────── */
         #battle-ui {
@@ -389,7 +344,6 @@
         <!-- Battle overlay (shown when WASM is in battle state) -->
         <div id="battle-overlay">
             <button id="btn-debug">DBG</button>
-            <button id="btn-wasm-hud">HUD</button>
             <div id="debug-overlay"></div>
             <div id="canvas-area">
                 <div id="canvas-scene">
@@ -397,28 +351,6 @@
                         <canvas id="bg-canvas"></canvas>
                         <canvas id="pyxel_canvas"></canvas>
                     </div>
-                </div>
-            </div>
-            <div id="gamepad">
-                <div id="dpad">
-                    <div class="dp-empty"></div>
-                    <button class="dp" data-idx="5">▲</button>
-                    <div class="dp-empty"></div>
-                    <button class="dp" data-idx="7">◀</button>
-                    <div class="dp-empty"></div>
-                    <button class="dp" data-idx="8">▶</button>
-                    <div class="dp-empty"></div>
-                    <button class="dp" data-idx="6">▼</button>
-                    <div class="dp-empty"></div>
-                </div>
-                <div id="center-btns">
-                    <button class="sm" data-idx="2">START</button>
-                </div>
-                <div id="face-btns">
-                    <button class="fb" id="fb-top"  data-idx="45">決定</button>
-                    <button class="fb" id="fb-left" data-idx="43">B</button>
-                    <button class="fb" id="fb-rght" data-idx="1">C</button>
-                    <button class="fb" id="fb-bot"  data-idx="2">Menu</button>
                 </div>
             </div>
 
@@ -484,9 +416,8 @@
     <script>
         const ASSET_BASE = '../../assets/design/';
         const BG_COLS = 6, BG_CW = 256, BG_CH = 256;
-        const SCENE_H = 84;
-        const ARISA_DEST = { x: 8, y: 8,  w: 58, h: 76 };
-        const ENE_DEST   = { x: 95, y: 4, w: 58, h: 72 };
+        const ARISA_DEST = { x: 4, y: 4,   w: 120, h: 160 };
+        const ENE_DEST   = { x: 176, y: 8, w: 140, h: 152 };
 
         const ENEMY_MAP = [
             { sheet: 'enemy-sprites', sx: 256, sy: 256, sw: 256, sh: 128 }, // 0: スライム
@@ -511,19 +442,13 @@
         const bgCanvas = document.getElementById('bg-canvas');
         const bgCtx    = bgCanvas.getContext('2d');
 
-        let hudRevealed = false;
         function resizeBgCanvas() {
-            const pyxel = document.getElementById('pyxel_canvas');
-            const scene = document.getElementById('canvas-scene');
-            const w = pyxel.offsetWidth, h = pyxel.offsetHeight;
+            const canvasArea = document.getElementById('canvas-area');
+            const w = canvasArea.offsetWidth, h = canvasArea.offsetHeight;
             if (w > 0 && h > 0) {
                 if (bgCanvas.width !== w || bgCanvas.height !== h) {
                     bgCanvas.width = w; bgCanvas.height = h;
                 }
-                // WASM UIエリア（下30%）を非表示：バトルシーンは上84/120px分のみ表示
-                const clipH = hudRevealed ? h : Math.round(h * 84 / 120);
-                scene.style.height = clipH + 'px';
-                scene.style.width  = w + 'px';
             }
         }
         window.addEventListener('resize', resizeBgCanvas);
@@ -533,21 +458,22 @@
             bgCtx.save();
             bgCtx.imageSmoothingEnabled = true;
             bgCtx.imageSmoothingQuality = 'high';
-            bgCtx.scale(bgCanvas.width / 160, bgCanvas.height / 120);
+            const scaleX = bgCanvas.width / 320;
+            const scaleY = bgCanvas.height / 168;
+            const s = Math.min(scaleX, scaleY);
+            const xOff = (bgCanvas.width  - 320 * s) / 2;
+            const yOff = (bgCanvas.height - 168 * s) / 2;
+            bgCtx.translate(xOff, yOff);
+            bgCtx.scale(s, s);
         }
 
         function renderBg() {
             if (!window.wasmModule) return;
             const state = window.wasmModule.get_game_state?.() ?? 0;
-            const pyxelCanvas = document.getElementById('pyxel_canvas');
             if (state !== 2) {
                 bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-                // WASMが内部マップ等に遷移した瞬間、pyxel_canvasを即座に隠す（地図フラッシュ防止）
-                if (pyxelCanvas.style.opacity !== '0') pyxelCanvas.style.opacity = '0';
                 return;
             }
-            // バトル中: pyxel_canvasを表示
-            if (pyxelCanvas.style.opacity === '0') pyxelCanvas.style.opacity = '';
             if (loadedCount < SHEET_LIST.length) return;
 
             const enemyIdx    = window.wasmModule.get_enemy_idx?.()    ?? -1;
@@ -580,15 +506,18 @@
                 ].join('\n');
             }
 
-            beginScaledDraw();
-            bgCtx.clearRect(0, 0, 160, 120);
+            resizeBgCanvas();
 
+            // Draw background to fill entire canvas (before scaled transform)
             const bgI  = ((bgIdx % 24) + 24) % 24;
             bgCtx.drawImage(
                 SHEETS['arisa-world-backgrounds-2'],
                 (bgI % BG_COLS) * BG_CW, Math.floor(bgI / BG_COLS) * BG_CH, BG_CW, BG_CH,
-                0, 0, 160, SCENE_H
+                0, 0, bgCanvas.width, bgCanvas.height
             );
+
+            // Draw characters in scaled 320×168 virtual space
+            beginScaledDraw();
 
             // Arisa (left, idle pose: top-left 128×106 of first cell, skip 22px label)
             if (playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0) {
@@ -836,15 +765,6 @@
         btnDebug.addEventListener('click', () => {
             const on = dbgOverlay.classList.toggle('visible');
             btnDebug.classList.toggle('on', on);
-        });
-
-        // WASM HUDトグルボタン（下部UIの表示/非表示）
-        const btnWasmHud = document.getElementById('btn-wasm-hud');
-        btnWasmHud.addEventListener('click', () => {
-            hudRevealed = !hudRevealed;
-            btnWasmHud.classList.toggle('on', hudRevealed);
-            btnWasmHud.textContent = hudRevealed ? 'HUD▲' : 'HUD';
-            resizeBgCanvas();
         });
 
         // ── バトルコマンド キーシミュレーション ──────────────────────────────
