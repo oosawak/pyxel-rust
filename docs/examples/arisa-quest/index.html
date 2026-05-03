@@ -1411,7 +1411,7 @@
             // アリサ（左下固定）
             if (playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0) {
                 bgCtx.drawImage(SHEETS['arisa-player-sprites'],
-                    0, 50, 128, 106,
+                    0, 40, 128, 106,
                     ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h);
             }
 
@@ -2260,7 +2260,7 @@
 
         // ── デバッグ静的テキスト ──────────────────────────────────────────────
         let dbgStaticText = '(戦闘前)';
-        let dbgArisaText  = 'sx=0 sy=22 sw=128 sh=106';
+        let dbgArisaText  = 'sx=0 sy=40 sw=128 sh=106';
 
         // デバッグトグルボタン
         const btnDebug = document.getElementById('btn-debug');
@@ -2600,7 +2600,7 @@
                 `dest x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`,
             ].join('\n');
             dbgArisaText = [
-                `sx=0 sy=22 sw=128 sh=106`,
+                `sx=0 sy=40 sw=128 sh=106`,
                 `dest x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
             ].join('\n');
 
