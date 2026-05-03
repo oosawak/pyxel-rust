@@ -126,7 +126,13 @@
             display: flex; align-items: center; justify-content: center;
             position: relative;
         }
-        #game-wrapper { position: relative; line-height: 0; border: 2px solid #2a1a3a; }
+        /* クリッピングコンテナ：WASM UIエリア（下30%）を非表示にする */
+        #canvas-scene {
+            overflow: hidden; line-height: 0;
+            border: 2px solid #2a1a3a;
+            transition: height 0.2s ease;
+        }
+        #game-wrapper { position: relative; line-height: 0; }
         #pyxel_canvas {
             image-rendering: pixelated; image-rendering: crisp-edges;
             max-width: calc(100vw - 8px);
@@ -138,14 +144,6 @@
             width: 100%; height: 100%;
             image-rendering: auto; pointer-events: none;
         }
-        /* WASMのHP/コマンドUIエリア（下30%）を隠すカバー */
-        #wasm-ui-cover {
-            position: absolute; bottom: 0; left: 0; right: 0;
-            height: 30.5%; z-index: 2;
-            background: linear-gradient(to bottom, rgba(0,2,8,0.7) 0%, rgba(0,2,8,0.97) 40%);
-            transition: opacity 0.25s; pointer-events: none;
-        }
-        #wasm-ui-cover.revealed { opacity: 0; }
 
         /* ── Gamepad (only during battle) ────────────────────────── */
         #gamepad {
@@ -359,10 +357,11 @@
             <button id="btn-wasm-hud">HUD</button>
             <div id="debug-overlay"></div>
             <div id="canvas-area">
-                <div id="game-wrapper">
-                    <canvas id="bg-canvas"></canvas>
-                    <canvas id="pyxel_canvas"></canvas>
-                    <div id="wasm-ui-cover"></div>
+                <div id="canvas-scene">
+                    <div id="game-wrapper">
+                        <canvas id="bg-canvas"></canvas>
+                        <canvas id="pyxel_canvas"></canvas>
+                    </div>
                 </div>
             </div>
             <div id="gamepad">
@@ -470,11 +469,19 @@
         const bgCanvas = document.getElementById('bg-canvas');
         const bgCtx    = bgCanvas.getContext('2d');
 
+        let hudRevealed = false;
         function resizeBgCanvas() {
             const pyxel = document.getElementById('pyxel_canvas');
+            const scene = document.getElementById('canvas-scene');
             const w = pyxel.offsetWidth, h = pyxel.offsetHeight;
-            if (w > 0 && h > 0 && (bgCanvas.width !== w || bgCanvas.height !== h)) {
-                bgCanvas.width = w; bgCanvas.height = h;
+            if (w > 0 && h > 0) {
+                if (bgCanvas.width !== w || bgCanvas.height !== h) {
+                    bgCanvas.width = w; bgCanvas.height = h;
+                }
+                // WASM UIエリア（下30%）を非表示：バトルシーンは上84/120px分のみ表示
+                const clipH = hudRevealed ? h : Math.round(h * 84 / 120);
+                scene.style.height = clipH + 'px';
+                scene.style.width  = w + 'px';
             }
         }
         window.addEventListener('resize', resizeBgCanvas);
@@ -774,13 +781,14 @@
             btnDebug.classList.toggle('on', on);
         });
 
-        // WASM HUDトグルボタン（下部UIカバーの表示/非表示）
+        // WASM HUDトグルボタン（下部UIの表示/非表示）
         const btnWasmHud = document.getElementById('btn-wasm-hud');
         const wasmUiCover = document.getElementById('wasm-ui-cover');
         btnWasmHud.addEventListener('click', () => {
-            const revealed = wasmUiCover.classList.toggle('revealed');
-            btnWasmHud.classList.toggle('on', revealed);
-            btnWasmHud.textContent = revealed ? 'HUD▲' : 'HUD';
+            hudRevealed = !hudRevealed;
+            btnWasmHud.classList.toggle('on', hudRevealed);
+            btnWasmHud.textContent = hudRevealed ? 'HUD▲' : 'HUD';
+            resizeBgCanvas();
         });
 
         // ── バトルコマンド キーシミュレーション ──────────────────────────────
