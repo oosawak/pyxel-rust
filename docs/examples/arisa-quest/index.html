@@ -2347,7 +2347,14 @@
         }
 
         // ── デバッグ静的テキスト ──────────────────────────────────────────────
-        let dbgStaticText = '(戦闘前)';
+        // 初期値: 全敵スプライト一覧を表示（バトル前から確認可能）
+        function buildAllEnemyDbgText() {
+            return ENEMY_MAP.map((e, i) =>
+                `[${i}] ${ENEMY_NAMES[i] ?? '?'}  sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}`
+            ).join('\n') +
+            `\ndest x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`;
+        }
+        let dbgStaticText = buildAllEnemyDbgText();
         let dbgArisaText  = `sx=${ARISA_SRC.sx} sy=${ARISA_SRC.sy} sw=${ARISA_SRC.sw} sh=${ARISA_SRC.sh}`;
 
         // デバッグトグルボタン
@@ -2696,13 +2703,12 @@
             _bgLoopHadBattle = false;
             _bgEndDebounce = 0;
 
-            // 静的スプライト情報をセット
+            // 静的スプライト情報をセット（全敵一覧 + 現在の敵をハイライト）
             const e = ENEMY_MAP[enemyInfo.eIdx];
-            dbgStaticText = [
-                `[${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]}`,
-                `sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}`,
-                `dest x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`,
-            ].join('\n');
+            dbgStaticText = buildAllEnemyDbgText() +
+                `\n\n▶ 戦闘中: [${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]}\n` +
+                `  sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}\n` +
+                `  dest x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`;
             dbgArisaText = [
                 `sx=${ARISA_SRC.sx} sy=${ARISA_SRC.sy} sw=${ARISA_SRC.sw} sh=${ARISA_SRC.sh}`,
                 `dest x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
