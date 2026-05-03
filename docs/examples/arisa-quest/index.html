@@ -1411,8 +1411,8 @@
                     ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h);
             }
 
-            // 距離インジケーター（画面上部）
-            const barY = 4, barX = 8, barW = 220, barH = 8;
+            // 距離インジケーター（画面右上）
+            const barW = 100, barH = 8, barX = 320 - barW - 8, barY = 4;
             // 背景トラック
             bgCtx.fillStyle = 'rgba(0,0,0,0.55)';
             bgCtx.beginPath();
@@ -1428,14 +1428,14 @@
             bgCtx.beginPath();
             bgCtx.roundRect(barX, barY, fillW, barH, 3);
             bgCtx.fill();
-            // 距離テキスト（バーの右側）
+            // 距離テキスト（バーの左側）
             const distM = Math.round(eneDest.dist ?? 0);
             const distTxt = distM < 1000 ? `${distM}m` : `${(distM/1000).toFixed(1)}km`;
             bgCtx.font = 'bold 7px monospace';
             bgCtx.fillStyle = '#fff';
-            bgCtx.textAlign = 'left';
+            bgCtx.textAlign = 'right';
             bgCtx.shadowColor = 'rgba(0,0,0,0.9)'; bgCtx.shadowBlur = 3;
-            bgCtx.fillText(`📡 ${distTxt}`, barX + barW + 5, barY + 7);
+            bgCtx.fillText(`📡 ${distTxt}`, barX - 4, barY + 7);
             bgCtx.shadowBlur = 0;
 
             bgCtx.globalAlpha = 1.0;
