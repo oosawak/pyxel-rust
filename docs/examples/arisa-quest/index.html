@@ -417,13 +417,15 @@
             animation: none;
         }
         #clash-banner.show {
-            animation: clashBanner 0.7s ease-out forwards;
+            animation: clashBanner 0.8s ease-out forwards;
         }
+        #clash-banner.clash-win  { color: #fff176; text-shadow: 0 0 14px #ff0, 0 0 28px #f80; }
+        #clash-banner.clash-lose { color: #ff8888; text-shadow: 0 0 14px #f44, 0 0 28px #800; }
         @keyframes clashBanner {
             0%   { transform: translate(-50%,-50%) scale(0); opacity: 1; }
-            30%  { transform: translate(-50%,-50%) scale(1.3); opacity: 1; }
-            70%  { transform: translate(-50%,-50%) scale(1.0); opacity: 1; }
-            100% { transform: translate(-50%,-50%) scale(1.2); opacity: 0; }
+            30%  { transform: translate(-50%,-50%) scale(1.4); opacity: 1; }
+            70%  { transform: translate(-50%,-50%) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%,-50%) scale(1.3); opacity: 0; }
         }
         #battle-commands {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
@@ -1758,11 +1760,11 @@
         // ── 落下コマンドタイムライン ─────────────────────────────────────────
         // 敵ごとの設定（fallMs=落下時間＝攻撃ラグ、intervalMs=次の攻撃カード間隔）
         const ENEMY_TL_CONFIG = [
-            { fallMs: 1500, intervalMs: 4500, atkLabel: 'ぺたり',       atkIcon: '💦' }, // スライム（小）
-            { fallMs: 2200, intervalMs: 3800, atkLabel: 'ひっかき',     atkIcon: '⚡' }, // シャドウキャット（普通）
-            { fallMs: 1800, intervalMs: 3200, atkLabel: 'ファイア',     atkIcon: '🔥' }, // フレイムインプ（速い）
-            { fallMs: 3500, intervalMs: 5500, atkLabel: 'たたりつき',   atkIcon: '👻' }, // ゴースト（大型）
-            { fallMs: 5000, intervalMs: 8000, atkLabel: 'ガンダンセイケン', atkIcon: '💥' }, // ロックゴーレム（ボス）
+            { fallMs: 1500, intervalMs: 4500, atkLabel: 'ぺたり',       atkIcon: '💦', atkType: 'ranged'  }, // スライム（小）
+            { fallMs: 2200, intervalMs: 3800, atkLabel: 'ひっかき',     atkIcon: '⚡', atkType: 'melee'   }, // シャドウキャット（普通）
+            { fallMs: 1800, intervalMs: 3200, atkLabel: 'ファイア',     atkIcon: '🔥', atkType: 'skill'   }, // フレイムインプ（速い）
+            { fallMs: 3500, intervalMs: 5500, atkLabel: 'たたりつき',   atkIcon: '👻', atkType: 'skill'   }, // ゴースト（大型）
+            { fallMs: 5000, intervalMs: 8000, atkLabel: 'ガンダンセイケン', atkIcon: '💥', atkType: 'melee' }, // ロックゴーレム（ボス）
         ];
 
         let tlEnemyBarTimer  = null;
@@ -1774,16 +1776,33 @@
 
         // ── クラッシュ（相殺）システム ──────────────────────────────────────
         const CLASH_WINDOW_MS = 220; // この時間内に両者が着地したらクラッシュ
-        let pendingPlayerAtk  = null; // { timer, cancelFn }
+        let pendingPlayerAtk  = null; // { timer, cancelFn, cmdType }
         let pendingEnemyAtk   = null;
 
-        function showClashBanner() {
+        // じゃんけん三角: melee > ranged > skill > melee
+        // 'win' = プレイヤー勝ち, 'lose' = プレイヤー負け, 'draw' = 引き分け（相殺）
+        const JANKEN_TABLE = {
+            melee:  { melee: 'draw', ranged: 'win',  skill: 'lose' },
+            ranged: { melee: 'lose', ranged: 'draw', skill: 'win'  },
+            skill:  { melee: 'win',  ranged: 'lose', skill: 'draw' },
+            item:   { melee: 'draw', ranged: 'draw', skill: 'draw' }, // neutral
+            run:    { melee: 'lose', ranged: 'lose', skill: 'lose' }, // 常に負け
+            lure:   { melee: 'win',  ranged: 'win',  skill: 'win'  }, // 誘うは特殊
+        };
+
+        function jankenResult(playerType, enemyType) {
+            return JANKEN_TABLE[playerType]?.[enemyType] ?? 'draw';
+        }
+
+        function showClashBanner(result) {
             const el = document.getElementById('clash-banner');
             if (!el) return;
-            el.classList.remove('show');
-            void el.offsetWidth; // reflow
+            el.classList.remove('show', 'clash-win', 'clash-lose');
+            if (result === 'win')  el.classList.add('clash-win');
+            if (result === 'lose') el.classList.add('clash-lose');
+            void el.offsetWidth;
             el.classList.add('show');
-            setTimeout(() => el.classList.remove('show'), 750);
+            setTimeout(() => el.classList.remove('show', 'clash-win', 'clash-lose'), 900);
         }
 
         // ── SP システム ──────────────────────────────────────────────────────
@@ -1888,7 +1907,7 @@
             return Math.max(600, 2200 - (lv - 1) * 150);
         }
 
-        function spawnFallCard(laneEl, icon, label, cssClass, fallMs, onArrive, side) {
+        function spawnFallCard(laneEl, icon, label, cssClass, fallMs, onArrive, side, cmdType) {
             const headerH = laneEl.querySelector('.tl-header')?.offsetHeight ?? 36;
             const laneH   = laneEl.clientHeight || 280;
             const barH    = 6;
@@ -1914,21 +1933,50 @@
             };
 
             const t = setTimeout(() => {
-                // ── クラッシュ判定 ──
+                // ── クラッシュ / じゃんけん判定 ──
                 const other = side === 'player' ? pendingEnemyAtk : (side === 'enemy' ? pendingPlayerAtk : null);
                 if (side && other) {
-                    // 相手の攻撃がまだ pending → 相殺！
-                    other.cancelFn();
-                    if (side === 'player') { pendingEnemyAtk  = null; }
-                    else                   { pendingPlayerAtk = null; }
+                    other.cancelFn(); // 相手の通常発動を止める
+                    if (side === 'player') pendingEnemyAtk  = null;
+                    else                   pendingPlayerAtk = null;
+
+                    // じゃんけん判定
+                    const playerType = side === 'player' ? cmdType : other.cmdType;
+                    const enemyType  = side === 'enemy'  ? cmdType : other.cmdType;
+                    const result     = jankenResult(playerType ?? 'melee', enemyType ?? 'melee');
+
                     card.classList.add('clash-flash');
-                    showClashBanner();
-                    pushBattleMsg('⚡ 相殺！', 'system');
                     if (side === 'player') playerQueueCnt = Math.max(0, playerQueueCnt - 1);
+
+                    if (result === 'draw') {
+                        showClashBanner('draw');
+                        pushBattleMsg('⚡ 相殺！', 'system');
+                    } else if (result === 'win') {
+                        showClashBanner('win');
+                        pushBattleMsg('💥 クリティカル！', 'attack');
+                        // プレイヤーが勝ち → クリティカル攻撃発動（相手onArriveを強化版で実行）
+                        const winCfg = side === 'player' ? { keyCodes: other._keyCodes, fn: onArrive } : { fn: other._onArrive };
+                        const critFn = side === 'player' ? onArrive : other._onArrive;
+                        if (critFn) {
+                            window._criticalMultiplier = 2.0;
+                            critFn();
+                            window._criticalMultiplier = 1.0;
+                        }
+                    } else {
+                        // result === 'lose' → 敵クリティカル
+                        showClashBanner('lose');
+                        pushBattleMsg('💀 敵のクリティカル！', 'damage');
+                        const enemyFn = side === 'enemy' ? onArrive : other._onArrive;
+                        if (enemyFn) {
+                            window._criticalMultiplier = 2.0;
+                            enemyFn();
+                            window._criticalMultiplier = 1.0;
+                        }
+                    }
                     removeCard();
                     return;
                 }
-                // ── 通常発動（CLASH_WINDOW_MS 後に実行 / その間に相手が来たら相殺） ──
+                // ── 通常発動（CLASH_WINDOW_MS 後に実行 / その間に相手が来たらじゃんけん） ──
                 card.classList.add('execute-flash');
                 const execTimer = setTimeout(() => {
                     onArrive();
@@ -1937,6 +1985,8 @@
                     removeCard();
                 }, CLASH_WINDOW_MS);
                 const pending = {
+                    cmdType,
+                    _onArrive: onArrive,
                     cancelFn: () => {
                         clearTimeout(execTimer);
                         card.classList.remove('execute-flash');
@@ -1974,7 +2024,7 @@
                     if (!inBattle) return;
                     simulateKeys([[45,true],[45,false]]);
                     pushBattleMsg(`💀 ${cfg.atkLabel}！`, 'damage');
-                }, 'enemy');
+                }, 'enemy', cfg.atkType ?? 'melee');
                 scheduleEnemyCard(cfg);
             });
         }
@@ -2015,7 +2065,7 @@
                 if (!inBattle) return;
                 if (keyCodes.length > 0) simulateKeys(keyCodes);
                 pushBattleMsg(`${icon} ${label}！`, 'attack');
-            }, 'player');
+            }, 'player', cmdId ?? 'melee');
         }
 
         // ── デバッグ静的テキスト ──────────────────────────────────────────────
