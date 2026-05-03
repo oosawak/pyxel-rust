@@ -1616,12 +1616,14 @@
         btnToggle3d.addEventListener('click', () => {
             is3dMode = !is3dMode;
             if (is3dMode) {
+                // 先にコンテナを表示してからMapLibreを初期化（サイズ計算のため）
+                document.getElementById('map').style.visibility = 'hidden';
+                document.getElementById('map-3d').style.display = 'block';
                 initMapLibre();
+                map3d.resize(); // コンテナサイズを再計算
                 const c = map.getCenter();
                 map3d.setCenter([c.lng, c.lat]);
                 map3d.setZoom(map.getZoom());
-                document.getElementById('map').style.visibility = 'hidden';
-                document.getElementById('map-3d').style.display = 'block';
                 btnToggle3d.textContent = '🌐 3D';
                 btnToggle3d.classList.add('active');
                 btnTileSwitch.style.opacity = '0.4';
