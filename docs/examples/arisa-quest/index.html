@@ -1233,33 +1233,6 @@
         const ARISA_DEST = { x: 25, y: 82, w: 60 };
         const ARISA_SRC  = { sx: 0, sy: 33, sw: 95, sh: 120 };
 
-        // ── アリサスプライトシートをWASMに登録（新スプライトシート: 128×128px/フレーム、8列×12行）──
-        async function loadSpriteSheetForWasm(slot, url, frameW, frameH, cols) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    // マゼンタ透過処理
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.naturalWidth;
-                    canvas.height = img.naturalHeight;
-                    const ctx2 = canvas.getContext('2d');
-                    ctx2.drawImage(img, 0, 0);
-                    const id = ctx2.getImageData(0, 0, canvas.width, canvas.height);
-                    const d = id.data;
-                    for (let i = 0; i < d.length; i += 4) {
-                        if (d[i] > 200 && d[i+1] < 50 && d[i+2] > 200) d[i+3] = 0;
-                    }
-                    ctx2.putImageData(id, 0, 0);
-                    // WASMに登録
-                    register_sprite_sheet(slot, canvas, frameW, frameH, cols);
-                    resolve();
-                };
-                img.onerror = () => resolve();
-                img.src = url;
-            });
-        }
-
         // 敵はGPS距離で動的計算（下記 calcEnemyDest() 参照）
         // 遠い(t=0): 右上・小 → 近い(t=1): 右下・大
         // h はENEMY_MAPのSRC比率から自動計算（縦横比を維持）
@@ -2916,6 +2889,33 @@
             get_enemy_hp, get_enemy_max_hp,
             start_battle_from_js,
         } from './pkg/pyxel_rust.js';
+
+        // アリサスプライトシートをWASMに登録（module内でregister_sprite_sheetに直接アクセス）
+        async function loadSpriteSheetForWasm(slot, url, frameW, frameH, cols) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    // マゼンタ透過処理
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx2 = canvas.getContext('2d');
+                    ctx2.drawImage(img, 0, 0);
+                    const id = ctx2.getImageData(0, 0, canvas.width, canvas.height);
+                    const d = id.data;
+                    for (let i = 0; i < d.length; i += 4) {
+                        if (d[i] > 200 && d[i+1] < 50 && d[i+2] > 200) d[i+3] = 0;
+                    }
+                    ctx2.putImageData(id, 0, 0);
+                    register_sprite_sheet(slot, canvas, frameW, frameH, cols);
+                    resolve();
+                };
+                img.onerror = (e) => { console.warn('sprite sheet load failed:', e); resolve(); };
+                img.src = url;
+            });
+        }
+
         try {
             await init('./pkg/pyxel_rust_bg.wasm');
             window.wasmModule = {
