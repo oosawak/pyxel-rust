@@ -47,10 +47,11 @@
         .back-link a { color: #7ec8e3; text-decoration: none; }
 
         /* ── Main area ────────────────────────────────────────────── */
+        :root { --tab-h: 52px; }
         #main { flex: 1; position: relative; overflow: hidden; min-height: 0; }
 
         /* ── Map layer ───────────────────────────────────────────── */
-        #map-layer { position: absolute; inset: 0; z-index: 1; }
+        #map-layer { position: absolute; inset: 0; bottom: var(--tab-h); z-index: 1; }
         /* Dark overlay with multiply blend — darkens map while keeping contrast */
         #map-dark-overlay {
             position: absolute; inset: 0; z-index: 2;
@@ -89,7 +90,7 @@
 
         /* ── Battle overlay (hidden until battle) ────────────────── */
         #battle-overlay {
-            position: absolute; inset: 0; z-index: 10;
+            position: absolute; inset: 0; bottom: var(--tab-h); z-index: 10;
             display: none; flex-direction: column;
             background: #000;
         }
@@ -193,7 +194,9 @@
 
         /* ── タブバー ─────────────────────────────────────────────── */
         #tab-bar {
-            display: flex; border-top: 1px solid #1a0830;
+            position: absolute; bottom: 0; left: 0; right: 0; z-index: 30;
+            display: flex; border-top: 2px solid #1a0830;
+            background: #08041a;
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
         .tab-btn {
@@ -376,12 +379,14 @@
                     <button class="battle-cmd" id="cmd-item">🎒 どうぐ</button>
                     <button class="battle-cmd" id="cmd-run">💨 にげる</button>
                 </div>
-                <div id="tab-bar">
-                    <button class="tab-btn" id="tab-map">🗺 マップ</button>
-                    <button class="tab-btn active" id="tab-battle">⚔ バトル</button>
-                    <button class="tab-btn" id="tab-status">📋 ステータス</button>
-                </div>
             </div>
+        </div>
+
+        <!-- タブバー（常時表示） -->
+        <div id="tab-bar">
+            <button class="tab-btn active" id="tab-map">🗺 マップ</button>
+            <button class="tab-btn" id="tab-battle">⚔ バトル</button>
+            <button class="tab-btn" id="tab-status">📋 ステータス</button>
         </div>
 
     </div><!-- #main -->
@@ -772,20 +777,26 @@
         document.getElementById('cmd-run').addEventListener('click',    () => simulateKeys(CMD_RUN));
 
         // タブ切り替え
-        document.getElementById('tab-battle').addEventListener('click', () => {
+        function setActiveTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-battle').classList.add('active');
-            document.getElementById('battle-commands').style.display = 'grid';
+            document.getElementById(tabId).classList.add('active');
+        }
+        document.getElementById('tab-map').addEventListener('click', () => {
+            setActiveTab('tab-map');
+            battleOverlay.classList.remove('active');
+            battleUI.classList.remove('active');
+        });
+        document.getElementById('tab-battle').addEventListener('click', () => {
+            setActiveTab('tab-battle');
+            if (inBattle) {
+                battleOverlay.classList.add('active');
+                battleUI.classList.add('active');
+            }
         });
         document.getElementById('tab-status').addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-status').classList.add('active');
-            // デバッグパネルをトグル（ステータス確認）
+            setActiveTab('tab-status');
             const on = dbgOverlay.classList.toggle('visible');
             btnDebug.classList.toggle('on', on);
-        });
-        document.getElementById('tab-map').addEventListener('click', () => {
-            if (!inBattle) battleOverlay.classList.remove('active');
         });
 
         function triggerBattle(enemyInfo) {
@@ -794,6 +805,7 @@
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
             battleOverlay.classList.add('active');
             battleUI.classList.add('active');
+            setActiveTab('tab-battle');
             requestAnimationFrame(() => resizeBgCanvas());
 
             // 静的スプライト情報をセット
@@ -820,6 +832,7 @@
             inBattle = false;
             battleOverlay.classList.remove('active');
             battleUI.classList.remove('active');
+            setActiveTab('tab-map');
 
             // Remove defeated enemy marker (if enemy still alive, keep it)
             const state = window.wasmModule?.get_game_state?.() ?? 0;
