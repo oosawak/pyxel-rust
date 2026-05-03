@@ -2672,7 +2672,7 @@
             // 攻撃アニメ等で一時的にstate!=2になるため、3連続で非バトルを確認してから終了。
             let seenBattleState = false;
             let nonBattleCount  = 0;
-            const seenFallback = setTimeout(() => { seenBattleState = true; }, 2000);
+            const seenFallback = setTimeout(() => { seenBattleState = true; }, 1400);
             watchInterval = setInterval(() => {
                 if (!inBattle) { clearInterval(watchInterval); clearTimeout(seenFallback); return; }
                 const state = window.wasmModule.get_game_state?.() ?? 0;
@@ -2710,10 +2710,10 @@
                 battleOverlay.classList.remove('active', 'ending');
                 battleOverlay.style.display = 'none';
                 setActiveTab('tab-map');
-            }, 1600);
+            }, 1000);
             // battle-msg-log を次の戦闘のためにクリア
             const msgLog = document.getElementById('battle-msg-log');
-            if (msgLog) setTimeout(() => { msgLog.innerHTML = ''; }, 2000);
+            if (msgLog) setTimeout(() => { msgLog.innerHTML = ''; }, 1400);
 
             const state = window.wasmModule?.get_game_state?.() ?? 0;
             if (state === 1) {
@@ -2763,7 +2763,7 @@
             setTimeout(() => {
                 resultEl.classList.add('active');
                 updateStatusBar();
-            }, 1800);
+            }, 1200);
         }
 
         // ── Status bar update ────────────────────────────────────────────────
