@@ -2108,8 +2108,11 @@
         }
         function triggerAutoCmd() {
             if (!autoInterval || !autoCmd) return;
-            if (playerQueueCnt >= MAX_QUEUE) return; // キュー満杯ならSPを消費しない
+            if (playerQueueCnt >= MAX_QUEUE) return;
+            const now = Date.now();
+            if (now - _autoLastFire < AUTO_COOLDOWN_MS) return; // クールダウン中
             if (!consumeSP(autoCmd)) return;
+            _autoLastFire = now;
             const cfg = getAutoCmdCfg(autoCmd);
             if (cfg) queuePlayerCmd(cfg.keyCodes, cfg.icon, cfg.label, autoCmd);
         }
@@ -2456,6 +2459,8 @@
         // autoInterval: true=オートON, null=手動
         let autoInterval = null;
         let autoCmd      = null; // 現在オート選択中のコマンドID
+        let _autoLastFire = 0;   // オートコマンド最終発火時刻（クールダウン用）
+        const AUTO_COOLDOWN_MS = 2000; // オート発火間隔
 
         function updateCmdButtons() {
             for (const [id, cost] of Object.entries(SP_COSTS)) {
@@ -2503,6 +2508,7 @@
                 // 手動→オート
                 autoInterval = true;
                 autoCmd = 'melee';
+                _autoLastFire = 0; // 即時発火させるためリセット
                 btn.classList.add('active-auto');
                 updateAutoCmdHighlight();
                 updateCmdButtons();
