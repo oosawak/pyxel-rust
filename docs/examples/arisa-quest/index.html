@@ -252,6 +252,47 @@
         #cmd-run    { border-color: #888899; color: #ccccdd; }
         #cmd-run:active    { background: #111122; border-color: #aaaacc; }
 
+        /* ── バトルメッセージログ ──────────────────────────────── */
+        #battle-msg-log {
+            position: absolute; left: 0; right: 0; bottom: 18px; z-index: 20;
+            pointer-events: none;
+            padding: 0 8px;
+            display: flex; flex-direction: column; gap: 3px;
+            justify-content: flex-end;
+        }
+        .battle-msg-item {
+            display: flex; align-items: center; gap: 7px;
+            padding: 5px 10px 5px 10px;
+            background: rgba(0, 0, 12, 0.86);
+            backdrop-filter: blur(6px) saturate(1.2);
+            border-left: 3px solid #00ffcc;
+            border-radius: 0 7px 7px 0;
+            font-family: 'DotGothic16', monospace;
+            font-size: 0.82rem; color: #d8f8ff;
+            letter-spacing: 0.04em;
+            text-shadow: 0 0 10px rgba(0,255,200,0.45);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.6),
+                        inset 0 0 0 1px rgba(255,255,255,0.04);
+            animation: msgSlideIn 0.22s ease-out, msgFadeOut 0.5s 2.6s ease-in forwards;
+            transform-origin: left center;
+        }
+        .battle-msg-item .msg-icon { font-size: 0.9rem; flex-shrink: 0; }
+        .battle-msg-item.type-attack  { border-left-color: #ff6644; color: #ffe8d8; text-shadow: 0 0 8px rgba(255,100,50,0.4); }
+        .battle-msg-item.type-damage  { border-left-color: #ff3366; color: #ffc8d8; text-shadow: 0 0 8px rgba(255,50,100,0.4); }
+        .battle-msg-item.type-skill   { border-left-color: #44aaff; color: #c8e8ff; text-shadow: 0 0 8px rgba(50,160,255,0.4); }
+        .battle-msg-item.type-item    { border-left-color: #44cc88; color: #c8ffdc; text-shadow: 0 0 8px rgba(50,200,120,0.4); }
+        .battle-msg-item.type-run     { border-left-color: #aabbcc; color: #dde8f0; text-shadow: 0 0 8px rgba(170,190,210,0.3); }
+        .battle-msg-item.type-info    { border-left-color: #ffcc44; color: #fff8d8; text-shadow: 0 0 8px rgba(255,200,50,0.4); }
+        .battle-msg-item.type-system  { border-left-color: #aa66ff; color: #e8d8ff; text-shadow: 0 0 10px rgba(170,100,255,0.45); }
+        @keyframes msgSlideIn {
+            from { opacity: 0; transform: translateX(-14px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes msgFadeOut {
+            from { opacity: 1; }
+            to   { opacity: 0; transform: translateX(-6px); }
+        }
+
         /* ── バトル結果画面 ─────────────────────────────────────── */
         #battle-result {
             display: none;
@@ -558,8 +599,33 @@
     <script>
         const ASSET_BASE = '../../assets/design/';
         const BG_COLS = 6, BG_CW = 256, BG_CH = 256;
-        const ARISA_DEST = { x: 4, y: 4,   w: 120, h: 160 };
-        const ENE_DEST   = { x: 176, y: 8, w: 140, h: 152 };
+
+        // アリサは左下固定（小さめ）
+        const ARISA_DEST = { x: 2, y: 68, w: 72, h: 98 };
+
+        // 敵はGPS距離で動的計算（下記 calcEnemyDest() 参照）
+        // 遠い(t=0): 右上・小 → 近い(t=1): 右下・大
+        const ENE_FAR  = { x: 210, y: 18, w: 44,  h: 46  };
+        const ENE_NEAR = { x: 155, y: 36, w: 145, h: 128 };
+        const DIST_FAR  = 250; // m: これ以上遠ければ最小サイズ
+        const DIST_NEAR =  20; // m: これ以下なら最大サイズ
+
+        function calcEnemyDest() {
+            if (!window.currentEnemyInfo || !window.arisaPos) return ENE_NEAR;
+            const [aLat, aLng] = window.arisaPos;
+            const dLat = (window.currentEnemyInfo.lat - aLat) * 111320;
+            const dLng = (window.currentEnemyInfo.lng - aLng) * 111320 * Math.cos(aLat * Math.PI / 180);
+            const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+            const t = Math.max(0, Math.min(1, (DIST_FAR - dist) / (DIST_FAR - DIST_NEAR)));
+            return {
+                x: ENE_FAR.x + (ENE_NEAR.x - ENE_FAR.x) * t,
+                y: ENE_FAR.y + (ENE_NEAR.y - ENE_FAR.y) * t,
+                w: ENE_FAR.w + (ENE_NEAR.w - ENE_FAR.w) * t,
+                h: ENE_FAR.h + (ENE_NEAR.h - ENE_FAR.h) * t,
+                dist,
+                t,
+            };
+        }
 
         const ENEMY_MAP = [
             { sheet: 'enemy-sprites', sx: 256, sy: 256, sw: 256, sh: 128 }, // 0: スライム
@@ -741,21 +807,52 @@
             // Draw characters in scaled 320×168 virtual space
             beginScaledDraw();
 
-            // Arisa (left, idle pose: top-left 128×106 of first cell, skip 22px label)
+            // GPS距離から敵の位置・サイズを計算
+            const eneDest = calcEnemyDest();
+
+            // 敵（距離に応じた位置・サイズ）
+            if (enemyIdx >= 0 && enemyIdx < ENEMY_MAP.length) {
+                const e = ENEMY_MAP[enemyIdx];
+                if (enemyFlash <= 0 || Math.floor(enemyFlash / 4) % 2 === 0) {
+                    bgCtx.drawImage(SHEETS[e.sheet], e.sx, e.sy, e.sw, e.sh,
+                        eneDest.x, eneDest.y, eneDest.w, eneDest.h);
+                }
+            }
+
+            // アリサ（左下固定）
             if (playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0) {
                 bgCtx.drawImage(SHEETS['arisa-player-sprites'],
                     0, 22, 128, 106,
                     ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h);
             }
 
-            // Enemy (right, slightly higher)
-            if (enemyIdx >= 0 && enemyIdx < ENEMY_MAP.length) {
-                const e = ENEMY_MAP[enemyIdx];
-                if (enemyFlash <= 0 || Math.floor(enemyFlash / 4) % 2 === 0) {
-                    bgCtx.drawImage(SHEETS[e.sheet], e.sx, e.sy, e.sw, e.sh,
-                        ENE_DEST.x, ENE_DEST.y, ENE_DEST.w, ENE_DEST.h);
-                }
-            }
+            // 距離インジケーター（画面下部）
+            const barY = 152, barX = 8, barW = 304, barH = 10;
+            // 背景トラック
+            bgCtx.fillStyle = 'rgba(0,0,0,0.45)';
+            bgCtx.beginPath();
+            bgCtx.roundRect(barX - 1, barY - 1, barW + 2, barH + 2, 4);
+            bgCtx.fill();
+            // グラデーションバー（t=1が近い=左端が緑）
+            const grad = bgCtx.createLinearGradient(barX, 0, barX + barW, 0);
+            grad.addColorStop(0,   'rgba(0,255,120,0.9)');
+            grad.addColorStop(0.5, 'rgba(255,220,0,0.9)');
+            grad.addColorStop(1,   'rgba(255,60,60,0.9)');
+            bgCtx.fillStyle = grad;
+            const fillW = barW * eneDest.t;
+            bgCtx.beginPath();
+            bgCtx.roundRect(barX, barY, fillW, barH, 3);
+            bgCtx.fill();
+            // 距離テキスト
+            const distM = Math.round(eneDest.dist ?? 0);
+            const distTxt = distM < 1000 ? `${distM}m` : `${(distM/1000).toFixed(1)}km`;
+            bgCtx.font = 'bold 8px monospace';
+            bgCtx.fillStyle = '#fff';
+            bgCtx.textAlign = 'right';
+            bgCtx.shadowColor = 'rgba(0,0,0,0.8)'; bgCtx.shadowBlur = 3;
+            bgCtx.fillText(`距離 ${distTxt}`, barX + barW, barY - 2);
+            bgCtx.shadowBlur = 0; bgCtx.textAlign = 'left';
+
             bgCtx.globalAlpha = 1.0;
             bgCtx.restore();
         }
@@ -978,6 +1075,7 @@
                     // マーカー配置・地図移動
                     const defLat = 38.2553, defLng = 140.3394;
                     arisaPos = [lat, lng];
+                    window.arisaPos = arisaPos;
                     map.setView([lat, lng], 17);
                     playerMarker = L.marker([lat, lng], { icon: playerIcon(), zIndexOffset: 900 }).addTo(map);
                     arisaMarker  = L.marker([lat + 0.00005, lng], { icon: arisaIcon(true), zIndexOffset: 1000 }).addTo(map);
@@ -1018,6 +1116,7 @@
                 } else {
                     // 確定済み → マーカー位置のみ更新
                     arisaPos = [lat, lng];
+                    window.arisaPos = arisaPos;
                     if (mapFollowArisa) map.setView([lat, lng], map.getZoom());
                     playerMarker?.setLatLng([lat, lng]);
                     arisaMarker?.setLatLng([lat + 0.00005, lng]);
@@ -1195,6 +1294,8 @@
         function triggerBattle(enemyInfo) {
             if (inBattle || !window.wasmModule) return;
             inBattle = true;
+            currentEnemyInfo = enemyInfo;
+            window.currentEnemyInfo = enemyInfo;
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
             battleOverlay.classList.add('active');
             battleUI.classList.add('active');
