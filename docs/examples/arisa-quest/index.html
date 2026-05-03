@@ -373,7 +373,7 @@
         }
         #battle-timeline.active { display: block; }
         .tl-lane {
-            position: absolute; top: 0; bottom: 0; width: 20px;
+            position: absolute; top: 0; width: 20px;
             background: rgba(0,0,10,0.62);
             border-radius: 4px; overflow: hidden;
         }
@@ -1302,6 +1302,25 @@
                     bgCanvas.style.height = canvasArea.offsetHeight + 'px';
                 }
             }
+            updateLaneHeight();
+        }
+
+        // タイムラインレーンの高さをアリサの足元に合わせる
+        function updateLaneHeight() {
+            const canvasArea = document.getElementById('canvas-area');
+            if (!canvasArea) return;
+            const dpr = window.devicePixelRatio || 1;
+            const bw = canvasArea.offsetWidth  * dpr;
+            const bh = canvasArea.offsetHeight * dpr;
+            if (bw <= 0 || bh <= 0) return;
+            const s = Math.min(bw / 320, bh / 168);
+            const yOff = (bh - 168 * s) / 2;
+            const ariH = ARISA_DEST.w * (ARISA_SRC.sh / ARISA_SRC.sw);
+            const feetCssPx = (yOff + (ARISA_DEST.y + ariH) * s) / dpr;
+            ['tl-left', 'tl-right'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.height = feetCssPx + 'px';
+            });
         }
         window.addEventListener('resize', resizeBgCanvas);
 
@@ -1451,6 +1470,17 @@
 
             bgCtx.globalAlpha = 1.0;
             bgCtx.restore();
+
+            // 地面オーバーレイ（アリサの足元から画面下端まで半透明黒）
+            {
+                const ariH2 = ARISA_DEST.w * (ARISA_SRC.sh / ARISA_SRC.sw);
+                const feetVY = ARISA_DEST.y + ariH2;
+                const s2 = Math.min(bgCanvas.width / 320, bgCanvas.height / 168);
+                const yOff2 = (bgCanvas.height - 168 * s2) / 2;
+                const feetPx = yOff2 + feetVY * s2;
+                bgCtx.fillStyle = 'rgba(0,0,0,0.55)';
+                bgCtx.fillRect(0, feetPx, bgCanvas.width, bgCanvas.height - feetPx);
+            }
         }
 
         function bgLoop() { renderBg(); requestAnimationFrame(bgLoop); }
