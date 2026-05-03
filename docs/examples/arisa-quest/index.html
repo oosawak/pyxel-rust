@@ -60,6 +60,40 @@
             pointer-events: none;
         }
 
+        /* ── 電子空間オーバーレイ（GPS確定前） ────────────────────── */
+        #cyber-overlay {
+            position: absolute; inset: 0; z-index: 600;
+            background: #000814;
+            display: none; align-items: center; justify-content: center;
+            overflow: hidden;
+            opacity: 1; transition: opacity 1.4s ease;
+        }
+        #cyber-overlay.active { display: flex; }
+        #cyber-overlay.fade-out { opacity: 0; }
+        #cyber-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #cyber-status {
+            position: relative; z-index: 1;
+            text-align: center; pointer-events: none;
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        #cyber-icon {
+            font-size: 2.8rem; animation: cyberPulse 1.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 12px #00ffcc);
+        }
+        #cyber-text {
+            font-family: 'DotGothic16', monospace; font-size: 1rem;
+            color: #00ffcc; letter-spacing: 0.12em;
+            text-shadow: 0 0 10px #00ffcc;
+        }
+        #cyber-sub {
+            font-family: monospace; font-size: 0.65rem;
+            color: rgba(0,255,200,0.55); letter-spacing: 0.2em;
+        }
+        @keyframes cyberPulse {
+            0%,100% { transform: scale(1);   opacity: 1;    }
+            50%      { transform: scale(1.15); opacity: 0.7; }
+        }
+
         /* ── Location overlay ────────────────────────────────────── */
         #loc-overlay {
             position: absolute; inset: 0; z-index: 1000;
@@ -352,6 +386,15 @@
         <div id="map-layer">
             <div id="map" style="width:100%;height:100%"></div>
             <div id="map-dark-overlay"></div>
+            <!-- 電子空間オーバーレイ（GPS確定前） -->
+            <div id="cyber-overlay">
+                <canvas id="cyber-canvas"></canvas>
+                <div id="cyber-status">
+                    <div id="cyber-icon">⬡</div>
+                    <div id="cyber-text">電子空間に接続中...</div>
+                    <div id="cyber-sub">GPS SIGNAL SCANNING</div>
+                </div>
+            </div>
             <button id="btn-recenter" title="現在地に戻る">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                     <circle cx="12" cy="12" r="5.5"/>
@@ -781,7 +824,6 @@
         }
 
         // ── GPS ───────────────────────────────────────────────────────────────
-        let isTokyoFallback = false;
         let mapFollowArisa = true; // GPS更新時に自動追従するか
 
         // 現在地に戻るボタン
@@ -803,35 +845,127 @@
             document.getElementById('loc-overlay').style.display = 'none';
             btnRecenter.style.display = 'none';
 
-            // ボタンを押した瞬間に即座に東京でマーカーを表示（敵はスポーンしない）
-            const defLat = 35.6895, defLng = 139.6917;
-            arisaPos = [defLat, defLng];
-            map.setView([defLat, defLng], 17);
-            playerMarker = L.marker([defLat, defLng], { icon: playerIcon(), zIndexOffset: 900 }).addTo(map);
-            arisaMarker = L.marker([defLat + 0.00005, defLng], { icon: arisaIcon(true), zIndexOffset: 1000 }).addTo(map);
-            arisaMarker.on('click', onArisaTap);
-            isTokyoFallback = true;
-            mapFollowArisa = true;
+            // 電子空間を表示してマトリックスアニメーション開始
+            const cyberOverlay = document.getElementById('cyber-overlay');
+            const cyberCanvas  = document.getElementById('cyber-canvas');
+            const cyberText    = document.getElementById('cyber-text');
+            const cyberSub     = document.getElementById('cyber-sub');
+            const cyberIcon    = document.getElementById('cyber-icon');
+            cyberOverlay.classList.add('active');
 
-            // GPS が取れたら現在地に更新（敵は自動スポーンしない）
+            // マトリックス雨アニメーション
+            const cctx = cyberCanvas.getContext('2d');
+            function resizeCyberCanvas() {
+                cyberCanvas.width  = cyberOverlay.offsetWidth;
+                cyberCanvas.height = cyberOverlay.offsetHeight;
+            }
+            resizeCyberCanvas();
+            const KANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+            const CHARS = (KANA + '0123456789ABCDEF@#$%').split('');
+            const COL_W = 18;
+            let drops = [];
+            function resetDrops() {
+                const cols = Math.floor(cyberCanvas.width / COL_W);
+                drops = Array.from({ length: cols }, () => Math.random() * -50);
+            }
+            resetDrops();
+            let cyberRunning = true;
+            function drawCyber() {
+                if (!cyberRunning) return;
+                cctx.fillStyle = 'rgba(0,8,20,0.18)';
+                cctx.fillRect(0, 0, cyberCanvas.width, cyberCanvas.height);
+                drops.forEach((y, i) => {
+                    const ch = CHARS[Math.floor(Math.random() * CHARS.length)];
+                    // 先頭は明るく
+                    cctx.fillStyle = `rgba(180,255,240,${0.5 + Math.random() * 0.5})`;
+                    cctx.font = `bold ${COL_W - 2}px monospace`;
+                    cctx.fillText(ch, i * COL_W, y * COL_W);
+                    // トレイルは暗いシアン
+                    cctx.fillStyle = `rgba(0,200,140,${0.15 + Math.random() * 0.2})`;
+                    cctx.font = `${COL_W - 4}px monospace`;
+                    const trail = CHARS[Math.floor(Math.random() * CHARS.length)];
+                    cctx.fillText(trail, i * COL_W, (y - 2) * COL_W);
+                    if (y * COL_W > cyberCanvas.height && Math.random() > 0.97) drops[i] = 0;
+                    else drops[i] += 0.6;
+                });
+                requestAnimationFrame(drawCyber);
+            }
+            drawCyber();
+
+            // GPS確定後に地図を表示する関数
+            let gpsResolved = false;
+            function revealMap(lat, lng, toastMsg) {
+                if (gpsResolved) return;
+                gpsResolved = true;
+                cyberRunning = false;
+
+                // ステータステキスト更新
+                cyberIcon.textContent = '📍';
+                cyberText.textContent = '座標確定！';
+                cyberSub.textContent  = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+                setTimeout(() => {
+                    // フェードアウト開始
+                    cyberOverlay.classList.add('fade-out');
+                    // マーカー配置・地図移動
+                    const defLat = 35.6895, defLng = 139.6917;
+                    arisaPos = [lat, lng];
+                    map.setView([lat, lng], 17);
+                    playerMarker = L.marker([lat, lng], { icon: playerIcon(), zIndexOffset: 900 }).addTo(map);
+                    arisaMarker  = L.marker([lat + 0.00005, lng], { icon: arisaIcon(true), zIndexOffset: 1000 }).addTo(map);
+                    arisaMarker.on('click', onArisaTap);
+                    mapFollowArisa = true;
+                    showToast(toastMsg);
+                    // フェードアウト完了後に非表示
+                    setTimeout(() => {
+                        cyberOverlay.classList.remove('active');
+                        cyberOverlay.classList.remove('fade-out');
+                    }, 1500);
+                }, 1200);
+            }
+
+            // GPS タイムアウト（12秒）→ 東京フォールバック
+            const fallbackTimer = setTimeout(() => {
+                cyberText.textContent = '東京にワープ中...';
+                cyberSub.textContent  = 'GPS TIMEOUT — WARP TO TOKYO';
+                cyberIcon.textContent = '⚡';
+                setTimeout(() => revealMap(35.6895, 139.6917, '⚡ 東京にワープしました'), 800);
+            }, 12000);
+
+            // GPS取得
             const opts = { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 };
-            // 位置オフセット（テスト用）: 西に約10km = 経度 -0.110
             const LAT_OFFSET =  0.000;
             const LNG_OFFSET = -0.110;
+            let firstFix = true;
             const onPos = pos => {
                 const lat = pos.coords.latitude  + LAT_OFFSET;
                 const lng = pos.coords.longitude + LNG_OFFSET;
-                arisaPos = [lat, lng];
-                if (mapFollowArisa) map.setView([lat, lng], 17);
-                playerMarker.setLatLng([lat, lng]);
-                arisaMarker.setLatLng([lat + 0.00005, lng]);
-                if (isTokyoFallback) {
-                    isTokyoFallback = false;
-                    showToast('📍 現在地に移動しました');
+                if (firstFix) {
+                    firstFix = false;
+                    clearTimeout(fallbackTimer);
+                    revealMap(lat, lng, '📍 現在地を特定しました！');
+                } else if (!gpsResolved) {
+                    // まだ確定前なら更新
+                    revealMap(lat, lng, '📍 現在地を特定しました！');
+                } else {
+                    // 確定済み → マーカー位置のみ更新
+                    arisaPos = [lat, lng];
+                    if (mapFollowArisa) map.setView([lat, lng], map.getZoom());
+                    playerMarker?.setLatLng([lat, lng]);
+                    arisaMarker?.setLatLng([lat + 0.00005, lng]);
                 }
             };
             navigator.geolocation.getCurrentPosition(onPos, () => {}, opts);
             navigator.geolocation.watchPosition(onPos, () => {}, opts);
+
+            // テキストをアニメーション
+            const textPhases = ['電子空間に接続中...', 'GPS信号を探索中...', '衛星を探索中...', 'GPS信号を探索中...'];
+            let tpi = 0;
+            const textTimer = setInterval(() => {
+                if (gpsResolved) { clearInterval(textTimer); return; }
+                tpi = (tpi + 1) % textPhases.length;
+                cyberText.textContent = textPhases[tpi];
+            }, 2200);
         }
         document.getElementById('btn-gps').addEventListener('click', startGPS);
 
