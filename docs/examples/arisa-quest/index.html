@@ -2932,10 +2932,12 @@
                 get_enemy_hp, get_enemy_max_hp,
                 start_battle_from_js,
             };
-            // アリサスプライトシートをWASMに登録（slot 0）
-            await loadSpriteSheetForWasm(0, '../../assets/design/arisa-player-sprites.png', 128, 128, 8);
+            // wasmMain()を先に呼ぶ → init()でSTATEが初期化される
+            // register_sprite_sheetはSTATE初期化後に呼ぶ必要があるため
             console.log('[wasm] calling wasmMain()');
             wasmMain();
+            // アリサスプライトシートをWASMに登録（slot 0）
+            await loadSpriteSheetForWasm(0, '../../assets/design/arisa-player-sprites.png', 128, 128, 8);
         } catch(e) {
             console.error('WASM init failed:', e);
         }
