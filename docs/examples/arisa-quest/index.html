@@ -999,7 +999,7 @@
                     <button class="battle-cmd" id="cmd-skill">✨ スキル<span class="sp-cost">SP:40</span></button>
                     <button class="battle-cmd" id="cmd-item">🎒 どうぐ<span class="sp-cost">SP:30</span></button>
                     <button class="battle-cmd" id="cmd-run">💨 にげる<span class="sp-cost">SP:15</span></button>
-                    <button class="battle-cmd" id="cmd-lure">🎵 誘う<span class="sp-cost">SP:25</span></button>
+                    <button class="battle-cmd" id="cmd-lure">🎵 歌う<span class="sp-cost">SP:25</span></button>
                 </div>
             </div>
         </div>
@@ -1132,7 +1132,7 @@
 
         // 敵はGPS距離で動的計算（下記 calcEnemyDest() 参照）
         // 遠い(t=0): 右上・小 → 近い(t=1): 右下・大
-        const ENE_FAR  = { x: 210, y: 28, w: 44,  h: 46  };
+        const ENE_FAR  = { x: 220, y: 20, w: 22,  h: 23  };
         const ENE_NEAR = { x: 155, y: 50, w: 145, h: 128 };
         const DIST_FAR  = 250; // m: これ以上遠ければ最小サイズ
         const DIST_NEAR =  20; // m: これ以下なら最大サイズ
@@ -1865,7 +1865,7 @@
                 skill:  () => ({ keyCodes: CMD_SKILL,  icon: '✨', label: 'スキル' }),
                 item:   () => ({ keyCodes: CMD_ITEM,   icon: '🎒', label: 'どうぐ' }),
                 run:    () => ({ keyCodes: CMD_RUN,    icon: '💨', label: 'にげる' }),
-                lure:   () => ({ keyCodes: [],         icon: '🎵', label: '誘う' }),
+                lure:   () => ({ keyCodes: [],         icon: '🎵', label: '歌う' }),
             };
             return map[cmdId]?.() ?? null;
         }
