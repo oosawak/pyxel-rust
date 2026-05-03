@@ -29,7 +29,7 @@
         }
         #status-bar .portrait-wrap img {
             position: absolute;
-            width: 55px; height: auto;
+            width: 60px; height: auto;
             left: 50%; top: 0px;
             transform: translateX(-50%);
         }
@@ -479,36 +479,33 @@
         let isTokyoFallback = false;
         function startGPS() {
             document.getElementById('loc-overlay').style.display = 'none';
+
+            // ボタンを押した瞬間に即座に東京でマーカー＆敵を表示
+            const defLat = 35.6895, defLng = 139.6917;
+            arisaPos = [defLat, defLng];
+            map.setView([defLat, defLng], 17);
+            playerMarker = L.marker([defLat, defLng], { icon: playerIcon(), zIndexOffset: 900 }).addTo(map);
+            arisaMarker = L.marker([defLat + 0.00005, defLng], { icon: arisaIcon(), zIndexOffset: 1000 }).addTo(map);
+            isTokyoFallback = true;
+            const trySpawnDefault = () => loadedCount >= SHEET_LIST.length ? spawnEnemies(defLat, defLng) : setTimeout(trySpawnDefault, 200);
+            trySpawnDefault();
+
+            // GPS が取れたら現在地に更新
             const opts = { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 };
             const onPos = pos => {
                 const { latitude: lat, longitude: lng } = pos.coords;
                 arisaPos = [lat, lng];
                 map.setView([lat, lng], 17);
-                if (!playerMarker) playerMarker = L.marker([lat, lng], { icon: playerIcon(), zIndexOffset: 900 }).addTo(map);
-                else playerMarker.setLatLng([lat, lng]);
-                const aLat = lat + 0.00005;
-                if (!arisaMarker) arisaMarker = L.marker([aLat, lng], { icon: arisaIcon(), zIndexOffset: 1000 }).addTo(map);
-                else arisaMarker.setLatLng([aLat, lng]).setIcon(arisaIcon());
-                // 東京フォールバック後に実GPS取得 → 敵を実座標に再スポーン
-                if (enemyMarkers.length === 0 || isTokyoFallback) {
+                playerMarker.setLatLng([lat, lng]);
+                arisaMarker.setLatLng([lat + 0.00005, lng]).setIcon(arisaIcon());
+                if (isTokyoFallback) {
                     isTokyoFallback = false;
-                    if (isTokyoFallback) showToast('📍 現在地に移動しました');
+                    showToast('📍 現在地に移動しました');
                     const trySpawn = () => loadedCount >= SHEET_LIST.length ? spawnEnemies(lat, lng) : setTimeout(trySpawn, 200);
                     trySpawn();
                 }
             };
-            const onErr = () => {
-                isTokyoFallback = true;
-                const lat = 35.6895, lng = 139.6917;
-                arisaPos = [lat, lng];
-                map.setView([lat, lng], 17);
-                if (!playerMarker) playerMarker = L.marker([lat, lng], { icon: playerIcon(), zIndexOffset: 900 }).addTo(map);
-                if (!arisaMarker) arisaMarker = L.marker([lat + 0.00005, lng], { icon: arisaIcon(), zIndexOffset: 1000 }).addTo(map);
-                showToast('📍 位置情報を取得できませんでした。東京をデモ表示中。');
-                const trySpawn = () => loadedCount >= SHEET_LIST.length ? spawnEnemies(lat, lng) : setTimeout(trySpawn, 200);
-                trySpawn();
-            };
-            navigator.geolocation.getCurrentPosition(onPos, onErr, opts);
+            navigator.geolocation.getCurrentPosition(onPos, () => {}, opts);
             navigator.geolocation.watchPosition(onPos, () => {}, opts);
         }
         document.getElementById('btn-gps').addEventListener('click', startGPS);
