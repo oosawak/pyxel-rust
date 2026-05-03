@@ -94,13 +94,22 @@
         }
         #battle-overlay.active { display: flex; }
         #debug-overlay {
+            display: none;
             position: absolute; top: 4px; right: 4px; z-index: 99;
-            background: rgba(0,0,0,0.75); border: 1px solid #555;
+            background: rgba(0,0,0,0.82); border: 1px solid #555;
             border-radius: 6px; padding: 6px 10px;
             font-size: 0.6rem; color: #0f0; line-height: 1.7;
             font-family: monospace; pointer-events: none;
             white-space: pre;
         }
+        #debug-overlay.visible { display: block; }
+        #btn-debug {
+            position: absolute; top: 4px; left: 4px; z-index: 100;
+            background: rgba(0,0,0,0.7); border: 1px solid #555;
+            border-radius: 4px; color: #888; font-size: 0.55rem;
+            font-family: monospace; padding: 3px 6px; cursor: pointer;
+        }
+        #btn-debug.on { color: #0f0; border-color: #0f0; }
 
         /* Canvas area */
         #canvas-area {
@@ -123,11 +132,12 @@
 
         /* ── Gamepad (only during battle) ────────────────────────── */
         #gamepad {
-            flex-shrink: 0;
+            flex-shrink: 0; display: none; /* Arisa Questではbattle-uiに置き換え */
             width: 100%; max-width: 480px; margin: 0 auto;
             padding: 5px 12px 10px;
-            display: flex; align-items: center; justify-content: space-between;
+            align-items: center; justify-content: space-between;
         }
+        #gamepad.visible { display: flex; }
         #dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); gap: 2px; }
         .dp { background: #1a1a2a; border: 2px solid #444; border-radius: 8px; color: #ccc; font-size: 16px;
               display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -150,6 +160,50 @@
         #fb-left { left: 0;   top:  50%; transform: translateY(-50%); }
         #fb-rght { right: 0;  top:  50%; transform: translateY(-50%); }
         #fb-bot  { bottom: 0; left: 50%; transform: translateX(-50%); }
+
+        /* ── Arisa Quest バトルUI ─────────────────────────────────── */
+        #battle-ui {
+            display: none; flex-direction: column; flex-shrink: 0;
+            background: #08041a; border-top: 2px solid #2a1045;
+            width: 100%; max-width: 480px; margin: 0 auto;
+        }
+        #battle-ui.active { display: flex; }
+        #battle-commands {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+            padding: 10px 14px 6px;
+        }
+        .battle-cmd {
+            background: linear-gradient(160deg, #15082e, #22104a);
+            border: 2px solid #5533aa; border-radius: 10px;
+            color: #e8d8ff; font-family: 'DotGothic16', monospace;
+            font-size: 1rem; padding: 13px 0; cursor: pointer;
+            text-align: center; transition: all 0.1s;
+            -webkit-tap-highlight-color: transparent; user-select: none;
+        }
+        .battle-cmd:active { transform: scale(0.95); }
+        #cmd-attack { border-color: #ff6644; color: #ffccbb; }
+        #cmd-attack:active { background: #3a1500; border-color: #ff8866; }
+        #cmd-skill  { border-color: #4488ff; color: #bbddff; }
+        #cmd-skill:active  { background: #001535; border-color: #66aaff; }
+        #cmd-item   { border-color: #44cc88; color: #bbffdd; }
+        #cmd-item:active   { background: #001a0e; border-color: #66ddaa; }
+        #cmd-run    { border-color: #888899; color: #ccccdd; }
+        #cmd-run:active    { background: #111122; border-color: #aaaacc; }
+
+        /* ── タブバー ─────────────────────────────────────────────── */
+        #tab-bar {
+            display: flex; border-top: 1px solid #1a0830;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        .tab-btn {
+            flex: 1; padding: 9px 0 8px; background: #08041a; border: none;
+            border-top: 3px solid transparent; color: #554466;
+            font-family: 'DotGothic16', monospace; font-size: 0.7rem;
+            cursor: pointer; transition: all 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tab-btn.active { color: #ff88cc; border-top-color: #ff88cc; background: #110828; }
+        .tab-btn:not(.active):active { color: #aa66cc; }
 
         /* ── Leaflet marker styles ───────────────────────────────── */
         /* 自分（GPS）マーカー */
@@ -258,6 +312,7 @@
 
         <!-- Battle overlay (shown when WASM is in battle state) -->
         <div id="battle-overlay">
+            <button id="btn-debug">DBG</button>
             <div id="debug-overlay"></div>
             <div id="canvas-area">
                 <div id="game-wrapper">
@@ -285,6 +340,21 @@
                     <button class="fb" id="fb-left" data-idx="43">B</button>
                     <button class="fb" id="fb-rght" data-idx="1">C</button>
                     <button class="fb" id="fb-bot"  data-idx="2">Menu</button>
+                </div>
+            </div>
+
+            <!-- Arisa Quest バトルUI（十字キーの代替） -->
+            <div id="battle-ui">
+                <div id="battle-commands">
+                    <button class="battle-cmd" id="cmd-attack">⚔ たたかう</button>
+                    <button class="battle-cmd" id="cmd-skill">✨ スキル</button>
+                    <button class="battle-cmd" id="cmd-item">🎒 どうぐ</button>
+                    <button class="battle-cmd" id="cmd-run">💨 にげる</button>
+                </div>
+                <div id="tab-bar">
+                    <button class="tab-btn" id="tab-map">🗺 マップ</button>
+                    <button class="tab-btn active" id="tab-battle">⚔ バトル</button>
+                    <button class="tab-btn" id="tab-status">📋 ステータス</button>
                 </div>
             </div>
         </div>
@@ -380,6 +450,31 @@
             const bgIdx       = window.wasmModule.get_bg_idx?.()       ??  0;
             const enemyFlash  = window.wasmModule.get_enemy_flash?.()  ??  0;
             const playerFlash = window.wasmModule.get_player_flash?.() ??  0;
+
+            // ライブデバッグ更新
+            const dbgEl = document.getElementById('debug-overlay');
+            if (dbgEl.classList.contains('visible')) {
+                const hp    = window.wasmModule.get_player_hp?.()     ?? '?';
+                const maxHp = window.wasmModule.get_player_max_hp?.() ?? '?';
+                const mp    = window.wasmModule.get_player_mp?.()     ?? '?';
+                const maxMp = window.wasmModule.get_player_max_mp?.() ?? '?';
+                const lv    = window.wasmModule.get_player_level?.()  ?? '?';
+                const bgI2  = ((bgIdx % 24) + 24) % 24;
+                dbgEl.textContent = [
+                    `── ゲーム状態 ──`,
+                    `state=${state}  Lv=${lv}`,
+                    `HP=${hp}/${maxHp}  MP=${mp}/${maxMp}`,
+                    `bgIdx=${bgIdx}  bgI=${bgI2}`,
+                    `bgSheet: ${bgI2 % BG_COLS}列 ${Math.floor(bgI2/BG_COLS)}行`,
+                    `bgSrc: x=${bgI2%BG_COLS*BG_CW} y=${Math.floor(bgI2/BG_COLS)*BG_CH}`,
+                    ``,
+                    `── 敵スプライト ──`,
+                    dbgStaticText,
+                    ``,
+                    `── アリサスプライト ──`,
+                    dbgArisaText,
+                ].join('\n');
+            }
 
             beginScaledDraw();
             bgCtx.clearRect(0, 0, 160, 120);
@@ -617,30 +712,75 @@
 
 
         const battleOverlay = document.getElementById('battle-overlay');
+        const battleUI      = document.getElementById('battle-ui');
         let inBattle = false, watchInterval = null;
+
+        // ── デバッグ静的テキスト ──────────────────────────────────────────────
+        let dbgStaticText = '(戦闘前)';
+        let dbgArisaText  = 'sx=0 sy=22 sw=128 sh=106';
+
+        // デバッグトグルボタン
+        const btnDebug = document.getElementById('btn-debug');
+        const dbgOverlay = document.getElementById('debug-overlay');
+        btnDebug.addEventListener('click', () => {
+            const on = dbgOverlay.classList.toggle('visible');
+            btnDebug.classList.toggle('on', on);
+        });
+
+        // ── バトルコマンド キーシミュレーション ──────────────────────────────
+        // IDX: 5=↑ 6=↓ 7=← 8=→ 45=決定 43=キャンセル
+        function simulateKeys(steps) {
+            steps.forEach(([idx, down], i) => {
+                setTimeout(() => pressKey(idx, down), i * 70);
+            });
+        }
+        // WASMバトルメニュー: たたかう(左上) スキル(右上) どうぐ(左下) にげる(右下)
+        // 各コマンド選択後カーソルはたたかうに戻る前提
+        const CMD_ATTACK = [[45,true],[45,false]];
+        const CMD_SKILL  = [[8,true],[8,false],[45,true],[45,false]];
+        const CMD_ITEM   = [[6,true],[6,false],[45,true],[45,false]];
+        const CMD_RUN    = [[6,true],[6,false],[8,true],[8,false],[45,true],[45,false]];
+
+        document.getElementById('cmd-attack').addEventListener('click', () => simulateKeys(CMD_ATTACK));
+        document.getElementById('cmd-skill').addEventListener('click',  () => simulateKeys(CMD_SKILL));
+        document.getElementById('cmd-item').addEventListener('click',   () => simulateKeys(CMD_ITEM));
+        document.getElementById('cmd-run').addEventListener('click',    () => simulateKeys(CMD_RUN));
+
+        // タブ切り替え
+        document.getElementById('tab-battle').addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-battle').classList.add('active');
+            document.getElementById('battle-commands').style.display = 'grid';
+        });
+        document.getElementById('tab-status').addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-status').classList.add('active');
+            // デバッグパネルをトグル（ステータス確認）
+            const on = dbgOverlay.classList.toggle('visible');
+            btnDebug.classList.toggle('on', on);
+        });
+        document.getElementById('tab-map').addEventListener('click', () => {
+            if (!inBattle) battleOverlay.classList.remove('active');
+        });
 
         function triggerBattle(enemyInfo) {
             if (inBattle || !window.wasmModule) return;
             inBattle = true;
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
             battleOverlay.classList.add('active');
+            battleUI.classList.add('active');
             requestAnimationFrame(() => resizeBgCanvas());
 
-            // デバッグ情報表示
+            // 静的スプライト情報をセット
             const e = ENEMY_MAP[enemyInfo.eIdx];
-            const dbg = document.getElementById('debug-overlay');
-            dbg.textContent = [
-                `── 敵 [${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]} ──`,
-                `sheet : ${e.sheet}`,
-                `sx=${e.sx}  sy=${e.sy}`,
-                `sw=${e.sw}  sh=${e.sh}`,
-                `dest  : x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`,
-                ``,
-                `── アリサ ──`,
-                `sheet : arisa-player-sprites`,
-                `sx=0  sy=22`,
-                `sw=128  sh=106`,
-                `dest  : x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
+            dbgStaticText = [
+                `[${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]}`,
+                `sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}`,
+                `dest x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`,
+            ].join('\n');
+            dbgArisaText = [
+                `sx=0 sy=22 sw=128 sh=106`,
+                `dest x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
             ].join('\n');
 
             // Poll for battle end (state leaves 2)
@@ -654,6 +794,7 @@
             clearInterval(watchInterval);
             inBattle = false;
             battleOverlay.classList.remove('active');
+            battleUI.classList.remove('active');
 
             // Remove defeated enemy marker (if enemy still alive, keep it)
             const state = window.wasmModule?.get_game_state?.() ?? 0;
