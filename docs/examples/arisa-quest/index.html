@@ -551,12 +551,13 @@
                 const lv    = window.wasmModule.get_player_level?.()  ?? '?';
                 const bgI2  = ((bgIdx % 24) + 24) % 24;
                 const bgZoom   = 1.6;
+                const bgYAnchor = 0.3;
                 const cropW2   = Math.round(BG_CW / bgZoom);
                 const cropH2   = Math.round(BG_CH / bgZoom);
                 const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
                 const baseSrcY = Math.floor(bgI2 / BG_COLS) * BG_CH;
                 const cropX    = baseSrcX + Math.round((BG_CW - cropW2) / 2);
-                const cropY    = baseSrcY + Math.round((BG_CH - cropH2) / 2);
+                const cropY    = baseSrcY + Math.round((BG_CH - cropH2) * bgYAnchor);
                 const dpr      = window.devicePixelRatio || 1;
                 dbgEl.textContent = [
                     `── ゲーム状態 ──`,
@@ -587,8 +588,10 @@
             resizeBgCanvas();
 
             // Draw background to fill entire canvas (before scaled transform)
-            // BG_ZOOM: 1.0=全体表示, 1.5=中央を1.5倍拡大, 2.0=中央を2倍拡大
-            const BG_ZOOM = 1.6;
+            // BG_ZOOM: 1.0=全体表示, 1.6=中央1.6倍拡大
+            // BG_Y_ANCHOR: 0.0=上端, 0.5=中央, 1.0=下端
+            const BG_ZOOM     = 1.6;
+            const BG_Y_ANCHOR = 0.3;
             const bgI  = ((bgIdx % 24) + 24) % 24;
             const bgBaseX = (bgI % BG_COLS) * BG_CW;
             const bgBaseY = Math.floor(bgI / BG_COLS) * BG_CH;
@@ -597,7 +600,7 @@
             bgCtx.drawImage(
                 SHEETS['arisa-world-backgrounds-2'],
                 bgBaseX + (BG_CW - cropW) / 2,
-                bgBaseY + (BG_CH - cropH) / 2,
+                bgBaseY + (BG_CH - cropH) * BG_Y_ANCHOR,
                 cropW, cropH,
                 0, 0, bgCanvas.width, bgCanvas.height
             );
