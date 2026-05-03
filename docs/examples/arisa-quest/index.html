@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; overflow: hidden; background: #0a0a1a; font-family: 'DotGothic16', monospace; color: #eee; }
@@ -143,6 +144,18 @@
         }
         #btn-tile-switch.visible { display: block; }
         #btn-tile-switch:active { background: rgba(60,60,180,0.7); }
+        /* 3D切り替えボタン（タイルボタンの左隣） */
+        #btn-3d-toggle {
+            position: absolute; top: 10px; right: 118px; z-index: 9000;
+            background: rgba(10,30,20,0.92); border: 2px solid #44ffaa;
+            border-radius: 8px; color: #88ffcc; font-size: 0.62rem;
+            font-family: 'DotGothic16', monospace; padding: 4px 9px;
+            cursor: pointer; pointer-events: auto; white-space: nowrap;
+            display: none;
+        }
+        #btn-3d-toggle.visible { display: block; }
+        #btn-3d-toggle.active { background: rgba(0,80,40,0.92); border-color: #00ff88; color: #00ff88; }
+        #btn-3d-toggle:active { background: rgba(0,100,50,0.7); }
 
         /* Dark overlay with multiply blend — darkens map while keeping contrast */
         #map-dark-overlay {
@@ -908,7 +921,9 @@
         <!-- OpenStreetMap -->
         <div id="map-layer">
             <div id="map" style="width:100%;height:100%"></div>
-            <button id="btn-tile-switch">🗺 標準</button>
+            <div id="map-3d" style="width:100%;height:100%;display:none;position:absolute;inset:0;z-index:0"></div>
+            <button id="btn-tile-switch">🗺 Bright日本語</button>
+            <button id="btn-3d-toggle" title="3D/2D切替">🌐 2D</button>
             <div id="map-dark-overlay"></div>
             <!-- 電子空間オーバーレイ（GPS確定前） -->
             <div id="cyber-overlay">
@@ -1128,6 +1143,7 @@
     </div><!-- #main -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script>
         // ── Gamepad input ─────────────────────────────────────────────────────
         const activeKeys = new Map();
@@ -1537,6 +1553,87 @@
             map.removeLayer(currentTileLayer);
             currentTileLayer = L.tileLayer(style.url, style.opts).addTo(map);
             btnTileSwitch.textContent = `🗺 ${style.name}`;
+        });
+
+        // ── MapLibre 3D ──────────────────────────────────────────────────────
+        // tile.openstreetmap.jp のベクタースタイル（3D建物・地形対応）
+        const MAPLIBRE_STYLES = [
+            { name: 'Bright 3D',  url: 'https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json' },
+            { name: 'Basic 3D',   url: 'https://tile.openstreetmap.jp/styles/maptiler-basic-ja/style.json' },
+            { name: 'Toner 3D',   url: 'https://tile.openstreetmap.jp/styles/maptiler-toner-ja/style.json' },
+        ];
+        let map3d = null;
+        let is3dMode = false;
+        let ml3dStyleIdx = 0;
+
+        function getMapCenter() {
+            const c = map.getCenter();
+            return [c.lng, c.lat];
+        }
+
+        function initMapLibre() {
+            if (map3d) return;
+            const center = getMapCenter();
+            map3d = new maplibregl.Map({
+                container: 'map-3d',
+                style: MAPLIBRE_STYLES[ml3dStyleIdx].url,
+                center: center,
+                zoom: map.getZoom(),
+                pitch: 50,
+                bearing: 0,
+                attributionControl: false,
+            });
+            map3d.addControl(new maplibregl.AttributionControl({ compact: true }));
+            // 3D建物レイヤーを追加
+            map3d.on('load', () => {
+                if (!map3d.getLayer('3d-buildings')) {
+                    map3d.addLayer({
+                        id: '3d-buildings',
+                        type: 'fill-extrusion',
+                        source: 'openmaptiles',
+                        'source-layer': 'building',
+                        paint: {
+                            'fill-extrusion-color': '#aaa',
+                            'fill-extrusion-height': ['get', 'render_height'],
+                            'fill-extrusion-base': ['get', 'render_min_height'],
+                            'fill-extrusion-opacity': 0.7,
+                        },
+                        filter: ['==', '$type', 'Polygon'],
+                    });
+                }
+            });
+            // Leaflet→MapLibre 移動同期
+            map.on('move', () => {
+                if (!is3dMode || !map3d) return;
+                const c = map.getCenter();
+                map3d.setCenter([c.lng, c.lat]);
+                map3d.setZoom(map.getZoom());
+            });
+        }
+
+        const btnToggle3d = document.getElementById('btn-3d-toggle');
+        btnToggle3d.classList.add('visible');
+        btnToggle3d.addEventListener('click', () => {
+            is3dMode = !is3dMode;
+            if (is3dMode) {
+                initMapLibre();
+                const c = map.getCenter();
+                map3d.setCenter([c.lng, c.lat]);
+                map3d.setZoom(map.getZoom());
+                document.getElementById('map').style.visibility = 'hidden';
+                document.getElementById('map-3d').style.display = 'block';
+                btnToggle3d.textContent = '🌐 3D';
+                btnToggle3d.classList.add('active');
+                btnTileSwitch.style.opacity = '0.4';
+                btnTileSwitch.style.pointerEvents = 'none';
+            } else {
+                document.getElementById('map').style.visibility = '';
+                document.getElementById('map-3d').style.display = 'none';
+                btnToggle3d.textContent = '🌐 2D';
+                btnToggle3d.classList.remove('active');
+                btnTileSwitch.style.opacity = '';
+                btnTileSwitch.style.pointerEvents = '';
+            }
         });
 
         let playerMarker = null, arisaMarker = null, arisaPos = null;
