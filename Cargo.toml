@@ -50,8 +50,8 @@ default = ["pyxel-core-backend"]
 
 # PyxelCoreBackend
 pyxel-core-backend = ["dep:pyxel-core", "pyxel-core/sdl2_static"]
-sdl2_static        = ["dep:pyxel-core", "pyxel-core/sdl2_static"]
-sdl2_dynamic       = ["dep:pyxel-core", "pyxel-core/sdl2_dynamic"]
+sdl2_static        = ["dep:pyxel-core", "pyxel-core/sdl2_static", "pyxel-core-backend"]
+sdl2_dynamic       = ["dep:pyxel-core", "pyxel-core/sdl2_dynamic", "pyxel-core-backend"]
 
 # WgpuBackend (replaces pyxel-core-backend)
 wgpu-backend = ["dep:pixels", "dep:winit"]
