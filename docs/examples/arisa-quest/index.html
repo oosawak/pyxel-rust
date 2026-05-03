@@ -374,19 +374,7 @@
         #game-wrapper.wasm-battle #bg-canvas {
             visibility: hidden;
         }
-        /* アリサスプライトオーバーレイ */
-        #arisa-sprite-canvas {
-            position: absolute; top: -9999px; left: -9999px;
-            visibility: hidden; pointer-events: none; z-index: 0;
-        }
-        #game-wrapper.wasm-battle #arisa-sprite-canvas {
-            position: absolute !important;
-            top: 0 !important; left: 0 !important;
-            width: 100% !important; height: 100% !important;
-            visibility: visible !important;
-            pointer-events: none;
-            z-index: 7;
-        }
+        /* アリサスプライトオーバーレイ - WASM側で描画するため CSS 不要 */
 
         /* ── Arisa Quest バトルUI ─────────────────────────────────── */
         #battle-ui {
@@ -1076,7 +1064,6 @@
                     <div id="game-wrapper">
                         <canvas id="bg-canvas"></canvas>
                         <canvas id="pyxel_canvas"></canvas>
-                        <canvas id="arisa-sprite-canvas"></canvas>
                     </div>
                 </div>
                 <!-- バトルメッセージログ -->
@@ -1246,81 +1233,31 @@
         const ARISA_DEST = { x: 25, y: 82, w: 60 };
         const ARISA_SRC  = { sx: 0, sy: 33, sw: 95, sh: 120 };
 
-        // ── アリサスプライトオーバーレイ（新スプライトシート: 128×128px/フレーム、8列×12行）──
-        const SP_FRAME_W = 128, SP_FRAME_H = 128;
-        const SP_IDLE_FRAMES = 8;  // row 0 = Idle
-        const SP_ANIM_SPEED  = 7;  // 60fps中7フレームごとに次のコマへ
-        let arisaSpriteSheet = null; // マゼンタ透過処理済みOffscreenCanvas
-        let arisaSpriteFrame = 0;
-        let arisaAnimTimer   = 0;
-
-        function ensureArisaSprite() {
-            if (arisaSpriteSheet) return;
-            const img = SHEETS['arisa-player-sprites'];
-            if (!img.complete || img.naturalWidth === 0) return;
-            const oc = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
-            const octx = oc.getContext('2d');
-            octx.drawImage(img, 0, 0);
-            const id = octx.getImageData(0, 0, oc.width, oc.height);
-            const d = id.data;
-            for (let i = 0; i < d.length; i += 4) {
-                if (d[i] > 200 && d[i+1] < 50 && d[i+2] > 200) d[i+3] = 0;
-            }
-            octx.putImageData(id, 0, 0);
-            arisaSpriteSheet = oc;
-        }
-
-        function renderArisaSprite() {
-            ensureArisaSprite();
-            const wrapper = document.getElementById('game-wrapper');
-            if (!wrapper.classList.contains('wasm-battle') || !arisaSpriteSheet) {
-                if (arisaSpriteCanvas.width > 0)
-                    arisaSpriteCtx.clearRect(0, 0, arisaSpriteCanvas.width, arisaSpriteCanvas.height);
-                return;
-            }
-            const cW = wrapper.clientWidth;
-            const cH = wrapper.clientHeight;
-            if (arisaSpriteCanvas.width !== cW || arisaSpriteCanvas.height !== cH) {
-                arisaSpriteCanvas.width  = cW;
-                arisaSpriteCanvas.height = cH;
-            }
-            arisaSpriteCtx.clearRect(0, 0, cW, cH);
-
-            // WASM canvas: 640×480 (160×120 at 4x), arisa pixel-art center = (118,58) in game coords
-            // Arisa bounding box: y=[40,68] game px → [160,272] in 640×480
-            const scaleX = cW / 640, scaleY = cH / 480;
-            const destY  = Math.round(160 * scaleY);
-            const spriteH = Math.round(112 * scaleY); // 28 game px × 4
-            const spriteW = spriteH;                   // source is 128×128 (square)
-            const destX  = Math.round(472 * scaleX - spriteW / 2); // center x=118 → 472 at 4x
-
-            // ピクセルアートのアリサを背景色で隠す（sky #2b335f / ground #19959c）
-            const bgSplit = cH * (55 / 120); // y=55が空/地面の境界
-            if (destY < bgSplit) {
-                arisaSpriteCtx.fillStyle = '#2b335f';
-                arisaSpriteCtx.fillRect(destX, destY, spriteW, Math.min(spriteH, bgSplit - destY));
-            }
-            if (destY + spriteH > bgSplit) {
-                arisaSpriteCtx.fillStyle = '#19959c';
-                arisaSpriteCtx.fillRect(
-                    destX, Math.max(destY, bgSplit),
-                    spriteW, Math.min(destY + spriteH, cH) - Math.max(destY, bgSplit)
-                );
-            }
-
-            // アニメーション更新
-            arisaAnimTimer++;
-            if (arisaAnimTimer >= SP_ANIM_SPEED) {
-                arisaAnimTimer = 0;
-                arisaSpriteFrame = (arisaSpriteFrame + 1) % SP_IDLE_FRAMES;
-            }
-
-            const sx = arisaSpriteFrame * SP_FRAME_W;
-            const sy = 0; // row 0 = Idle
-            arisaSpriteCtx.drawImage(arisaSpriteSheet,
-                sx, sy, SP_FRAME_W, SP_FRAME_H,
-                destX, destY, spriteW, spriteH
-            );
+        // ── アリサスプライトシートをWASMに登録（新スプライトシート: 128×128px/フレーム、8列×12行）──
+        async function loadSpriteSheetForWasm(slot, url, frameW, frameH, cols) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    // マゼンタ透過処理
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx2 = canvas.getContext('2d');
+                    ctx2.drawImage(img, 0, 0);
+                    const id = ctx2.getImageData(0, 0, canvas.width, canvas.height);
+                    const d = id.data;
+                    for (let i = 0; i < d.length; i += 4) {
+                        if (d[i] > 200 && d[i+1] < 50 && d[i+2] > 200) d[i+3] = 0;
+                    }
+                    ctx2.putImageData(id, 0, 0);
+                    // WASMに登録
+                    register_sprite_sheet(slot, canvas, frameW, frameH, cols);
+                    resolve();
+                };
+                img.onerror = () => resolve();
+                img.src = url;
+            });
         }
 
         // 敵はGPS距離で動的計算（下記 calcEnemyDest() 参照）
@@ -1370,8 +1307,6 @@
 
         const bgCanvas = document.getElementById('bg-canvas');
         const bgCtx    = bgCanvas.getContext('2d');
-        const arisaSpriteCanvas = document.getElementById('arisa-sprite-canvas');
-        const arisaSpriteCtx    = arisaSpriteCanvas.getContext('2d');
 
         // 背景スワイプパン
         // BG_ZOOM は廃止 - タイル全体を使い画面比率でクロップ（品質最大化）
@@ -1629,7 +1564,7 @@
             }
         }
 
-        function bgLoop() { renderBg(); renderArisaSprite(); requestAnimationFrame(bgLoop); }
+        function bgLoop() { renderBg(); requestAnimationFrame(bgLoop); }
         requestAnimationFrame(bgLoop);
     </script>
 
@@ -2973,6 +2908,7 @@
         import init, {
             main as wasmMain,
             set_key,
+            register_sprite_sheet,
             get_game_state, get_enemy_idx, get_bg_idx,
             get_enemy_flash, get_player_flash,
             get_player_hp, get_player_max_hp,
@@ -2991,6 +2927,8 @@
                 get_enemy_hp, get_enemy_max_hp,
                 start_battle_from_js,
             };
+            // アリサスプライトシートをWASMに登録（slot 0）
+            await loadSpriteSheetForWasm(0, '../../assets/design/arisa-player-sprites.png', 128, 128, 8);
             wasmMain();
         } catch(e) {
             console.error('WASM init failed:', e);

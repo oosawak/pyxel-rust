@@ -150,6 +150,31 @@ impl InputState {
 }
 
 // --------------------------------------------------------------------------
+// Sprite sheet support
+// --------------------------------------------------------------------------
+
+/// A queued blt_sp draw command (collected during draw(), executed after put_image_data)
+#[derive(Clone)]
+pub struct SpriteDrawCmd {
+    pub slot: u32,
+    pub col: u32,    // frame column index
+    pub row: u32,    // frame row index
+    pub x: f32,      // dest top-left x in game coords (camera already applied)
+    pub y: f32,      // dest top-left y in game coords
+    pub dest_w: f32, // dest width in game pixels
+    pub dest_h: f32, // dest height in game pixels
+    pub flip_x: bool,
+}
+
+/// Sprite sheet entry: JS canvas element + frame dimensions
+pub struct SpriteSheetEntry {
+    pub canvas: JsValue, // HtmlCanvasElement (stored as JsValue)
+    pub frame_w: u32,
+    pub frame_h: u32,
+    pub cols: u32,
+}
+
+// --------------------------------------------------------------------------
 // WasmState
 // --------------------------------------------------------------------------
 pub struct WasmState {
@@ -171,6 +196,8 @@ pub struct WasmState {
     pub image_banks: [Vec<u8>; 3],         // 256×256 offscreen pixel banks
     pub tilemaps: [Vec<(u8, u8)>; 8],      // 256×256 tile grids (tx, ty)
     pub text_overlay: Vec<(i32, i32, String, u8)>, // non-ASCII text drawn via fillText
+    pub sprite_sheets: Vec<Option<SpriteSheetEntry>>, // slot → sheet
+    pub sprite_draw_queue: Vec<SpriteDrawCmd>,         // filled during draw(), drained at render
 }
 
 impl WasmState {
@@ -185,6 +212,7 @@ impl WasmState {
             palette: DEFAULT_PALETTE, color_map,
             clip_rect: None, camera_x: 0.0, camera_y: 0.0, dither_alpha: 1.0,
             input: InputState::new(), should_quit: false, frame_count: 0, text_overlay: Vec::new(),
+            sprite_sheets: Vec::new(), sprite_draw_queue: Vec::new(),
             image_banks: [
                 vec![0u8; IMAGE_SIZE],
                 vec![0u8; IMAGE_SIZE],
@@ -440,6 +468,17 @@ impl WasmState {
             self.rgba_buffer[base..base+4].copy_from_slice(&rgba);
         }
     }
+
+    /// Enqueue a sprite draw command (executed after pixel buffer is rendered)
+    pub fn blt_sp(&mut self, x: f32, y: f32, slot: u32, col: u32, row: u32,
+                  dest_w: f32, dest_h: f32, flip_x: bool) {
+        let (cx, cy) = self.cam(x, y);
+        self.sprite_draw_queue.push(SpriteDrawCmd {
+            slot, col, row,
+            x: cx as f32, y: cy as f32,
+            dest_w, dest_h, flip_x,
+        });
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -463,6 +502,19 @@ pub fn set_key(idx: u32, down: bool) {
 #[wasm_bindgen]
 pub fn key_index(code: &str) -> u32 {
     code_to_idx(code)
+}
+
+/// Register a sprite sheet for use with blt_sp().
+/// `canvas` must be an HtmlCanvasElement with magenta pixels already made transparent.
+/// `cols` is the number of frames per row.
+#[wasm_bindgen]
+pub fn register_sprite_sheet(slot: u32, canvas: JsValue, frame_w: u32, frame_h: u32, cols: u32) {
+    let s = state();
+    let idx = slot as usize;
+    if s.sprite_sheets.len() <= idx {
+        s.sprite_sheets.resize_with(idx + 1, || None);
+    }
+    s.sprite_sheets[idx] = Some(SpriteSheetEntry { canvas, frame_w, frame_h, cols });
 }
 
 pub fn init(width: u32, height: u32, _title: &str, fps: u32) {
@@ -637,6 +689,41 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
                             *x as f64 * scale as f64,
                             *y as f64 * scale as f64,
                         );
+                    }
+                }
+
+                // Draw queued sprite sheet frames (full-color canvas over pixel buffer)
+                let sprite_queue: Vec<SpriteDrawCmd> = std::mem::take(&mut state().sprite_draw_queue);
+                if !sprite_queue.is_empty() {
+                    ctx.set_image_smoothing_enabled(false);
+                    for cmd in &sprite_queue {
+                        let s = state();
+                        let sheet = match s.sprite_sheets.get(cmd.slot as usize).and_then(|e| e.as_ref()) {
+                            Some(e) => e,
+                            None => continue,
+                        };
+                        let sx = (cmd.col * sheet.frame_w) as f64;
+                        let sy = (cmd.row * sheet.frame_h) as f64;
+                        let sw = sheet.frame_w as f64;
+                        let sh = sheet.frame_h as f64;
+                        let dx = cmd.x as f64 * scale as f64;
+                        let dy = cmd.y as f64 * scale as f64;
+                        let dw = cmd.dest_w as f64 * scale as f64;
+                        let dh = cmd.dest_h as f64 * scale as f64;
+                        let canvas_val = sheet.canvas.clone();
+                        if let Ok(canvas_el) = canvas_val.dyn_into::<HtmlCanvasElement>() {
+                            if cmd.flip_x {
+                                ctx.save();
+                                let _ = ctx.translate(dx + dw, 0.0);
+                                let _ = ctx.scale(-1.0, 1.0);
+                                let _ = ctx.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                                    &canvas_el, sx, sy, sw, sh, 0.0, dy, dw, dh);
+                                ctx.restore();
+                            } else {
+                                let _ = ctx.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                                    &canvas_el, sx, sy, sw, sh, dx, dy, dw, dh);
+                            }
+                        }
                     }
                 }
             }

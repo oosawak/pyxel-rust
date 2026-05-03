@@ -144,3 +144,15 @@ pub fn tilemap_pget(tm: u32, x: u32, y: u32) -> (u8, u8) {
 pub fn tilemap_pset(tm: u32, x: u32, y: u32, tile: (u8, u8)) {
     dispatch!(soft: s().tilemap_pset(tm, x, y, tile), pyxel: { let _ = (tm,x,y,tile); });
 }
+
+/// Draw a frame from a registered sprite sheet.
+/// (x, y) is the top-left in game coords. (col, row) selects the frame.
+/// (dest_w, dest_h) is the destination size in game pixels.
+/// Only functional in the wasm-backend; no-op on other backends.
+pub fn blt_sp(x: f32, y: f32, slot: u32, col: u32, row: u32,
+              dest_w: f32, dest_h: f32, flip_x: bool) {
+    #[cfg(feature = "wasm-backend")]
+    s().blt_sp(x, y, slot, col, row, dest_w, dest_h, flip_x);
+    #[cfg(not(feature = "wasm-backend"))]
+    let _ = (x, y, slot, col, row, dest_w, dest_h, flip_x);
+}

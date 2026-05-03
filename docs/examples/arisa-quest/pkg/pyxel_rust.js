@@ -116,6 +116,20 @@ export function main() {
 }
 
 /**
+ * Register a sprite sheet for use with blt_sp().
+ * `canvas` must be an HtmlCanvasElement with magenta pixels already made transparent.
+ * `cols` is the number of frames per row.
+ * @param {number} slot
+ * @param {any} canvas
+ * @param {number} frame_w
+ * @param {number} frame_h
+ * @param {number} cols
+ */
+export function register_sprite_sheet(slot, canvas, frame_w, frame_h, cols) {
+    wasm.register_sprite_sheet(slot, canvas, frame_w, frame_h, cols);
+}
+
+/**
  * タッチ UI から直接呼べるキー状態セット関数
  * @param {number} idx
  * @param {boolean} down
@@ -252,6 +266,15 @@ function __wbg_get_imports() {
             const ret = arg0.requestAnimationFrame(arg1);
             return ret;
         }, arguments); },
+        __wbg_restore_99af766d81a46631: function(arg0) {
+            arg0.restore();
+        },
+        __wbg_save_1a9f2b65cbecbe3a: function(arg0) {
+            arg0.save();
+        },
+        __wbg_scale_7c5a1bab3ca90266: function() { return handleError(function (arg0, arg1, arg2) {
+            arg0.scale(arg1, arg2);
+        }, arguments); },
         __wbg_set_fillStyle_cc6cfa51075228ba: function(arg0, arg1) {
             arg0.fillStyle = arg1;
         },
@@ -289,6 +312,9 @@ function __wbg_get_imports() {
             const ret = typeof window === 'undefined' ? null : window;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
+        __wbg_translate_f2ca9d0b3da93b21: function() { return handleError(function (arg0, arg1, arg2) {
+            arg0.translate(arg1, arg2);
+        }, arguments); },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 22, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_e2dca692cdd4c806___features__gen_MouseEvent__MouseEvent______true_);
