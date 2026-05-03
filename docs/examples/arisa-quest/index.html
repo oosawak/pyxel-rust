@@ -1218,11 +1218,11 @@
         }
 
         const ENEMY_MAP = [
-            { sheet: 'enemy-sprites', sx: 256, sy: 256, sw: 256, sh: 128 }, // 0: スライム
-            { sheet: 'enemy-sprites', sx: 256, sy:  32, sw: 256, sh: 96  }, // 1: シャドウキャット (skip label)
-            { sheet: 'enemy-sprites', sx: 256, sy: 384, sw: 256, sh: 128 }, // 2: フレイムインプ
-            { sheet: 'enemy-sprites', sx: 256, sy: 768, sw: 256, sh: 128 }, // 3: ゴースト
-            { sheet: 'enemy-sprites', sx: 256, sy: 896, sw: 256, sh: 128 }, // 4: ロックゴーレム
+            { sheet: 'enemy-sprites', sx: 256, sy: 256, sw: 256, sh: 128, maxHp: 30  }, // 0: スライム
+            { sheet: 'enemy-sprites', sx: 256, sy:  32, sw: 256, sh: 96,  maxHp: 45  }, // 1: シャドウキャット
+            { sheet: 'enemy-sprites', sx: 256, sy: 384, sw: 256, sh: 128, maxHp: 55  }, // 2: フレイムインプ
+            { sheet: 'enemy-sprites', sx: 256, sy: 768, sw: 256, sh: 128, maxHp: 40  }, // 3: ゴースト
+            { sheet: 'enemy-sprites', sx: 256, sy: 896, sw: 256, sh: 128, maxHp: 80  }, // 4: ロックゴーレム
         ];
         const ENEMY_NAMES = ['スライム','シャドウキャット','フレイムインプ','ゴースト','ロックゴーレム'];
 
@@ -1417,6 +1417,16 @@
                     bgCtx.drawImage(SHEETS[e.sheet], e.sx, e.sy, e.sw, e.sh,
                         eneDest.x, eneDest.y, eneDest.w, eneDest.h);
                 }
+                // 敵HPバー（スプライト上部）
+                const bx = eneDest.x, by = eneDest.y - 7, bw = eneDest.w, bh = 4;
+                const hpRatio = currentEnemyMaxHp > 0 ? currentEnemyHp / currentEnemyMaxHp : 0;
+                bgCtx.globalAlpha = 0.85;
+                bgCtx.fillStyle = 'rgba(0,0,0,0.6)';
+                bgCtx.beginPath(); bgCtx.roundRect(bx, by, bw, bh, 2); bgCtx.fill();
+                const hpColor = hpRatio > 0.5 ? '#44dd66' : hpRatio > 0.25 ? '#ffcc22' : '#ff4444';
+                bgCtx.fillStyle = hpColor;
+                bgCtx.beginPath(); bgCtx.roundRect(bx, by, bw * hpRatio, bh, 2); bgCtx.fill();
+                bgCtx.globalAlpha = 1.0;
             }
 
             // アリサ（左下固定）
@@ -2311,8 +2321,8 @@
                 distEl.textContent = '---';
                 distEl.className = 'hud-val';
             }
-            // 敵HPはWASMから直接取れないため表示なし（将来拡張）
-            document.getElementById('hud-ehp').textContent = '???';
+            // 敵HP（JS追跡）
+            document.getElementById('hud-ehp').textContent = `${currentEnemyHp}/${currentEnemyMaxHp}`;
         }
         setInterval(updateBattleHud, 500);
 
@@ -2336,6 +2346,7 @@
 
         // フラッシュ変化でアタック検出
         let prevEnemyFlash = 0, prevPlayerFlash = 0, prevPlayerHp = null;
+        let currentEnemyHp = 0, currentEnemyMaxHp = 1;
         setInterval(() => {
             if (!inBattle || !window.wasmModule) return;
             const ef = window.wasmModule.get_enemy_flash?.()  ?? 0;
@@ -2344,7 +2355,9 @@
             const eName = currentEnemyInfo ? (ENEMY_NAMES[currentEnemyInfo.eIdx] ?? '敵') : '敵';
 
             if (ef > 0 && prevEnemyFlash <= 0) {
-                pushBattleMsg(`アリサの攻撃！`, 'attack');
+                const dmg = 3 + Math.floor(Math.random() * 8);
+                currentEnemyHp = Math.max(0, currentEnemyHp - dmg);
+                pushBattleMsg(`アリサの攻撃！ ${dmg} ダメージ`, 'attack');
             }
             if (pf > 0 && prevPlayerFlash <= 0) {
                 pushBattleMsg(`${eName}の攻撃！`, 'damage');
@@ -2577,6 +2590,9 @@
             // バトル開始メッセージ
             prevEnemyFlash = 0; prevPlayerFlash = 0;
             prevPlayerHp = window.wasmModule.get_player_hp?.() ?? null;
+            const eMapEntry = ENEMY_MAP[enemyInfo.eIdx];
+            currentEnemyMaxHp = eMapEntry?.maxHp ?? 30;
+            currentEnemyHp    = currentEnemyMaxHp;
             const eName = ENEMY_NAMES[enemyInfo.eIdx] ?? '???';
             setTimeout(() => pushBattleMsg(`${eName} が現れた！`, 'system'), 300);
 
