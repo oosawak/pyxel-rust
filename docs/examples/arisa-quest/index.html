@@ -82,6 +82,14 @@
             background: #000;
         }
         #battle-overlay.active { display: flex; }
+        #debug-overlay {
+            position: absolute; top: 4px; right: 4px; z-index: 99;
+            background: rgba(0,0,0,0.75); border: 1px solid #555;
+            border-radius: 6px; padding: 6px 10px;
+            font-size: 0.6rem; color: #0f0; line-height: 1.7;
+            font-family: monospace; pointer-events: none;
+            white-space: pre;
+        }
 
         /* Canvas area */
         #canvas-area {
@@ -226,6 +234,7 @@
 
         <!-- Battle overlay (shown when WASM is in battle state) -->
         <div id="battle-overlay">
+            <div id="debug-overlay"></div>
             <div id="canvas-area">
                 <div id="game-wrapper">
                     <canvas id="bg-canvas"></canvas>
@@ -304,6 +313,7 @@
             { sheet: 'enemy-sprites', sx: 256, sy: 768, sw: 256, sh: 128 }, // 3: ゴースト
             { sheet: 'enemy-sprites', sx: 256, sy: 896, sw: 256, sh: 128 }, // 4: ロックゴーレム
         ];
+        const ENEMY_NAMES = ['スライム','シャドウキャット','フレイムインプ','ゴースト','ロックゴーレム'];
 
         const SHEETS = {};
         const SHEET_LIST = ['enemy-sprites', 'arisa-player-sprites', 'arisa-world-backgrounds-2', 'arisa-3d-art'];
@@ -430,22 +440,28 @@
 
         function makeEnemyIcon(idx) {
             const e = ENEMY_MAP[idx];
-            const scaleX = 56 / e.sw, scaleY = 48 / e.sh;
-            const bgW = Math.round(1536 * scaleX), bgH = Math.round(1024 * scaleY);
-            const bgX = -Math.round(e.sx * scaleX), bgY = -Math.round(e.sy * scaleY);
+            const dispH = 52;
+            const scaleF = dispH / e.sh;
+            const dispW = Math.round(e.sw * scaleF);
+            const bgW = Math.round(1536 * scaleF);
+            const bgH = Math.round(1024 * scaleF);
+            const bgX = -Math.round(e.sx * scaleF) - Math.round((dispW - 52) / 2);
+            const bgY = -Math.round(e.sy * scaleF) - 30;
             const spriteStyle = [
-                `width:56px;height:48px;overflow:hidden`,
+                `width:52px;height:52px;border-radius:50%;overflow:hidden`,
                 `background-image:url('${ASSET_BASE}${e.sheet}.png')`,
                 `background-size:${bgW}px ${bgH}px`,
                 `background-position:${bgX}px ${bgY}px`,
                 `image-rendering:pixelated`,
+                `border:2px solid #aa44ff`,
+                `box-shadow:0 0 10px rgba(180,80,255,0.7)`,
             ].join(';');
             return L.divIcon({
                 html: `<div class="enemy-marker">
                     <div class="enemy-pulse" style="${spriteStyle}"></div>
                     <div class="enemy-lbl">${ENEMY_NAMES[idx]}</div>
                 </div>`,
-                iconSize: [56, 64], iconAnchor: [28, 64], className: '',
+                iconSize: [52, 68], iconAnchor: [26, 68], className: '',
             });
         }
 
@@ -517,6 +533,23 @@
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
             battleOverlay.classList.add('active');
             requestAnimationFrame(() => resizeBgCanvas());
+
+            // デバッグ情報表示
+            const e = ENEMY_MAP[enemyInfo.eIdx];
+            const dbg = document.getElementById('debug-overlay');
+            dbg.textContent = [
+                `── 敵 [${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]} ──`,
+                `sheet : ${e.sheet}`,
+                `sx=${e.sx}  sy=${e.sy}`,
+                `sw=${e.sw}  sh=${e.sh}`,
+                `dest  : x=${ENE_DEST.x} y=${ENE_DEST.y} w=${ENE_DEST.w} h=${ENE_DEST.h}`,
+                ``,
+                `── アリサ ──`,
+                `sheet : arisa-player-sprites`,
+                `sx=0  sy=22`,
+                `sw=128  sh=106`,
+                `dest  : x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
+            ].join('\n');
 
             // Poll for battle end (state leaves 2)
             watchInterval = setInterval(() => {
