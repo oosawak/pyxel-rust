@@ -972,11 +972,6 @@
         <div id="battle-overlay">
             <button id="btn-debug">DBG</button>
             <button id="btn-hud">HUD</button>
-            <!-- 距離バッジ（常時表示・右上） -->
-            <div id="battle-dist-badge">
-                <span class="dist-icon">📡</span>
-                <span id="badge-dist">---</span>
-            </div>
             <div id="debug-overlay"></div>
             <!-- バトルHUD情報オーバーレイ -->
             <div id="battle-hud">
@@ -996,6 +991,11 @@
                 </div>
             </div>
             <div id="canvas-area">
+                <!-- 距離バッジ（戦闘画面右上） -->
+                <div id="battle-dist-badge">
+                    <span class="dist-icon">📡</span>
+                    <span id="badge-dist">---</span>
+                </div>
                 <div id="canvas-scene">
                     <div id="game-wrapper">
                         <canvas id="bg-canvas"></canvas>
