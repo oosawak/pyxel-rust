@@ -1483,26 +1483,47 @@
         const map = L.map('map', { zoomControl: true }).setView([38.2553, 140.3394], 16);
 
         // タイルスタイル定義
+        const OSM_JP_OPTS = { attribution: '© <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 20, tileSize: 512, zoomOffset: -1 };
         const TILE_STYLES = [
-            {
-                name: '標準',
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                opts: { attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors', maxZoom: 19 }
-            },
             {
                 name: 'Bright日本語',
                 url: 'https://tile.openstreetmap.jp/styles/osm-bright-ja/512/{z}/{x}/{y}.png',
-                opts: { attribution: '© <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 20, tileSize: 512, zoomOffset: -1 }
+                opts: OSM_JP_OPTS
             },
             {
                 name: 'Basic日本語',
                 url: 'https://tile.openstreetmap.jp/styles/maptiler-basic-ja/512/{z}/{x}/{y}.png',
-                opts: { attribution: '© <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 20, tileSize: 512, zoomOffset: -1 }
+                opts: OSM_JP_OPTS
             },
             {
                 name: 'Toner日本語',
                 url: 'https://tile.openstreetmap.jp/styles/maptiler-toner-ja/512/{z}/{x}/{y}.png',
-                opts: { attribution: '© <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 20, tileSize: 512, zoomOffset: -1 }
+                opts: OSM_JP_OPTS
+            },
+            {
+                name: 'Bright英語',
+                url: 'https://tile.openstreetmap.jp/styles/osm-bright-en/512/{z}/{x}/{y}.png',
+                opts: OSM_JP_OPTS
+            },
+            {
+                name: 'Basic英語',
+                url: 'https://tile.openstreetmap.jp/styles/maptiler-basic-en/512/{z}/{x}/{y}.png',
+                opts: OSM_JP_OPTS
+            },
+            {
+                name: 'Toner英語',
+                url: 'https://tile.openstreetmap.jp/styles/maptiler-toner-en/512/{z}/{x}/{y}.png',
+                opts: OSM_JP_OPTS
+            },
+            {
+                name: 'OpenMapTiles',
+                url: 'https://tile.openstreetmap.jp/styles/openmaptiles/512/{z}/{x}/{y}.png',
+                opts: OSM_JP_OPTS
+            },
+            {
+                name: '標準(OSM)',
+                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                opts: { attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors', maxZoom: 19 }
             },
         ];
         let currentTileIdx = 0;
