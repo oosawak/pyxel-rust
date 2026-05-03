@@ -550,13 +550,31 @@
                 const maxMp = window.wasmModule.get_player_max_mp?.() ?? '?';
                 const lv    = window.wasmModule.get_player_level?.()  ?? '?';
                 const bgI2  = ((bgIdx % 24) + 24) % 24;
+                const bgZoom   = 1.6;
+                const cropW2   = Math.round(BG_CW / bgZoom);
+                const cropH2   = Math.round(BG_CH / bgZoom);
+                const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
+                const baseSrcY = Math.floor(bgI2 / BG_COLS) * BG_CH;
+                const cropX    = baseSrcX + Math.round((BG_CW - cropW2) / 2);
+                const cropY    = baseSrcY + Math.round((BG_CH - cropH2) / 2);
+                const dpr      = window.devicePixelRatio || 1;
                 dbgEl.textContent = [
                     `── ゲーム状態 ──`,
                     `state=${state}  Lv=${lv}`,
                     `HP=${hp}/${maxHp}  MP=${mp}/${maxMp}`,
                     `bgIdx=${bgIdx}  bgI=${bgI2}`,
-                    `bgSheet: ${bgI2 % BG_COLS}列 ${Math.floor(bgI2/BG_COLS)}行`,
-                    `bgSrc: x=${bgI2%BG_COLS*BG_CW} y=${Math.floor(bgI2/BG_COLS)*BG_CH}`,
+                    ``,
+                    `── 背景情報 ──`,
+                    `シート位置: 列${bgI2 % BG_COLS} 行${Math.floor(bgI2/BG_COLS)}`,
+                    `セル原点: (${baseSrcX}, ${baseSrcY})  ${BG_CW}×${BG_CH}px`,
+                    `ZOOM: ×${bgZoom}`,
+                    `クロップ領域: x=${cropX} y=${cropY}`,
+                    `クロップサイズ: ${cropW2}×${cropH2}px`,
+                    ``,
+                    `── キャンバス ──`,
+                    `CSS: ${bgCanvas.style.width} × ${bgCanvas.style.height}`,
+                    `バッファ: ${bgCanvas.width}×${bgCanvas.height}px`,
+                    `DPR: ${dpr}`,
                     ``,
                     `── 敵スプライト ──`,
                     dbgStaticText,
