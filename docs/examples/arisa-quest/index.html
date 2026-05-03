@@ -1245,6 +1245,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('terr-battles').textContent = arisaSave.battles;
         });
+
+        let toastTimer = null;
         function showToast(msg, duration = 6000) {
             const el = document.getElementById('toast');
             el.textContent = msg; el.classList.add('show');
@@ -1360,6 +1362,10 @@
         map.on('dragstart', () => {
             mapFollowArisa = false;
             btnRecenter.style.display = 'flex';
+        });
+        // マップタップでステータスポップアップを閉じる
+        map.on('click', () => {
+            document.getElementById('status-popup')?.classList.remove('active');
         });
 
         function startGPS() {
@@ -1880,7 +1886,7 @@
 
         function endBattle(enemyInfo) {
             clearInterval(watchInterval);
-            if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('cmd-auto').classList.remove('active-auto'); }
+            if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('cmd-auto')?.classList.remove('active-auto'); }
             inBattle = false;
             battleUI.classList.remove('active');
 
