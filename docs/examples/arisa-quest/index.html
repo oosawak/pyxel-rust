@@ -7,67 +7,110 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; background: #0a0a1a; overflow: hidden; }
-        body { display: flex; flex-direction: column; align-items: center; font-family: monospace; color: #eee; }
+        html, body { height: 100%; overflow: hidden; background: #0a0a1a; font-family: 'DotGothic16', monospace; color: #eee; }
+        body { display: flex; flex-direction: column; }
 
-        #header { padding: 4px 12px; font-size: 0.85rem; color: #ff88cc; display: flex; align-items: center; gap: 12px; width: 100%; }
-        #status { color: #888; font-size: 0.75rem; }
-        .back a { color: #7ec8e3; text-decoration: none; font-size: 0.75rem; }
+        /* ── Status bar (always visible) ────────────────────────── */
+        #status-bar {
+            flex-shrink: 0;
+            background: linear-gradient(90deg, #0d0525, #1a0535);
+            border-bottom: 2px solid #3a1060;
+            padding: 6px 12px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        #status-bar .portrait {
+            width: 34px; height: 34px; border-radius: 50%;
+            border: 2px solid #ff88cc; object-fit: cover; object-position: 50% 10%;
+            flex-shrink: 0;
+        }
+        #status-bar .stats { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+        .stat-row { display: flex; align-items: center; gap: 5px; }
+        .stat-lbl { font-size: 0.6rem; color: #ff88cc; width: 18px; text-align: right; flex-shrink: 0; }
+        .bar-bg { flex: 1; height: 7px; background: #1a0535; border-radius: 4px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+        .bar-hp  { background: linear-gradient(90deg, #cc2244, #ff6688); }
+        .bar-mp  { background: linear-gradient(90deg, #2244cc, #6688ff); }
+        .stat-val { font-size: 0.58rem; color: #aaa; min-width: 38px; }
+        .lv-badge { background: #2a0860; border: 1px solid #8844cc; border-radius: 4px;
+                    padding: 2px 7px; font-size: 0.65rem; color: #cc88ff; flex-shrink: 0; }
+        .back-link { font-size: 0.7rem; flex-shrink: 0; }
+        .back-link a { color: #7ec8e3; text-decoration: none; }
 
-        /* Canvas area — flex center with stacked canvases */
+        /* ── Main area ────────────────────────────────────────────── */
+        #main { flex: 1; position: relative; overflow: hidden; min-height: 0; }
+
+        /* ── Map layer ───────────────────────────────────────────── */
+        #map-layer { position: absolute; inset: 0; z-index: 1; }
+
+        /* ── Location overlay ────────────────────────────────────── */
+        #loc-overlay {
+            position: absolute; inset: 0; z-index: 20;
+            background: rgba(10,5,30,0.92);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 14px; padding: 24px; text-align: center;
+        }
+        #loc-overlay h2 { font-size: 1.1rem; color: #ff88cc; }
+        #loc-overlay p  { font-size: 0.8rem; color: #aaa; line-height: 1.6; }
+        #btn-gps {
+            background: linear-gradient(135deg, #3a1060, #1a0535);
+            border: 1px solid #aa66ff; border-radius: 8px;
+            color: #fff; font-family: inherit; font-size: 0.95rem;
+            padding: 11px 24px; cursor: pointer;
+        }
+
+        /* ── Battle overlay (hidden until battle) ────────────────── */
+        #battle-overlay {
+            position: absolute; inset: 0; z-index: 10;
+            display: none; flex-direction: column;
+            background: #000;
+        }
+        #battle-overlay.active { display: flex; }
+
+        /* Canvas area */
         #canvas-area {
-            flex: 1; display: flex; align-items: center; justify-content: center;
-            width: 100%; min-height: 0; padding: 4px;
-        }
-        /* Wrapper sizes to pyxel_canvas; bg-canvas overlays behind it */
-        #game-wrapper {
+            flex: 1; min-height: 0;
+            display: flex; align-items: center; justify-content: center;
             position: relative;
-            line-height: 0;
-            border: 2px solid #2a1a3a;
         }
+        #game-wrapper { position: relative; line-height: 0; border: 2px solid #2a1a3a; }
         #pyxel_canvas {
             image-rendering: pixelated; image-rendering: crisp-edges;
-            max-width: calc(100vw - 12px);
-            max-height: calc(100dvh - 130px);
-            display: block;
-            mix-blend-mode: screen;
-            position: relative;
-            z-index: 1;
+            max-width: calc(100vw - 8px);
+            max-height: calc(100dvh - 220px);
+            display: block; mix-blend-mode: screen; position: relative; z-index: 1;
         }
         #bg-canvas {
-            position: absolute;
-            top: 0; left: 0;
+            position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
-            image-rendering: auto;
-            pointer-events: none;
+            image-rendering: auto; pointer-events: none;
         }
 
-        /* Gamepad */
-        #gamepad { width: 100%; max-width: 480px; padding: 6px 12px 12px; display: flex; align-items: center; justify-content: space-between; }
-
-        /* D-pad */
-        #dpad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); gap: 2px; }
-        .dp { background: #1a1a2a; border: 2px solid #444; border-radius: 8px; color: #ccc; font-size: 18px;
+        /* ── Gamepad (only during battle) ────────────────────────── */
+        #gamepad {
+            flex-shrink: 0;
+            width: 100%; max-width: 480px; margin: 0 auto;
+            padding: 5px 12px 10px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        #dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); gap: 2px; }
+        .dp { background: #1a1a2a; border: 2px solid #444; border-radius: 8px; color: #ccc; font-size: 16px;
               display: flex; align-items: center; justify-content: center; cursor: pointer;
               -webkit-tap-highlight-color: transparent; user-select: none; }
         .dp.active { background: #3a2a5a; border-color: #ff88cc; color: #fff; }
-        .dp-empty { background: #0a0a1a; border: 2px solid #0a0a1a; border-radius: 8px; }
-
-        /* Center buttons */
+        .dp-empty   { background: #0a0a1a; border: 2px solid #0a0a1a; border-radius: 8px; }
         #center-btns { display: flex; flex-direction: column; align-items: center; gap: 6px; }
         .sm { background: #1e1e3a; border: 2px solid #444; border-radius: 10px; color: #aaa;
-              font-size: 11px; font-weight: bold; width: 44px; height: 30px;
+              font-size: 10px; font-weight: bold; width: 42px; height: 28px;
               display: flex; align-items: center; justify-content: center;
               cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
         .sm.active { background: #3e3e6a; color: #fff; border-color: #ff88cc; }
-
-        /* Face buttons */
-        #face-btns { width: 152px; height: 152px; position: relative; }
-        .fb { position: absolute; width: 52px; height: 52px; border-radius: 50%;
+        #face-btns { width: 140px; height: 140px; position: relative; }
+        .fb { position: absolute; width: 50px; height: 50px; border-radius: 50%;
               border: 2px solid #664488; background: #2a1a3a; color: #ddd;
-              font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center;
+              font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center;
               cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
         .fb.active { background: #5a2a7a; border-color: #ff88cc; color: #fff; }
         #fb-top  { top: 0;    left: 50%; transform: translateX(-50%); }
@@ -75,78 +118,123 @@
         #fb-rght { right: 0;  top:  50%; transform: translateY(-50%); }
         #fb-bot  { bottom: 0; left: 50%; transform: translateX(-50%); }
 
-        @media (pointer: fine) and (min-width: 600px) { #gamepad { display: none; } }
+        /* ── Leaflet marker styles ───────────────────────────────── */
+        .arisa-marker { display: flex; flex-direction: column; align-items: center; }
+        .arisa-icon {
+            width: 38px; height: 48px; object-fit: cover; object-position: 50% 8%;
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            border: 2px solid #ff88cc;
+            box-shadow: 0 0 10px rgba(255,136,204,0.7), 0 0 20px rgba(255,136,204,0.3);
+        }
+        .arisa-lbl {
+            background: rgba(255,136,204,0.15); border: 1px solid #ff88cc;
+            border-radius: 3px; padding: 1px 5px;
+            font-family: 'DotGothic16', monospace; font-size: 0.55rem; color: #ff88cc;
+            white-space: nowrap; margin-top: 2px;
+        }
+        .enemy-marker { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+        .enemy-sprite { image-rendering: pixelated; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9)); }
+        .enemy-lbl {
+            background: rgba(10,5,30,0.88); border: 1px solid #6633aa;
+            border-radius: 3px; padding: 1px 4px;
+            font-family: 'DotGothic16', monospace; font-size: 0.52rem; color: #ff88cc;
+            white-space: nowrap; margin-top: 1px;
+        }
+        .enemy-pulse { animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse {
+            0%,100% { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9)); }
+            50%      { filter: drop-shadow(0 0 10px rgba(180,80,255,0.9)) drop-shadow(0 2px 6px rgba(0,0,0,0.9)); }
+        }
     </style>
 </head>
 <body>
-    <div id="header">
-        <span>🐱 アリサクエスト</span>
-        <span id="status">Loading...</span>
-        <span class="back"><a href="../../">← Docs</a></span>
+    <!-- Status bar -->
+    <div id="status-bar">
+        <img class="portrait" src="../../assets/design/arisa-3d-art.png" alt="アリサ">
+        <div class="stats">
+            <div class="stat-row">
+                <span class="stat-lbl">HP</span>
+                <div class="bar-bg"><div class="bar-fill bar-hp" id="hp-bar" style="width:100%"></div></div>
+                <span class="stat-val" id="hp-val">128/128</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-lbl">MP</span>
+                <div class="bar-bg"><div class="bar-fill bar-mp" id="mp-bar" style="width:100%"></div></div>
+                <span class="stat-val" id="mp-val">54/54</span>
+            </div>
+        </div>
+        <div class="lv-badge" id="lv-badge">Lv.1</div>
+        <div class="back-link"><a href="../../">← Back</a></div>
     </div>
 
-    <!-- game-wrapper: bg-canvas (art layer) + pyxel_canvas (UI layer, mix-blend-mode: screen) -->
-    <div id="canvas-area">
-        <div id="game-wrapper">
-            <canvas id="bg-canvas"></canvas>
-            <canvas id="pyxel_canvas"></canvas>
-        </div>
-    </div>
+    <!-- Main area -->
+    <div id="main">
 
-    <div id="gamepad">
-        <!-- D-pad -->
-        <div id="dpad">
-            <div class="dp-empty"></div>
-            <button class="dp" data-idx="5">▲</button>
-            <div class="dp-empty"></div>
-            <button class="dp" data-idx="7">◀</button>
-            <div class="dp-empty"></div>
-            <button class="dp" data-idx="8">▶</button>
-            <div class="dp-empty"></div>
-            <button class="dp" data-idx="6">▼</button>
-            <div class="dp-empty"></div>
+        <!-- OpenStreetMap -->
+        <div id="map-layer">
+            <div id="map" style="width:100%;height:100%"></div>
+            <div id="loc-overlay">
+                <h2>🐱 アリサクエスト</h2>
+                <p>現在地の周辺に敵が出現します<br>敵マーカーをタップして戦闘開始！</p>
+                <button id="btn-gps">📡 現在地を取得する</button>
+                <p style="font-size:0.7rem;color:#665577">位置情報の許可が必要です</p>
+            </div>
         </div>
-        <!-- START -->
-        <div id="center-btns">
-            <button class="sm" data-idx="2">START</button>
-        </div>
-        <!-- Face: A=Z(45) B=X(43) -->
-        <div id="face-btns">
-            <button class="fb" id="fb-top"  data-idx="45">決定</button>
-            <button class="fb" id="fb-left" data-idx="43">B</button>
-            <button class="fb" id="fb-rght" data-idx="1">C</button>
-            <button class="fb" id="fb-bot"  data-idx="2">スタート</button>
-        </div>
-    </div>
 
+        <!-- Battle overlay (shown when WASM is in battle state) -->
+        <div id="battle-overlay">
+            <div id="canvas-area">
+                <div id="game-wrapper">
+                    <canvas id="bg-canvas"></canvas>
+                    <canvas id="pyxel_canvas"></canvas>
+                </div>
+            </div>
+            <div id="gamepad">
+                <div id="dpad">
+                    <div class="dp-empty"></div>
+                    <button class="dp" data-idx="5">▲</button>
+                    <div class="dp-empty"></div>
+                    <button class="dp" data-idx="7">◀</button>
+                    <div class="dp-empty"></div>
+                    <button class="dp" data-idx="8">▶</button>
+                    <div class="dp-empty"></div>
+                    <button class="dp" data-idx="6">▼</button>
+                    <div class="dp-empty"></div>
+                </div>
+                <div id="center-btns">
+                    <button class="sm" data-idx="2">START</button>
+                </div>
+                <div id="face-btns">
+                    <button class="fb" id="fb-top"  data-idx="45">決定</button>
+                    <button class="fb" id="fb-left" data-idx="43">B</button>
+                    <button class="fb" id="fb-rght" data-idx="1">C</button>
+                    <button class="fb" id="fb-bot"  data-idx="2">Menu</button>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- #main -->
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const active = new Map();
-
-        function press(idx, down) {
-            if (window.wasmModule) window.wasmModule.set_key(idx, down);
-        }
-
+        // ── Gamepad input ─────────────────────────────────────────────────────
+        const activeKeys = new Map();
+        function pressKey(idx, down) { if (window.wasmModule) window.wasmModule.set_key(idx, down); }
         function onTouchStart(e) {
             e.preventDefault();
             for (const t of e.changedTouches) {
-                const el = e.currentTarget;
-                const idx = parseInt(el.dataset.idx);
-                if (!active.has(t.identifier)) {
-                    active.set(t.identifier, { idx, el });
-                    el.classList.add('active');
-                    press(idx, true);
+                const el = e.currentTarget, idx = parseInt(el.dataset.idx);
+                if (!activeKeys.has(t.identifier)) {
+                    activeKeys.set(t.identifier, { idx, el });
+                    el.classList.add('active'); pressKey(idx, true);
                 }
             }
         }
         function onTouchEnd(e) {
             e.preventDefault();
             for (const t of e.changedTouches) {
-                const info = active.get(t.identifier);
-                if (info) {
-                    info.el.classList.remove('active');
-                    press(info.idx, false);
-                    active.delete(t.identifier);
-                }
+                const info = activeKeys.get(t.identifier);
+                if (info) { info.el.classList.remove('active'); pressKey(info.idx, false); activeKeys.delete(t.identifier); }
             }
         }
         document.querySelectorAll('[data-idx]').forEach(btn => {
@@ -154,71 +242,49 @@
             btn.addEventListener('touchend',    onTouchEnd,   { passive: false });
             btn.addEventListener('touchcancel', onTouchEnd,   { passive: false });
         });
-
-        window.pyxelPlaySound = function(ch, sound) {};
-        window.pyxelStopSound = function(ch) {};
+        window.pyxelPlaySound = () => {};
+        window.pyxelStopSound = () => {};
     </script>
 
-    <!-- ── Background canvas art layer ──────────────────────────────────────── -->
+    <!-- ── Background canvas art layer ───────────────────────────────────── -->
     <script>
         const ASSET_BASE = '../../assets/design/';
+        const BG_COLS = 6, BG_CW = 256, BG_CH = 256;
+        const SCENE_H = 84;
+        const ARISA_DEST = { x: 8, y: 8,  w: 58, h: 76 };
+        const ENE_DEST   = { x: 95, y: 4, w: 58, h: 72 };
 
-        // Sprite sheet grid constants
-        // enemy-sprites.png: 6 cols × 4 rows, 256×256 per cell
-        //   col 0 = labels (skip), col 1 = large ref sprite (top 128px = enemy A, bottom 128px = enemy B)
-        const BG_COLS = 6, BG_CW = 256, BG_CH = 256;  // world-backgrounds-2: 6×4 grid, 256×256 per cell (24 total)
-
-        // Map game enemy index → sprite source { sheet, sx, sy, sw, sh }
-        // Using col=1 (x=256) of enemy-sprites.png, each row has 2 enemies stacked (128px each)
         const ENEMY_MAP = [
-            { sheet: 'enemy-sprites', sx: 256, sy: 256, sw: 256, sh: 128 },  // 0: スライム      (row1 top)
-            { sheet: 'enemy-sprites', sx: 256, sy:   0, sw: 256, sh: 128 },  // 1: シャドウキャット (row0 top)
-            { sheet: 'enemy-sprites', sx: 256, sy: 384, sw: 256, sh: 128 },  // 2: フレイムインプ  (row1 bot)
-            { sheet: 'enemy-sprites', sx: 256, sy: 768, sw: 256, sh: 128 },  // 3: ゴースト       (row3 top)
-            { sheet: 'enemy-sprites', sx: 256, sy: 896, sw: 256, sh: 128 },  // 4: ロックゴーレム  (row3 bot)
+            { sheet: 'enemy-sprites', sx: 256, sy: 256, sw: 256, sh: 128 }, // 0: スライム
+            { sheet: 'enemy-sprites', sx: 256, sy:  32, sw: 256, sh: 96  }, // 1: シャドウキャット (skip label)
+            { sheet: 'enemy-sprites', sx: 256, sy: 384, sw: 256, sh: 128 }, // 2: フレイムインプ
+            { sheet: 'enemy-sprites', sx: 256, sy: 768, sw: 256, sh: 128 }, // 3: ゴースト
+            { sheet: 'enemy-sprites', sx: 256, sy: 896, sw: 256, sh: 128 }, // 4: ロックゴーレム
         ];
 
-        // Preload sprite sheets + title art
         const SHEETS = {};
-        const SHEET_LIST = [
-            'enemy-sprites', 'enemy-sprites-2', 'enemy-sprites-3',
-            'enemy-sprites-4', 'enemy-sprites-5',
-            'arisa-player-sprites', 'arisa-world-backgrounds-2',
-            'arisa-3d-art',
-        ];
+        const SHEET_LIST = ['enemy-sprites', 'arisa-player-sprites', 'arisa-world-backgrounds-2', 'arisa-3d-art'];
         let loadedCount = 0;
         for (const name of SHEET_LIST) {
             const img = new Image();
             img.onload = () => loadedCount++;
-            img.onerror = () => console.warn('Failed to load:', name);
+            img.onerror = () => { console.warn('sheet load failed:', name); loadedCount++; };
             img.src = ASSET_BASE + name + '.png';
             SHEETS[name] = img;
         }
 
-        // Display regions in 160×120 game pixels
-        const SCENE_H = 84;  // y=0..83 = battle scene; y=84..119 = UI
-        // Arisa: LEFT side
-        const ARISA_DEST = { x: 8, y: 8, w: 58, h: 76 };
-        // Enemy: RIGHT side, slightly higher
-        const ENE_DEST   = { x: 95, y: 4, w: 58, h: 72 };
-
         const bgCanvas = document.getElementById('bg-canvas');
         const bgCtx    = bgCanvas.getContext('2d');
 
-        // Resize bg-canvas pixel buffer to match actual display size.
-        // Drawing code stays in 160×120 coordinate space via ctx.scale().
         function resizeBgCanvas() {
             const pyxel = document.getElementById('pyxel_canvas');
-            const w = pyxel.offsetWidth;
-            const h = pyxel.offsetHeight;
+            const w = pyxel.offsetWidth, h = pyxel.offsetHeight;
             if (w > 0 && h > 0 && (bgCanvas.width !== w || bgCanvas.height !== h)) {
-                bgCanvas.width  = w;
-                bgCanvas.height = h;
+                bgCanvas.width = w; bgCanvas.height = h;
             }
         }
         window.addEventListener('resize', resizeBgCanvas);
 
-        // Apply scale so all drawing uses 160×120 logical pixels
         function beginScaledDraw() {
             resizeBgCanvas();
             bgCtx.save();
@@ -227,44 +293,10 @@
             bgCtx.scale(bgCanvas.width / 160, bgCanvas.height / 120);
         }
 
-        function renderTitle() {
-            beginScaledDraw();
-            bgCtx.clearRect(0, 0, 160, 120);
-            const grad = bgCtx.createLinearGradient(0, 0, 0, 120);
-            grad.addColorStop(0, '#0a0520');
-            grad.addColorStop(1, '#1a0535');
-            bgCtx.fillStyle = grad;
-            bgCtx.fillRect(0, 0, 160, 120);
-
-            const arisa3d = SHEETS['arisa-3d-art'];
-            if (arisa3d && arisa3d.complete && arisa3d.naturalWidth > 0) {
-                const srcW = arisa3d.naturalWidth;
-                const srcH = arisa3d.naturalHeight;
-                const cropX = srcW * 0.15;
-                const cropW = srcW * 0.70;
-                const dstH = 105;
-                const dstW = dstH * cropW / srcH;
-                const dstX = 160 - dstW - 4;
-                bgCtx.drawImage(arisa3d, cropX, 0, cropW, srcH, dstX, 8, dstW, dstH);
-            }
-            bgCtx.restore();
-        }
-
         function renderBg() {
             if (!window.wasmModule) return;
-
             const state = window.wasmModule.get_game_state?.() ?? 0;
-
-            if (state === 0) {
-                renderTitle();
-                return;
-            }
-
-            if (state !== 2) {
-                bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-                return;
-            }
-
+            if (state !== 2) { bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height); return; }
             if (loadedCount < SHEET_LIST.length) return;
 
             const enemyIdx    = window.wasmModule.get_enemy_idx?.()    ?? -1;
@@ -275,69 +307,208 @@
             beginScaledDraw();
             bgCtx.clearRect(0, 0, 160, 120);
 
-            // ── Battle background ─────────────────────────────────────────────
             const bgI  = ((bgIdx % 24) + 24) % 24;
-            const bgSx = (bgI % BG_COLS) * BG_CW;
-            const bgSy = Math.floor(bgI / BG_COLS) * BG_CH;
             bgCtx.drawImage(
                 SHEETS['arisa-world-backgrounds-2'],
-                bgSx, bgSy, BG_CW, BG_CH,
+                (bgI % BG_COLS) * BG_CW, Math.floor(bgI / BG_COLS) * BG_CH, BG_CW, BG_CH,
                 0, 0, 160, SCENE_H
             );
 
-            // ── Arisa sprite (LEFT) ───────────────────────────────────────────
-            const showArisa = playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0;
-            if (showArisa) {
-                bgCtx.drawImage(
-                    SHEETS['arisa-player-sprites'],
-                    0, 0, 128, 256,
-                    ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h
-                );
+            // Arisa (left, idle pose: top-left 128×106 of first cell, skip 22px label)
+            if (playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0) {
+                bgCtx.drawImage(SHEETS['arisa-player-sprites'],
+                    0, 22, 128, 106,
+                    ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h);
             }
 
-            // ── Enemy sprite (RIGHT, slightly higher) ─────────────────────────
+            // Enemy (right, slightly higher)
             if (enemyIdx >= 0 && enemyIdx < ENEMY_MAP.length) {
                 const e = ENEMY_MAP[enemyIdx];
-                const showEnemy = enemyFlash <= 0 || Math.floor(enemyFlash / 4) % 2 === 0;
-                if (showEnemy) {
-                    bgCtx.drawImage(
-                        SHEETS[e.sheet],
-                        e.sx, e.sy, e.sw, e.sh,
-                        ENE_DEST.x, ENE_DEST.y, ENE_DEST.w, ENE_DEST.h
-                    );
+                if (enemyFlash <= 0 || Math.floor(enemyFlash / 4) % 2 === 0) {
+                    bgCtx.drawImage(SHEETS[e.sheet], e.sx, e.sy, e.sw, e.sh,
+                        ENE_DEST.x, ENE_DEST.y, ENE_DEST.w, ENE_DEST.h);
                 }
             }
-
             bgCtx.globalAlpha = 1.0;
             bgCtx.restore();
         }
 
-        function bgLoop() {
-            renderBg();
-            requestAnimationFrame(bgLoop);
-        }
+        function bgLoop() { renderBg(); requestAnimationFrame(bgLoop); }
         requestAnimationFrame(bgLoop);
     </script>
 
+    <!-- ── Leaflet map + WASM integration ────────────────────────────────── -->
+    <script>
+        const ENEMY_NAMES = ['スライム','シャドウキャット','フレイムインプ','ゴースト','ロックゴーレム'];
+
+        const mapEl = document.getElementById('map');
+        // size map to fill #main
+        const mainEl = document.getElementById('main');
+        mapEl.style.height = mainEl.clientHeight + 'px';
+        window.addEventListener('resize', () => { mapEl.style.height = mainEl.clientHeight + 'px'; map.invalidateSize(); });
+
+        const map = L.map('map', { zoomControl: true }).setView([35.6895, 139.6917], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+        }).addTo(map);
+
+        let arisaMarker = null, arisaPos = null;
+        let enemyMarkers = [];
+
+        function arisaIcon() {
+            return L.divIcon({
+                html: `<div class="arisa-marker">
+                    <img class="arisa-icon" src="${ASSET_BASE}arisa-3d-art.png">
+                    <div class="arisa-lbl">アリサ</div>
+                </div>`,
+                iconSize: [42, 58], iconAnchor: [21, 56], className: '',
+            });
+        }
+
+        function makeEnemyIcon(idx) {
+            const c = document.createElement('canvas');
+            c.width = 56; c.height = 36;
+            const ctx2 = c.getContext('2d');
+            ctx2.imageSmoothingEnabled = true;
+            const e = ENEMY_MAP[idx];
+            const sheet = SHEETS[e.sheet];
+            if (sheet && sheet.complete && sheet.naturalWidth > 0) {
+                ctx2.drawImage(sheet, e.sx, e.sy, e.sw, e.sh, 0, 0, 56, 36);
+            }
+            return L.divIcon({
+                html: `<div class="enemy-marker">
+                    <img class="enemy-sprite enemy-pulse" src="${c.toDataURL()}" width="56" height="36">
+                    <div class="enemy-lbl">${ENEMY_NAMES[idx]}</div>
+                </div>`,
+                iconSize: [56, 52], iconAnchor: [28, 52], className: '',
+            });
+        }
+
+        function spawnEnemies(lat, lng) {
+            enemyMarkers.forEach(m => m.marker.remove());
+            enemyMarkers = [];
+            const count = 5 + Math.floor(Math.random() * 4);
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist  = 0.0004 + Math.random() * 0.0012;
+                const eLat  = lat + Math.cos(angle) * dist;
+                const eLng  = lng + Math.sin(angle) * dist;
+                const eIdx  = Math.floor(Math.random() * ENEMY_NAMES.length);
+                const icon  = makeEnemyIcon(eIdx);
+                const marker = L.marker([eLat, eLng], { icon }).addTo(map);
+                const info  = { marker, eIdx, lat: eLat, lng: eLng };
+                marker.on('click', () => triggerBattle(info));
+                enemyMarkers.push(info);
+            }
+        }
+
+        // ── GPS ───────────────────────────────────────────────────────────────
+        function startGPS() {
+            document.getElementById('loc-overlay').style.display = 'none';
+            const opts = { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 };
+            const onPos = pos => {
+                const { latitude: lat, longitude: lng } = pos.coords;
+                arisaPos = [lat, lng];
+                map.setView([lat, lng], 17);
+                if (!arisaMarker) arisaMarker = L.marker([lat, lng], { icon: arisaIcon(), zIndexOffset: 1000 }).addTo(map);
+                else arisaMarker.setLatLng([lat, lng]).setIcon(arisaIcon());
+                if (enemyMarkers.length === 0) {
+                    // Wait for sprite sheets to load before creating icons
+                    const trySpawn = () => loadedCount >= SHEET_LIST.length ? spawnEnemies(lat, lng) : setTimeout(trySpawn, 200);
+                    trySpawn();
+                }
+            };
+            const onErr = () => {
+                // Fallback: Tokyo
+                const lat = 35.6895, lng = 139.6917;
+                arisaPos = [lat, lng];
+                map.setView([lat, lng], 17);
+                if (!arisaMarker) arisaMarker = L.marker([lat, lng], { icon: arisaIcon(), zIndexOffset: 1000 }).addTo(map);
+                const trySpawn = () => loadedCount >= SHEET_LIST.length ? spawnEnemies(lat, lng) : setTimeout(trySpawn, 200);
+                trySpawn();
+            };
+            navigator.geolocation.getCurrentPosition(onPos, onErr, opts);
+            navigator.geolocation.watchPosition(onPos, () => {}, opts);
+        }
+        document.getElementById('btn-gps').addEventListener('click', startGPS);
+
+        // ── Battle trigger ────────────────────────────────────────────────────
+        const battleOverlay = document.getElementById('battle-overlay');
+        let inBattle = false, watchInterval = null;
+
+        function triggerBattle(enemyInfo) {
+            if (inBattle || !window.wasmModule) return;
+            inBattle = true;
+            window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
+            battleOverlay.classList.add('active');
+            requestAnimationFrame(() => resizeBgCanvas());
+
+            // Poll for battle end (state leaves 2)
+            watchInterval = setInterval(() => {
+                const state = window.wasmModule.get_game_state?.() ?? 0;
+                if (state !== 2) endBattle(enemyInfo);
+            }, 300);
+        }
+
+        function endBattle(enemyInfo) {
+            clearInterval(watchInterval);
+            inBattle = false;
+            battleOverlay.classList.remove('active');
+
+            // Remove defeated enemy marker (if enemy still alive, keep it)
+            const state = window.wasmModule?.get_game_state?.() ?? 0;
+            if (state === 1) { // returned to map = enemy defeated or fled
+                enemyInfo.marker.remove();
+                const idx = enemyMarkers.indexOf(enemyInfo);
+                if (idx >= 0) enemyMarkers.splice(idx, 1);
+                // Respawn when all cleared
+                if (enemyMarkers.length === 0 && arisaPos) {
+                    setTimeout(() => spawnEnemies(arisaPos[0], arisaPos[1]), 1500);
+                }
+            }
+            updateStatusBar();
+        }
+
+        // ── Status bar update ────────────────────────────────────────────────
+        function updateStatusBar() {
+            if (!window.wasmModule) return;
+            const hp    = window.wasmModule.get_player_hp?.()     ?? 128;
+            const maxHp = window.wasmModule.get_player_max_hp?.() ?? 128;
+            const mp    = window.wasmModule.get_player_mp?.()     ?? 54;
+            const maxMp = window.wasmModule.get_player_max_mp?.() ?? 54;
+            const lv    = window.wasmModule.get_player_level?.()  ?? 1;
+            document.getElementById('hp-bar').style.width = (hp / maxHp * 100) + '%';
+            document.getElementById('hp-val').textContent = hp + '/' + maxHp;
+            document.getElementById('mp-bar').style.width = (mp / maxMp * 100) + '%';
+            document.getElementById('mp-val').textContent = mp + '/' + maxMp;
+            document.getElementById('lv-badge').textContent = 'Lv.' + lv;
+        }
+        setInterval(updateStatusBar, 500);
+    </script>
+
+    <!-- ── WASM init ──────────────────────────────────────────────────────── -->
     <script type="module">
         import init, {
             set_key,
             get_game_state, get_enemy_idx, get_bg_idx,
             get_enemy_flash, get_player_flash,
+            get_player_hp, get_player_max_hp,
+            get_player_mp, get_player_max_mp, get_player_level,
+            start_battle_from_js,
         } from './pkg/rpg_rust_lib.js';
         try {
-            const wasm = await init();
+            await init();
             window.wasmModule = {
                 set_key,
                 get_game_state, get_enemy_idx, get_bg_idx,
                 get_enemy_flash, get_player_flash,
+                get_player_hp, get_player_max_hp,
+                get_player_mp, get_player_max_mp, get_player_level,
+                start_battle_from_js,
             };
-            document.getElementById('status').textContent = '▶ 実行中';
-            // pyxel_canvas now has its size set by WASM — resize bg-canvas to match
-            requestAnimationFrame(() => resizeBgCanvas());
         } catch(e) {
-            document.getElementById('status').textContent = '❌ ' + e;
-            console.error(e);
+            console.error('WASM init failed:', e);
         }
     </script>
 </body>

@@ -41,6 +41,46 @@ export function get_player_flash() {
 }
 
 /**
+ * @returns {number}
+ */
+export function get_player_hp() {
+    const ret = wasm.get_player_hp();
+    return ret;
+}
+
+/**
+ * @returns {number}
+ */
+export function get_player_level() {
+    const ret = wasm.get_player_level();
+    return ret;
+}
+
+/**
+ * @returns {number}
+ */
+export function get_player_max_hp() {
+    const ret = wasm.get_player_max_hp();
+    return ret;
+}
+
+/**
+ * @returns {number}
+ */
+export function get_player_max_mp() {
+    const ret = wasm.get_player_max_mp();
+    return ret;
+}
+
+/**
+ * @returns {number}
+ */
+export function get_player_mp() {
+    const ret = wasm.get_player_mp();
+    return ret;
+}
+
+/**
  * キーインデックスの定数マップを返す (JS から参照用)
  * @param {string} code
  * @returns {number}
@@ -63,6 +103,15 @@ export function main() {
  */
 export function set_key(idx, down) {
     wasm.set_key(idx, down);
+}
+
+/**
+ * Called from JS to start a battle against enemy at given index.
+ * The game loop picks this up next frame and transitions to Battle state.
+ * @param {number} idx
+ */
+export function start_battle_from_js(idx) {
+    wasm.start_battle_from_js(idx);
 }
 function __wbg_get_imports() {
     const import0 = {

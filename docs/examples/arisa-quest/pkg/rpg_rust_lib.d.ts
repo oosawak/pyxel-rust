@@ -11,6 +11,16 @@ export function get_game_state(): number;
 
 export function get_player_flash(): number;
 
+export function get_player_hp(): number;
+
+export function get_player_level(): number;
+
+export function get_player_max_hp(): number;
+
+export function get_player_max_mp(): number;
+
+export function get_player_mp(): number;
+
 /**
  * キーインデックスの定数マップを返す (JS から参照用)
  */
@@ -23,6 +33,12 @@ export function main(): void;
  */
 export function set_key(idx: number, down: boolean): void;
 
+/**
+ * Called from JS to start a battle against enemy at given index.
+ * The game loop picks this up next frame and transitions to Battle state.
+ */
+export function start_battle_from_js(idx: number): void;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -32,7 +48,13 @@ export interface InitOutput {
     readonly get_enemy_idx: () => number;
     readonly get_game_state: () => number;
     readonly get_player_flash: () => number;
+    readonly get_player_hp: () => number;
+    readonly get_player_level: () => number;
+    readonly get_player_max_hp: () => number;
+    readonly get_player_max_mp: () => number;
+    readonly get_player_mp: () => number;
     readonly main: () => void;
+    readonly start_battle_from_js: (a: number) => void;
     readonly key_index: (a: number, b: number) => number;
     readonly set_key: (a: number, b: number) => void;
     readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_5bbe641191e3e9a4___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
