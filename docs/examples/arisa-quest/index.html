@@ -29,7 +29,7 @@
         }
         #status-bar .portrait-wrap img {
             position: absolute;
-            width: 75px; height: auto;
+            width: 55px; height: auto;
             left: 50%; top: 0px;
             transform: translateX(-50%);
         }
@@ -389,7 +389,11 @@
             const el = document.getElementById('toast');
             el.textContent = msg; el.classList.add('show');
             clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+            console.log('[toast] showing:', msg, 'duration:', duration);
+            toastTimer = setTimeout(() => {
+                console.log('[toast] hiding after', duration, 'ms');
+                el.classList.remove('show');
+            }, duration);
         }
 
         const mapEl = document.getElementById('map');
