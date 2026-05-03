@@ -90,9 +90,13 @@
 
         /* ── Battle overlay (hidden until battle) ────────────────── */
         #battle-overlay {
-            position: absolute; inset: 0; bottom: var(--tab-h); z-index: 10;
+            position: absolute;
+            top: 56px; left: 0; right: 0;
+            bottom: calc(var(--tab-h) + 56px);
+            z-index: 10;
             display: none; flex-direction: column;
             background: rgba(0, 0, 18, 0.62);
+            border-radius: 12px;
         }
         #battle-overlay.active { display: flex; }
         #debug-overlay {
@@ -112,6 +116,39 @@
             font-family: monospace; padding: 3px 6px; cursor: pointer;
         }
         #btn-debug.on { color: #0f0; border-color: #0f0; }
+
+        /* HUDトグルボタン */
+        #btn-hud {
+            position: absolute; top: 4px; left: 40px; z-index: 100;
+            background: rgba(0,0,0,0.7); border: 1px solid #555;
+            border-radius: 4px; color: #888; font-size: 0.55rem;
+            font-family: monospace; padding: 3px 6px; cursor: pointer;
+        }
+        #btn-hud.on { color: #ffcc66; border-color: #ffcc66; }
+
+        /* バトルHUD情報オーバーレイ */
+        #battle-hud {
+            display: none;
+            position: absolute; top: 0; left: 0; right: 0; z-index: 90;
+            pointer-events: none;
+            padding: 6px 10px 8px;
+            background: linear-gradient(to bottom, rgba(0,0,10,0.7) 0%, transparent 100%);
+        }
+        #battle-hud.active { display: block; }
+        .hud-row {
+            display: flex; align-items: center; gap: 12px;
+            font-family: 'DotGothic16', monospace; font-size: 0.7rem;
+        }
+        .hud-item {
+            display: flex; align-items: center; gap: 5px;
+            background: rgba(0,0,0,0.45); border-radius: 6px;
+            padding: 3px 8px; color: #eeddff;
+        }
+        .hud-item .hud-label { color: #aa88cc; font-size: 0.6rem; }
+        .hud-item .hud-val   { color: #ffffff; font-weight: bold; }
+        .hud-item .hud-val.near  { color: #ff6644; }
+        .hud-item .hud-val.mid   { color: #ffcc44; }
+        .hud-item .hud-val.far   { color: #88ddff; }
         /* Canvas area */
         #canvas-area {
             flex: 1; min-height: 0;
@@ -344,7 +381,25 @@
         <!-- Battle overlay (shown when WASM is in battle state) -->
         <div id="battle-overlay">
             <button id="btn-debug">DBG</button>
+            <button id="btn-hud">HUD</button>
             <div id="debug-overlay"></div>
+            <!-- バトルHUD情報オーバーレイ -->
+            <div id="battle-hud">
+                <div class="hud-row">
+                    <div class="hud-item">
+                        <span class="hud-label">敵との距離</span>
+                        <span class="hud-val" id="hud-dist">---</span>
+                    </div>
+                    <div class="hud-item">
+                        <span class="hud-label">敵HP</span>
+                        <span class="hud-val" id="hud-ehp">---</span>
+                    </div>
+                    <div class="hud-item">
+                        <span class="hud-label">アリサHP</span>
+                        <span class="hud-val" id="hud-php">---</span>
+                    </div>
+                </div>
+            </div>
             <div id="canvas-area">
                 <div id="canvas-scene">
                     <div id="game-wrapper">
@@ -444,10 +499,15 @@
 
         function resizeBgCanvas() {
             const canvasArea = document.getElementById('canvas-area');
-            const w = canvasArea.offsetWidth, h = canvasArea.offsetHeight;
+            const dpr = window.devicePixelRatio || 1;
+            const w = Math.round(canvasArea.offsetWidth  * dpr);
+            const h = Math.round(canvasArea.offsetHeight * dpr);
             if (w > 0 && h > 0) {
                 if (bgCanvas.width !== w || bgCanvas.height !== h) {
-                    bgCanvas.width = w; bgCanvas.height = h;
+                    bgCanvas.width  = w;
+                    bgCanvas.height = h;
+                    bgCanvas.style.width  = canvasArea.offsetWidth  + 'px';
+                    bgCanvas.style.height = canvasArea.offsetHeight + 'px';
                 }
             }
         }
@@ -766,6 +826,44 @@
             const on = dbgOverlay.classList.toggle('visible');
             btnDebug.classList.toggle('on', on);
         });
+
+        // ── HUDトグル ────────────────────────────────────────────────────────
+        let hudVisible = false;
+        const btnHud   = document.getElementById('btn-hud');
+        const battleHud = document.getElementById('battle-hud');
+        btnHud.addEventListener('click', () => {
+            hudVisible = !hudVisible;
+            btnHud.classList.toggle('on', hudVisible);
+            battleHud.classList.toggle('active', hudVisible);
+        });
+
+        // HUD更新（バトル中の敵との距離・HP情報）
+        let currentEnemyInfo = null; // triggerBattleでセット
+        function updateBattleHud() {
+            if (!hudVisible || !window.wasmModule) return;
+            const hp    = window.wasmModule.get_player_hp?.()     ?? 0;
+            const maxHp = window.wasmModule.get_player_max_hp?.() ?? 1;
+            const phpEl = document.getElementById('hud-php');
+            phpEl.textContent = `${hp}/${maxHp}`;
+            phpEl.className = 'hud-val';
+
+            // 敵との距離（戦闘開始地点のGPS座標から計算）
+            const distEl = document.getElementById('hud-dist');
+            if (currentEnemyInfo && arisaPos) {
+                const [aLat, aLng] = arisaPos;
+                const dLat = (currentEnemyInfo.lat - aLat) * 111320;
+                const dLng = (currentEnemyInfo.lng - aLng) * 111320 * Math.cos(aLat * Math.PI / 180);
+                const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+                distEl.textContent = dist < 1000 ? `${dist}m` : `${(dist/1000).toFixed(1)}km`;
+                distEl.className = 'hud-val ' + (dist < 80 ? 'near' : dist < 200 ? 'mid' : 'far');
+            } else {
+                distEl.textContent = '---';
+                distEl.className = 'hud-val';
+            }
+            // 敵HPはWASMから直接取れないため表示なし（将来拡張）
+            document.getElementById('hud-ehp').textContent = '???';
+        }
+        setInterval(updateBattleHud, 500);
 
         // ── バトルコマンド キーシミュレーション ──────────────────────────────
         // IDX: 5=↑ 6=↓ 7=← 8=→ 45=決定 43=キャンセル
