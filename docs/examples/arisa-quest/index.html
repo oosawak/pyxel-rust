@@ -569,10 +569,18 @@
             resizeBgCanvas();
 
             // Draw background to fill entire canvas (before scaled transform)
+            // BG_ZOOM: 1.0=全体表示, 1.5=中央を1.5倍拡大, 2.0=中央を2倍拡大
+            const BG_ZOOM = 1.6;
             const bgI  = ((bgIdx % 24) + 24) % 24;
+            const bgBaseX = (bgI % BG_COLS) * BG_CW;
+            const bgBaseY = Math.floor(bgI / BG_COLS) * BG_CH;
+            const cropW = BG_CW / BG_ZOOM;
+            const cropH = BG_CH / BG_ZOOM;
             bgCtx.drawImage(
                 SHEETS['arisa-world-backgrounds-2'],
-                (bgI % BG_COLS) * BG_CW, Math.floor(bgI / BG_COLS) * BG_CH, BG_CW, BG_CH,
+                bgBaseX + (BG_CW - cropW) / 2,
+                bgBaseY + (BG_CH - cropH) / 2,
+                cropW, cropH,
                 0, 0, bgCanvas.width, bgCanvas.height
             );
 
