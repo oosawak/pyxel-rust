@@ -1127,13 +1127,13 @@
         const ASSET_BASE = '../../assets/design/';
         const BG_COLS = 6, BG_CW = 256, BG_CH = 256;
 
-        // アリサは左下固定（小さめ）
-        const ARISA_DEST = { x: 2, y: 68, w: 72, h: 98 };
+        // アリサは右上寄り（小さめ）
+        const ARISA_DEST = { x: 10, y: 58, w: 72, h: 98 };
 
         // 敵はGPS距離で動的計算（下記 calcEnemyDest() 参照）
         // 遠い(t=0): 右上・小 → 近い(t=1): 右下・大
-        const ENE_FAR  = { x: 210, y: 18, w: 44,  h: 46  };
-        const ENE_NEAR = { x: 155, y: 36, w: 145, h: 128 };
+        const ENE_FAR  = { x: 210, y: 28, w: 44,  h: 46  };
+        const ENE_NEAR = { x: 155, y: 50, w: 145, h: 128 };
         const DIST_FAR  = 250; // m: これ以上遠ければ最小サイズ
         const DIST_NEAR =  20; // m: これ以下なら最大サイズ
 
