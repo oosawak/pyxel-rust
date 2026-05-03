@@ -1218,9 +1218,19 @@
             bgCtx.scale(s, s);
         }
 
+        let _bgLoopHadBattle = false; // renderBg での戦闘終了検知用フラグ
+
         function renderBg() {
             if (!window.wasmModule) return;
             const state = window.wasmModule.get_game_state?.() ?? 0;
+            // ── 戦闘終了の確実な検知（毎フレーム実行されるここが最も信頼できる） ──
+            if (state === 2) {
+                _bgLoopHadBattle = true;
+            } else if (_bgLoopHadBattle && inBattle) {
+                _bgLoopHadBattle = false;
+                endBattle(currentEnemyInfo);
+                return;
+            }
             if (state !== 2) {
                 bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
                 return;
@@ -2207,6 +2217,7 @@
             currentEnemyInfo = enemyInfo;
             window.currentEnemyInfo = enemyInfo;
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
+            battleOverlay.style.display = ''; // endBattle の念押しをリセット
             battleOverlay.classList.add('active');
             battleUI.classList.add('active');
             setActiveTab('tab-battle');
@@ -2256,13 +2267,13 @@
             clearInterval(watchInterval);
             stopTimeline();
             stopSP();
-            if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('cmd-auto')?.classList.remove('active-auto'); }
+            if (autoInterval) { autoInterval = null; document.getElementById('cmd-auto')?.classList.remove('active-auto'); updateAutoCmdHighlight(); }
             inBattle = false;
-            battleUI.classList.remove('active');
-            // overlay を確実に非表示（classList だけでは消えないケースへの対策）
+            _bgLoopHadBattle = false;
+            // overlay・UI を確実に非表示
             battleOverlay.classList.remove('active');
-            battleOverlay.style.display = 'none';
-            setTimeout(() => { battleOverlay.style.display = ''; }, 600);
+            battleUI.classList.remove('active');
+            battleOverlay.style.display = 'none'; // 念押し（次の戦闘開始時に '' に戻す）
             setActiveTab('tab-map');
             // battle-msg-log を次の戦闘のためにクリア
             const msgLog = document.getElementById('battle-msg-log');
