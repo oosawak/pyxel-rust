@@ -1196,7 +1196,18 @@
 
         // アリサ: hはSRC比率から自動計算（縦横比を維持）
         const ARISA_DEST = { x: 25, y: 82, w: 60 };
-        const ARISA_SRC  = { sx: 0, sy: 33, sw: 95, sh: 120 };
+        const ARISA_SRC  = { sx: 0, sy: 33, sw: 95, sh: 120 }; // HUD位置計算用（固定参照）
+
+        // スプライトアニメーション定義（128×128px/フレーム, 8列×12行）
+        // Row 0=Idle, Row 4=MeleeAttack, Row 6=Damage, Row 11=Victory
+        const ANIM_DEFS = {
+            idle:    { row: 0,  cols: 8 },
+            attack:  { row: 4,  cols: 8 },
+            damage:  { row: 6,  cols: 6 },
+            victory: { row: 11, cols: 8 },
+        };
+        const SPRITE_FPS = 7; // RAFフレーム数/スプライトフレーム
+        let bgFrameCount = 0;
 
         // 敵はGPS距離で動的計算（下記 calcEnemyDest() 参照）
         // 遠い(t=0): 右上・小 → 近い(t=1): 右下・大
@@ -1347,6 +1358,7 @@
         let _bgEndDebounce   = 0;    // 誤検知防止: N連続フレームで非バトルなら確定
 
         function renderBg() {
+            bgFrameCount++;
             if (!window.wasmModule) return;
             const state = window.wasmModule.get_game_state?.() ?? 0;
             // ── 戦闘終了の確実な検知（simulateKeys後の一時的state≠2を無視する） ──
@@ -1469,12 +1481,22 @@
                 bgCtx.globalAlpha = 1.0;
             }
 
-            // アリサ（左下固定）
-            if (playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0) {
-                const ariH = ARISA_DEST.w * (ARISA_SRC.sh / ARISA_SRC.sw); // SRC比率から高さを計算
-                bgCtx.drawImage(SHEETS['arisa-player-sprites'],
-                    ARISA_SRC.sx, ARISA_SRC.sy, ARISA_SRC.sw, ARISA_SRC.sh,
-                    ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ariH);
+            // アリサ（左下固定）アニメーション
+            {
+                let animKey = 'idle';
+                if (state === 1)          animKey = 'victory';
+                else if (playerFlash > 0) animKey = 'damage';
+                else if (enemyFlash > 0)  animKey = 'attack';
+                const anim   = ANIM_DEFS[animKey];
+                const col    = Math.floor(bgFrameCount / SPRITE_FPS) % anim.cols;
+                const aSrcX  = col * 128;
+                const aSrcY  = anim.row * 128;
+                const destH  = ARISA_DEST.w; // 128/128 = 1:1比率 → 60×60
+                if (playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0) {
+                    bgCtx.drawImage(SHEETS['arisa-player-sprites'],
+                        aSrcX, aSrcY, 128, 128,
+                        ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, destH);
+                }
             }
 
             // 距離バー（HTML要素で表示）
@@ -1486,8 +1508,7 @@
 
             // 地面オーバーレイ（アリサの足元から画面下端まで半透明黒）
             {
-                const ariH2 = ARISA_DEST.w * (ARISA_SRC.sh / ARISA_SRC.sw);
-                const feetVY = ARISA_DEST.y + ariH2;
+                const feetVY = ARISA_DEST.y + ARISA_DEST.w; // 128/128=1:1なので destH=w=60
                 const s2 = Math.min(bgCanvas.width / 320, bgCanvas.height / 168);
                 const yOff2 = (bgCanvas.height - 168 * s2) / 2;
                 const feetPx = yOff2 + feetVY * s2;
