@@ -23,16 +23,88 @@
         }
         #status-bar .portrait-wrap {
             width: 40px; height: 40px; border-radius: 50%;
-            border: 2px solid #ff88cc; overflow: hidden;
+            border: 2px solid #ff88cc; overflow: visible;
             flex-shrink: 0; position: relative;
             box-shadow: 0 0 8px rgba(255,136,204,0.5);
+            cursor: pointer;
         }
+        /* 内側の画像がはみ出さないようクリップ */
         #status-bar .portrait-wrap img {
             position: absolute;
             width: 57px; height: auto;
             left: 50%; top: 0px;
             transform: translateX(-50%);
+            clip-path: circle(50% at 50% 50%);
         }
+        /* 外側スピナーリング（速）*/
+        #status-bar .portrait-wrap::before {
+            content: '';
+            position: absolute;
+            inset: -5px; border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: #ff88cc;
+            border-right-color: rgba(255,136,204,0.4);
+            animation: portraitSpin 1.8s linear infinite;
+            pointer-events: none;
+        }
+        /* 内側スピナーリング（逆回転・遅）*/
+        #status-bar .portrait-wrap::after {
+            content: '';
+            position: absolute;
+            inset: -9px; border-radius: 50%;
+            border: 1.5px solid transparent;
+            border-bottom-color: rgba(180,100,255,0.7);
+            border-left-color: rgba(180,100,255,0.25);
+            animation: portraitSpin 3.2s linear infinite reverse;
+            pointer-events: none;
+        }
+        @keyframes portraitSpin {
+            to { transform: rotate(360deg); }
+        }
+        /* ── ステータスポップアップ ───────────────────────────────── */
+        #status-popup {
+            display: none;
+            position: absolute; top: 0; left: 0; right: 0; z-index: 200;
+            background: linear-gradient(160deg, #0d0528f2, #1a0540f5);
+            border-bottom: 2px solid #5533aa;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.75);
+            padding: 14px 16px 16px;
+            animation: popupSlideDown 0.22s ease-out;
+        }
+        #status-popup.active { display: block; }
+        @keyframes popupSlideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        #status-popup .sp-header {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+        }
+        #status-popup .sp-portrait {
+            width: 52px; height: 52px; border-radius: 50%;
+            border: 2px solid #ff88cc; overflow: hidden; flex-shrink: 0;
+            box-shadow: 0 0 14px rgba(255,136,204,0.5);
+        }
+        #status-popup .sp-portrait img {
+            width: 74px; position: relative; left: 50%; transform: translateX(-50%);
+        }
+        #status-popup .sp-name { font-size: 1rem; color: #ff88cc; letter-spacing: 2px; }
+        #status-popup .sp-lv   { font-size: 0.7rem; color: #cc88ff; margin-top: 3px; }
+        #status-popup .sp-close {
+            margin-left: auto; background: none; border: 1px solid #553388;
+            color: #cc88ff; border-radius: 6px; padding: 5px 12px;
+            font-family: 'DotGothic16', monospace; font-size: 0.72rem; cursor: pointer;
+        }
+        #status-popup .sp-close:active { background: #2a0860; }
+        #status-popup .sp-bars { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+        #status-popup .sp-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+        }
+        .sp-stat-box {
+            background: #120330; border: 1px solid #3a1060; border-radius: 7px;
+            padding: 5px 8px; text-align: center;
+        }
+        .sp-stat-lbl { font-size: 0.55rem; color: #aa77cc; display: block; margin-bottom: 2px; }
+        .sp-stat-val { font-size: 0.9rem; color: #eeddff; }
         #status-bar .stats { flex: 1; display: flex; flex-direction: column; gap: 3px; }
         .stat-row { display: flex; align-items: center; gap: 5px; }
         .stat-lbl { font-size: 0.6rem; color: #ff88cc; width: 18px; text-align: right; flex-shrink: 0; }
@@ -231,26 +303,48 @@
         }
         #battle-ui.active { display: flex; }
         #battle-commands {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-            padding: 10px 14px 6px;
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+            padding: 8px 12px 6px;
         }
         .battle-cmd {
             background: linear-gradient(160deg, #15082e, #22104a);
             border: 2px solid #5533aa; border-radius: 10px;
             color: #e8d8ff; font-family: 'DotGothic16', monospace;
-            font-size: 1rem; padding: 13px 0; cursor: pointer;
+            font-size: 0.75rem; padding: 10px 2px; cursor: pointer;
             text-align: center; transition: all 0.1s;
             -webkit-tap-highlight-color: transparent; user-select: none;
+            line-height: 1.35;
         }
         .battle-cmd:active { transform: scale(0.95); }
-        #cmd-attack { border-color: #ff6644; color: #ffccbb; }
-        #cmd-attack:active { background: #3a1500; border-color: #ff8866; }
+        /* オートバトル: 1列フルwidth */
+        #cmd-auto {
+            grid-column: 1 / -1;
+            padding: 11px 0; font-size: 0.85rem;
+            border-color: #ffcc00; color: #fff8aa;
+            background: linear-gradient(160deg, #2a1a00, #3a2800);
+        }
+        #cmd-auto:active    { background: #4a3800; border-color: #ffe44a; }
+        #cmd-auto.active-auto {
+            background: linear-gradient(160deg, #3a2a00, #5a4400);
+            border-color: #ffee44; box-shadow: 0 0 10px rgba(255,220,0,0.5);
+            animation: autoPulse 1s infinite;
+        }
+        @keyframes autoPulse {
+            0%, 100% { box-shadow: 0 0 6px rgba(255,220,0,0.4); }
+            50%       { box-shadow: 0 0 16px rgba(255,220,0,0.8); }
+        }
+        #cmd-melee  { border-color: #ff6644; color: #ffccbb; }
+        #cmd-melee:active  { background: #3a1500; border-color: #ff8866; }
+        #cmd-ranged { border-color: #ff9944; color: #ffddb8; }
+        #cmd-ranged:active { background: #2a1200; border-color: #ffbb66; }
         #cmd-skill  { border-color: #4488ff; color: #bbddff; }
         #cmd-skill:active  { background: #001535; border-color: #66aaff; }
         #cmd-item   { border-color: #44cc88; color: #bbffdd; }
         #cmd-item:active   { background: #001a0e; border-color: #66ddaa; }
         #cmd-run    { border-color: #888899; color: #ccccdd; }
         #cmd-run:active    { background: #111122; border-color: #aaaacc; }
+        #cmd-lure   { border-color: #ff66cc; color: #ffc8ee; }
+        #cmd-lure:active   { background: #2a0022; border-color: #ff88dd; }
 
         /* ── バトルメッセージログ ──────────────────────────────── */
         #battle-msg-log {
@@ -569,6 +663,39 @@
 
     <!-- Main area -->
     <div id="main">
+        <!-- ステータスポップアップ（ポートレートクリックで表示） -->
+        <div id="status-popup">
+            <div class="sp-header">
+                <div class="sp-portrait">
+                    <img src="../../assets/design/arisa-3d-art.png" alt="アリサ">
+                </div>
+                <div>
+                    <div class="sp-name">アリサ</div>
+                    <div class="sp-lv" id="sp-lv-text">Lv.1</div>
+                </div>
+                <button class="sp-close" id="sp-close-btn">✕ 閉じる</button>
+            </div>
+            <div class="sp-bars">
+                <div class="stat-row">
+                    <span class="stat-lbl">HP</span>
+                    <div class="bar-bg"><div class="bar-fill bar-hp" id="sp-hp-bar" style="width:100%"></div></div>
+                    <span class="stat-val" id="sp-hp-val">128/128</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-lbl">MP</span>
+                    <div class="bar-bg"><div class="bar-fill bar-mp" id="sp-mp-bar" style="width:100%"></div></div>
+                    <span class="stat-val" id="sp-mp-val">54/54</span>
+                </div>
+            </div>
+            <div class="sp-grid">
+                <div class="sp-stat-box"><span class="sp-stat-lbl">レベル</span><span class="sp-stat-val" id="sp-lv">1</span></div>
+                <div class="sp-stat-box"><span class="sp-stat-lbl">こうげき</span><span class="sp-stat-val" id="sp-atk">24</span></div>
+                <div class="sp-stat-box"><span class="sp-stat-lbl">ぼうぎょ</span><span class="sp-stat-val" id="sp-def">12</span></div>
+                <div class="sp-stat-box"><span class="sp-stat-lbl">すばやさ</span><span class="sp-stat-val" id="sp-spd">18</span></div>
+                <div class="sp-stat-box"><span class="sp-stat-lbl">まりょく</span><span class="sp-stat-val" id="sp-mag">30</span></div>
+                <div class="sp-stat-box"><span class="sp-stat-lbl">せんとう数</span><span class="sp-stat-val" id="sp-battles">0</span></div>
+            </div>
+        </div>
         <div id="toast"></div>
 
         <!-- OpenStreetMap -->
@@ -758,7 +885,6 @@
         <div id="tab-bar">
             <button class="tab-btn active" id="tab-map">🗺 マップ</button>
             <button class="tab-btn" id="tab-battle">⚔ バトル</button>
-            <button class="tab-btn" id="tab-status">📋 ステ</button>
             <button class="tab-btn" id="tab-tsubuyaku">💬 つぶやく</button>
             <button class="tab-btn" id="tab-territory">🏰 領地</button>
         </div>
@@ -1027,32 +1153,32 @@
                     ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h);
             }
 
-            // 距離インジケーター（画面下部）
-            const barY = 152, barX = 8, barW = 304, barH = 10;
+            // 距離インジケーター（画面上部）
+            const barY = 4, barX = 8, barW = 220, barH = 8;
             // 背景トラック
-            bgCtx.fillStyle = 'rgba(0,0,0,0.45)';
+            bgCtx.fillStyle = 'rgba(0,0,0,0.55)';
             bgCtx.beginPath();
             bgCtx.roundRect(barX - 1, barY - 1, barW + 2, barH + 2, 4);
             bgCtx.fill();
-            // グラデーションバー（t=1が近い=左端が緑）
+            // グラデーションバー（t=1が近い=緑、t=0が遠い=赤）
             const grad = bgCtx.createLinearGradient(barX, 0, barX + barW, 0);
-            grad.addColorStop(0,   'rgba(0,255,120,0.9)');
+            grad.addColorStop(0,   'rgba(255,60,60,0.9)');
             grad.addColorStop(0.5, 'rgba(255,220,0,0.9)');
-            grad.addColorStop(1,   'rgba(255,60,60,0.9)');
+            grad.addColorStop(1,   'rgba(0,255,120,0.9)');
             bgCtx.fillStyle = grad;
             const fillW = barW * eneDest.t;
             bgCtx.beginPath();
             bgCtx.roundRect(barX, barY, fillW, barH, 3);
             bgCtx.fill();
-            // 距離テキスト
+            // 距離テキスト（バーの右側）
             const distM = Math.round(eneDest.dist ?? 0);
             const distTxt = distM < 1000 ? `${distM}m` : `${(distM/1000).toFixed(1)}km`;
-            bgCtx.font = 'bold 8px monospace';
+            bgCtx.font = 'bold 7px monospace';
             bgCtx.fillStyle = '#fff';
-            bgCtx.textAlign = 'right';
-            bgCtx.shadowColor = 'rgba(0,0,0,0.8)'; bgCtx.shadowBlur = 3;
-            bgCtx.fillText(`距離 ${distTxt}`, barX + barW, barY - 2);
-            bgCtx.shadowBlur = 0; bgCtx.textAlign = 'left';
+            bgCtx.textAlign = 'left';
+            bgCtx.shadowColor = 'rgba(0,0,0,0.9)'; bgCtx.shadowBlur = 3;
+            bgCtx.fillText(`📡 ${distTxt}`, barX + barW + 5, barY + 7);
+            bgCtx.shadowBlur = 0;
 
             bgCtx.globalAlpha = 1.0;
             bgCtx.restore();
@@ -1542,12 +1668,33 @@
                 battleUI.classList.add('active');
             }
         });
-        document.getElementById('tab-status').addEventListener('click', () => {
-            setActiveTab('tab-status');
-            document.getElementById('panel-tsubuyaku').classList.remove('active');
-            document.getElementById('panel-territory').classList.remove('active');
-            const on = dbgOverlay.classList.toggle('visible');
-            btnDebug.classList.toggle('on', on);
+        // ── ポートレートクリック → ステータスポップアップ ─────────────────
+        function updateStatusPopup() {
+            const hp    = window.wasmModule?.get_player_hp?.()     ?? 128;
+            const maxHp = window.wasmModule?.get_player_max_hp?.() ?? 128;
+            const mp    = window.wasmModule?.get_player_mp?.()     ?? 54;
+            const maxMp = window.wasmModule?.get_player_max_mp?.() ?? 54;
+            const lv    = window.wasmModule?.get_player_level?.()  ?? 1;
+            const battles = parseInt(document.getElementById('terr-battles').textContent || '0');
+            document.getElementById('sp-lv-text').textContent = `Lv.${lv}`;
+            document.getElementById('sp-lv').textContent = lv;
+            document.getElementById('sp-hp-val').textContent = `${hp}/${maxHp}`;
+            document.getElementById('sp-mp-val').textContent = `${mp}/${maxMp}`;
+            document.getElementById('sp-hp-bar').style.width = `${Math.round(hp / maxHp * 100)}%`;
+            document.getElementById('sp-mp-bar').style.width = `${Math.round(mp / maxMp * 100)}%`;
+            document.getElementById('sp-atk').textContent = 12 + lv * 3;
+            document.getElementById('sp-def').textContent = 6  + lv * 2;
+            document.getElementById('sp-spd').textContent = 10 + lv * 2;
+            document.getElementById('sp-mag').textContent = 15 + lv * 4;
+            document.getElementById('sp-battles').textContent = battles;
+        }
+        const statusPopup = document.getElementById('status-popup');
+        document.querySelector('#status-bar .portrait-wrap').addEventListener('click', () => {
+            updateStatusPopup();
+            statusPopup.classList.toggle('active');
+        });
+        document.getElementById('sp-close-btn').addEventListener('click', () => {
+            statusPopup.classList.remove('active');
         });
         document.getElementById('tab-tsubuyaku').addEventListener('click', () => {
             setActiveTab('tab-tsubuyaku');
@@ -1644,10 +1791,12 @@
                 `dest x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
             ].join('\n');
 
-            // Poll for battle end (state leaves 2)
+            // Poll for battle end（state=2を確認してから終了検知）
+            let seenBattleState = false;
             watchInterval = setInterval(() => {
                 const state = window.wasmModule.get_game_state?.() ?? 0;
-                if (state !== 2) endBattle(enemyInfo);
+                if (state === 2) { seenBattleState = true; return; }
+                if (seenBattleState) endBattle(enemyInfo);
             }, 300);
         }
 
