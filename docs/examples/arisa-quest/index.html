@@ -1193,6 +1193,7 @@
     <script>
         const ASSET_BASE = '../../assets/design/';
         const BG_COLS = 6, BG_CW = 256, BG_CH = 256;
+        const CROP_W = 256, CROP_H = 200; // 背景クロップサイズ（固定）
 
         // アリサ: hはSRC比率から自動計算（縦横比を維持）
         const ARISA_DEST = { x: 25, y: 82, w: 60 };
@@ -1255,8 +1256,7 @@
         let bgPanActive = false;
 
         function bgPanClamp() {
-            const cropW = BG_CW / BG_ZOOM;
-            const maxOff = (BG_CW - cropW) / 2;
+            const maxOff = (BG_CW - CROP_W) / 2;
             bgXOffset = Math.max(-maxOff, Math.min(maxOff, bgXOffset));
         }
 
@@ -1273,9 +1273,8 @@
             const dx = e.touches[0].clientX - bgPanLastX;
             bgPanLastX = e.touches[0].clientX;
             // CSS px → スプライト px 変換（ドラッグ方向と逆に背景が動く）
-            const cropW = BG_CW / BG_ZOOM;
-            bgXOffset  -= dx * (cropW / canvasArea.offsetWidth);
-            bgPanVelX   = -dx * (cropW / canvasArea.offsetWidth);
+            bgXOffset  -= dx * (CROP_W / canvasArea.offsetWidth);
+            bgPanVelX   = -dx * (CROP_W / canvasArea.offsetWidth);
             bgPanClamp();
         }, { passive: true });
         canvasArea.addEventListener('touchend', () => { bgPanActive = false; }, { passive: true });
@@ -1378,13 +1377,10 @@
                     const bgI2  = ((bgIdxD % 24) + 24) % 24;
                     const bgZoom    = 'なし（全体使用）';
                     const bgYAnchor = BG_Y_ANCHOR;
-                    const canvasAsp = bgCanvas.width / bgCanvas.height;
-                    const cropW2 = canvasAsp >= 1 ? BG_CW : Math.round(BG_CH * canvasAsp);
-                    const cropH2 = canvasAsp >= 1 ? Math.round(BG_CW / canvasAsp) : BG_CH;
                     const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
                     const baseSrcY = Math.floor(bgI2 / BG_COLS) * BG_CH;
-                    const cropX    = baseSrcX + Math.round((BG_CW - cropW2) / 2);
-                    const cropY    = baseSrcY + Math.round((BG_CH - cropH2) * bgYAnchor);
+                    const cropX    = baseSrcX + Math.round((BG_CW - CROP_W) / 2);
+                    const cropY    = baseSrcY + Math.round((BG_CH - CROP_H) * bgYAnchor);
                     const dpr      = window.devicePixelRatio || 1;
                     dbgEl.textContent = [
                         `── ゲーム状態 ──`,
@@ -1395,10 +1391,9 @@
                         `── 背景情報 ──`,
                         `シート位置: 列${bgI2 % BG_COLS} 行${Math.floor(bgI2/BG_COLS)}`,
                         `セル原点: (${baseSrcX}, ${baseSrcY})  ${BG_CW}×${BG_CH}px`,
-                        `ZOOM: ×${bgZoom}`,
                         `XOffset: ${bgXOffset.toFixed(1)}px (vel:${bgPanVelX.toFixed(2)})`,
                         `クロップ領域: x=${cropX} y=${cropY}`,
-                        `クロップサイズ: ${cropW2}×${cropH2}px`,
+                        `クロップサイズ: ${CROP_W}×${CROP_H}px（固定）`,
                         ``,
                         `── キャンバス ──`,
                         `CSS: ${bgCanvas.style.width} × ${bgCanvas.style.height}`,
@@ -2807,10 +2802,8 @@
                 titleEl.classList.add('fled');
                 msgEl.textContent = '';
             }
-            setTimeout(() => {
-                resultEl.classList.add('active');
-                updateStatusBar();
-            }, 1200);
+            resultEl.classList.add('active');
+            updateStatusBar();
         }
 
         // ── Status bar update ────────────────────────────────────────────────
