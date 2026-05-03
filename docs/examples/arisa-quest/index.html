@@ -80,6 +80,23 @@
             font-size: 2.8rem; animation: cyberPulse 1.5s ease-in-out infinite;
             filter: drop-shadow(0 0 12px #00ffcc);
         }
+        /* サイバースコープ（SVGで描画） */
+        #cyber-scope {
+            width: 64px; height: 64px; position: relative;
+            animation: cyberPulse 1.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px #00ffcc);
+        }
+        #cyber-scope svg { width: 100%; height: 100%; }
+        #cyber-scope.locked svg { filter: drop-shadow(0 0 16px #00ff88); }
+        #cyber-scope.locked { animation: cyberLock 0.4s ease-out forwards, cyberPulse 1.5s ease-in-out 0.4s infinite; }
+        @keyframes cyberLock {
+            0%   { transform: scale(1.4) rotate(45deg); opacity: 0.3; }
+            60%  { transform: scale(0.9) rotate(0deg);  opacity: 1;   }
+            100% { transform: scale(1)   rotate(0deg);  opacity: 1;   }
+        }
+        /* スコープの回転リング */
+        #scope-ring { animation: scopeSpin 3s linear infinite; transform-origin: 32px 32px; }
+        #cyber-scope.locked #scope-ring { animation: none; }
         #cyber-text {
             font-family: 'DotGothic16', monospace; font-size: 1rem;
             color: #00ffcc; letter-spacing: 0.12em;
@@ -92,6 +109,10 @@
         @keyframes cyberPulse {
             0%,100% { transform: scale(1);   opacity: 1;    }
             50%      { transform: scale(1.15); opacity: 0.7; }
+        }
+        @keyframes scopeSpin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
         }
 
         /* ── Location overlay ────────────────────────────────────── */
@@ -390,7 +411,30 @@
             <div id="cyber-overlay">
                 <canvas id="cyber-canvas"></canvas>
                 <div id="cyber-status">
-                    <div id="cyber-icon">⬡</div>
+                    <div id="cyber-scope">
+                        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- 外枠（4コーナー） -->
+                            <path d="M10 10 L10 22" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M10 10 L22 10" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M54 10 L54 22" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M54 10 L42 10" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M10 54 L10 42" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M10 54 L22 54" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M54 54 L54 42" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M54 54 L42 54" stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"/>
+                            <!-- 中央十字 -->
+                            <line x1="32" y1="24" x2="32" y2="28" stroke="#00ffcc" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="32" y1="36" x2="32" y2="40" stroke="#00ffcc" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="24" y1="32" x2="28" y2="32" stroke="#00ffcc" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="36" y1="32" x2="40" y2="32" stroke="#00ffcc" stroke-width="1.5" stroke-linecap="round"/>
+                            <!-- 回転リング -->
+                            <g id="scope-ring">
+                                <circle cx="32" cy="32" r="13" stroke="#00ffcc" stroke-width="1" stroke-opacity="0.6" stroke-dasharray="4 6"/>
+                            </g>
+                            <!-- 中央ドット -->
+                            <circle cx="32" cy="32" r="2.5" fill="#00ffcc" fill-opacity="0.9"/>
+                        </svg>
+                    </div>
                     <div id="cyber-text">電子空間に接続中...</div>
                     <div id="cyber-sub">GPS SIGNAL SCANNING</div>
                 </div>
@@ -850,7 +894,7 @@
             const cyberCanvas  = document.getElementById('cyber-canvas');
             const cyberText    = document.getElementById('cyber-text');
             const cyberSub     = document.getElementById('cyber-sub');
-            const cyberIcon    = document.getElementById('cyber-icon');
+            const cyberScope   = document.getElementById('cyber-scope');
             cyberOverlay.classList.add('active');
 
             // マトリックス雨アニメーション
@@ -924,7 +968,7 @@
                 cyberRunning = false;
 
                 // ステータステキスト更新
-                cyberIcon.textContent = '📍';
+                cyberScope.classList.add('locked');
                 cyberText.textContent = '座標確定！';
                 cyberSub.textContent  = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
@@ -952,7 +996,7 @@
             const fallbackTimer = setTimeout(() => {
                 cyberText.textContent = '東京にワープ中...';
                 cyberSub.textContent  = 'GPS TIMEOUT — WARP TO TOKYO';
-                cyberIcon.textContent = '⚡';
+                cyberScope.classList.add('locked');
                 setTimeout(() => revealMap(35.6895, 139.6917, '⚡ 東京にワープしました'), 800);
             }, 12000);
 
