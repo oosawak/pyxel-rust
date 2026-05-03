@@ -12,6 +12,11 @@ categories = ["game-development", "graphics"]
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "sprite-prompt"
+path = "src/bin/sprite_prompt.rs"
+required-features = []
+
 [dependencies]
 # PyxelCoreBackend (optional, native only)
 pyxel-core = { path = "./pyxel_fork/crates/pyxel-core", optional = true }
