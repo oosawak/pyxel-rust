@@ -1217,11 +1217,33 @@
         const ENEMY_NAMES = ['スライム','シャドウキャット','フレイムインプ','ゴースト','ロックゴーレム'];
 
         const SHEETS = {};
+        const PROCESSED = {}; // 黒背景透過済みスプライト
         const SHEET_LIST = ['enemy-sprites', 'arisa-player-sprites', 'arisa-world-backgrounds-2', 'arisa-3d-art'];
         let loadedCount = 0;
+
+        function makeTransparent(img, threshold = 30) {
+            const oc = document.createElement('canvas');
+            oc.width = img.naturalWidth; oc.height = img.naturalHeight;
+            const ctx = oc.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const d = ctx.getImageData(0, 0, oc.width, oc.height);
+            for (let i = 0; i < d.data.length; i += 4) {
+                if (d.data[i] < threshold && d.data[i+1] < threshold && d.data[i+2] < threshold)
+                    d.data[i+3] = 0;
+            }
+            ctx.putImageData(d, 0, 0);
+            return oc;
+        }
+
         for (const name of SHEET_LIST) {
             const img = new Image();
-            img.onload = () => loadedCount++;
+            img.onload = () => {
+                // arisa-player-sprites は黒背景を透過処理
+                if (name === 'arisa-player-sprites') {
+                    PROCESSED[name] = makeTransparent(img);
+                }
+                loadedCount++;
+            };
             img.onerror = () => { console.warn('sheet load failed:', name); loadedCount++; };
             img.src = ASSET_BASE + name + '.png';
             SHEETS[name] = img;
@@ -1411,7 +1433,7 @@
 
             // アリサ（左下固定）
             if (playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0) {
-                bgCtx.drawImage(SHEETS['arisa-player-sprites'],
+                bgCtx.drawImage(PROCESSED['arisa-player-sprites'] ?? SHEETS['arisa-player-sprites'],
                     ARISA_SRC.sx, ARISA_SRC.sy, ARISA_SRC.sw, ARISA_SRC.sh,
                     ARISA_DEST.x, ARISA_DEST.y, ARISA_DEST.w, ARISA_DEST.h);
             }
