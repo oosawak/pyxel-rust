@@ -1,15 +1,30 @@
 {
-  "name": "arisa_quest",
+  "name": "pyxel-rust",
   "type": "module",
-  "version": "0.1.0",
-  "files": [
-    "rpg_rust_lib_bg.wasm",
-    "rpg_rust_lib.js",
-    "rpg_rust_lib.d.ts"
+  "collaborators": [
+    "Copilot"
   ],
-  "main": "rpg_rust_lib.js",
-  "types": "rpg_rust_lib.d.ts",
+  "description": "Rust implementation of Pyxel game engine",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oosawak/pyxel-rust"
+  },
+  "files": [
+    "pyxel_rust_bg.wasm",
+    "pyxel_rust.js",
+    "pyxel_rust.d.ts"
+  ],
+  "main": "pyxel_rust.js",
+  "types": "pyxel_rust.d.ts",
   "sideEffects": [
     "./snippets/*"
+  ],
+  "keywords": [
+    "game",
+    "graphics",
+    "retro",
+    "2d"
   ]
 }

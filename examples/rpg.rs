@@ -1,6 +1,8 @@
 /// Arisa Quest — RPG battle demo
 /// Turn-based battle system with map exploration
 use pyxel_rust::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use pyxel_rust::backend::wasm_backend as wb;
 use std::collections::VecDeque;
 
 const W: u32 = 160;
@@ -428,6 +430,17 @@ impl Game {
     }
 
     fn upd_map(&mut self) {
+        // JS から start_battle_from_js(idx) が呼ばれた場合
+        #[cfg(target_arch = "wasm32")]
+        {
+            let req = wb::take_battle_request();
+            if req >= 0 {
+                let idx = (req as usize).min(ENEMIES.len() - 1);
+                self.start_battle(idx);
+                return;
+            }
+        }
+
         self.enc_t += 1;
         let (mut nx, mut ny) = (self.player.map_x, self.player.map_y);
         let mut moved = false;
@@ -567,10 +580,44 @@ impl Game {
 
     // ── Draw ────────────────────────────────────────────────────────────────
     fn draw(&self) {
+        // WASMビルド時: ゲーム状態をアトミックに書き込み → JS が読み取る
+        #[cfg(target_arch = "wasm32")]
+        self.push_wasm_state();
+
         match self.state {
             GameState::Title  => self.draw_title(),
-            GameState::Map    => self.draw_map(),
+            GameState::Map    => { cls(BLACK); }  // pyxel_canvas は非表示; JS bg-canvas が描画
             GameState::Battle => self.draw_battle(),
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn push_wasm_state(&self) {
+        let gs = match self.state {
+            GameState::Battle => match self.phase {
+                BattlePhase::Victory                         => 1,
+                BattlePhase::Defeat | BattlePhase::Fled     => 0,
+                BattlePhase::SelectCmd | BattlePhase::ShowMsg => 2,
+            },
+            _ => 0,
+        };
+        wb::set_game_state(gs);
+        wb::set_player_hp(self.player.hp);
+        wb::set_player_max_hp(self.player.max_hp);
+        wb::set_player_mp(self.player.mp);
+        wb::set_player_max_mp(self.player.max_mp);
+        wb::set_player_level(self.player.lv);
+        wb::set_player_flash(self.player.flash);
+        wb::set_bg_idx(0);
+        if let Some(ref e) = self.enemy {
+            wb::set_enemy_idx(e.idx as i32);
+            wb::set_enemy_flash(e.flash);
+            wb::set_enemy_hp(e.hp);
+            wb::set_enemy_max_hp(e.max_hp);
+        } else {
+            wb::set_enemy_idx(-1);
+            wb::set_enemy_hp(0);
+            wb::set_enemy_max_hp(0);
         }
     }
 

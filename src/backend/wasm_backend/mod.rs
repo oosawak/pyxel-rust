@@ -16,6 +16,62 @@ use web_sys::{
 use js_sys::Uint8ClampedArray;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicI32, Ordering};
+
+// ── Game state atomics (set each frame by game logic, read by JS) ────────────
+// get_game_state: 0=other, 1=victory, 2=battle-in-progress
+static GAME_STATE:    AtomicI32 = AtomicI32::new(0);
+static PLAYER_HP:     AtomicI32 = AtomicI32::new(128);
+static PLAYER_MAX_HP: AtomicI32 = AtomicI32::new(128);
+static PLAYER_MP:     AtomicI32 = AtomicI32::new(54);
+static PLAYER_MAX_MP: AtomicI32 = AtomicI32::new(54);
+static PLAYER_LEVEL:  AtomicI32 = AtomicI32::new(1);
+static PLAYER_FLASH:  AtomicI32 = AtomicI32::new(0);
+static ENEMY_IDX:     AtomicI32 = AtomicI32::new(-1);
+static ENEMY_FLASH:   AtomicI32 = AtomicI32::new(0);
+static ENEMY_HP:      AtomicI32 = AtomicI32::new(0);
+static ENEMY_MAX_HP:  AtomicI32 = AtomicI32::new(0);
+static BG_IDX:        AtomicI32 = AtomicI32::new(0);
+/// JS calls start_battle_from_js(idx) → sets this; game picks it up next frame
+static BATTLE_REQUEST: AtomicI32 = AtomicI32::new(-1);
+
+// ── JS → Rust: exported getters ──────────────────────────────────────────────
+#[wasm_bindgen] pub fn get_game_state()   -> i32 { GAME_STATE.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_player_hp()    -> i32 { PLAYER_HP.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_player_max_hp()-> i32 { PLAYER_MAX_HP.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_player_mp()    -> i32 { PLAYER_MP.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_player_max_mp()-> i32 { PLAYER_MAX_MP.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_player_level() -> i32 { PLAYER_LEVEL.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_player_flash() -> i32 { PLAYER_FLASH.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_enemy_idx()    -> i32 { ENEMY_IDX.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_enemy_flash()  -> i32 { ENEMY_FLASH.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_enemy_hp()     -> i32 { ENEMY_HP.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_enemy_max_hp() -> i32 { ENEMY_MAX_HP.load(Ordering::Relaxed) }
+#[wasm_bindgen] pub fn get_bg_idx()       -> i32 { BG_IDX.load(Ordering::Relaxed) }
+
+/// Called from JS to start a battle against enemy at given index.
+/// The game loop picks this up next frame and transitions to Battle state.
+#[wasm_bindgen]
+pub fn start_battle_from_js(idx: i32) {
+    BATTLE_REQUEST.store(idx, Ordering::Relaxed);
+}
+
+// ── Rust → JS: internal setters (called each frame from game draw/update) ────
+pub fn set_game_state(v: i32)    { GAME_STATE.store(v, Ordering::Relaxed); }
+pub fn set_player_hp(v: i32)     { PLAYER_HP.store(v, Ordering::Relaxed); }
+pub fn set_player_max_hp(v: i32) { PLAYER_MAX_HP.store(v, Ordering::Relaxed); }
+pub fn set_player_mp(v: i32)     { PLAYER_MP.store(v, Ordering::Relaxed); }
+pub fn set_player_max_mp(v: i32) { PLAYER_MAX_MP.store(v, Ordering::Relaxed); }
+pub fn set_player_level(v: i32)  { PLAYER_LEVEL.store(v, Ordering::Relaxed); }
+pub fn set_player_flash(v: i32)  { PLAYER_FLASH.store(v, Ordering::Relaxed); }
+pub fn set_enemy_idx(v: i32)     { ENEMY_IDX.store(v, Ordering::Relaxed); }
+pub fn set_enemy_flash(v: i32)   { ENEMY_FLASH.store(v, Ordering::Relaxed); }
+pub fn set_enemy_hp(v: i32)      { ENEMY_HP.store(v, Ordering::Relaxed); }
+pub fn set_enemy_max_hp(v: i32)  { ENEMY_MAX_HP.store(v, Ordering::Relaxed); }
+pub fn set_bg_idx(v: i32)        { BG_IDX.store(v, Ordering::Relaxed); }
+pub fn take_battle_request() -> i32 {
+    BATTLE_REQUEST.swap(-1, Ordering::Relaxed)
+}
 
 // Pyxel 16-color palette
 pub const DEFAULT_PALETTE: [[u8; 4]; 16] = [

@@ -1455,9 +1455,11 @@
                     bgCtx.drawImage(SHEETS[e.sheet], e.sx, e.sy, e.sw, e.sh,
                         eneDest.x, eneDest.y, eneDest.w, destH);
                 }
-                // 敵HPバー（スプライト上部）
+                // 敵HPバー（スプライト上部）—— WASM値を優先
                 const bx = eneDest.x, by = eneDest.y - 7, bw = eneDest.w, bh = 4;
-                const hpRatio = currentEnemyMaxHp > 0 ? currentEnemyHp / currentEnemyMaxHp : 0;
+                const wEhp    = window.wasmModule?.get_enemy_hp?.()    ?? currentEnemyHp;
+                const wEmaxHp = window.wasmModule?.get_enemy_max_hp?.() ?? currentEnemyMaxHp;
+                const hpRatio = wEmaxHp > 0 ? wEhp / wEmaxHp : 0;
                 bgCtx.globalAlpha = 0.85;
                 bgCtx.fillStyle = 'rgba(0,0,0,0.6)';
                 bgCtx.beginPath(); bgCtx.roundRect(bx, by, bw, bh, 2); bgCtx.fill();
@@ -2399,8 +2401,10 @@
                 distEl.textContent = '---';
                 distEl.className = 'hud-val';
             }
-            // 敵HP（JS追跡）
-            document.getElementById('hud-ehp').textContent = `${currentEnemyHp}/${currentEnemyMaxHp}`;
+            // 敵HP（WASM from get_enemy_hp）
+            const wEnemyHp    = window.wasmModule?.get_enemy_hp?.()    ?? currentEnemyHp;
+            const wEnemyMaxHp = window.wasmModule?.get_enemy_max_hp?.() ?? currentEnemyMaxHp;
+            document.getElementById('hud-ehp').textContent = `${wEnemyHp}/${wEnemyMaxHp}`;
         }
         setInterval(updateBattleHud, 500);
 
@@ -2812,16 +2816,18 @@
             get_enemy_flash, get_player_flash,
             get_player_hp, get_player_max_hp,
             get_player_mp, get_player_max_mp, get_player_level,
+            get_enemy_hp, get_enemy_max_hp,
             start_battle_from_js,
-        } from './pkg/rpg_rust_lib.js';
+        } from './pkg/pyxel_rust.js';
         try {
-            await init();
+            await init('./pkg/pyxel_rust_bg.wasm');
             window.wasmModule = {
                 set_key,
                 get_game_state, get_enemy_idx, get_bg_idx,
                 get_enemy_flash, get_player_flash,
                 get_player_hp, get_player_max_hp,
                 get_player_mp, get_player_max_mp, get_player_level,
+                get_enemy_hp, get_enemy_max_hp,
                 start_battle_from_js,
             };
         } catch(e) {
