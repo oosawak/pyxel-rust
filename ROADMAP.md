@@ -68,4 +68,5 @@
 - **Pyxel-core**: `./pyxel_fork/crates/pyxel-core/`
 - **参考**: [Pyxel 公式](https://github.com/kitao/pyxel)
 - **WASM ビルド**: [wasm-pack](https://rustwasm.github.io/docs/wasm-pack/)
+- **関連プロジェクト**: [nQuad](https://github.com/oosawak/nQuad) — pyxel-rust とは独立した別プロジェクト
 
