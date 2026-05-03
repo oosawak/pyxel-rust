@@ -2687,8 +2687,10 @@
             // 即座にメッセージを出してバトル画面を起動（WASMのstate=2待ちを回避）
             pushBattleMsg(`バトル開始！`, 'system');
             pushBattleMsg(`${eName} が現れた！`, 'system');
-            // renderBgが inBattle=true で即描画できるよう _bgLoopHadBattle をセット
-            _bgLoopHadBattle = true;
+            // NOTE: _bgLoopHadBattle はここでセットしない
+            // renderBg()がstate===2を実際に確認してからセットする（誤検知防止）
+            _bgLoopHadBattle = false;
+            _bgEndDebounce = 0;
 
             // 静的スプライト情報をセット
             const e = ENEMY_MAP[enemyInfo.eIdx];
