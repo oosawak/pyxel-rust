@@ -492,8 +492,12 @@
 
             // GPS が取れたら現在地に更新
             const opts = { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 };
+            // 位置オフセット（テスト用）: 西に約10km = 経度 -0.110
+            const LAT_OFFSET =  0.000;
+            const LNG_OFFSET = -0.110;
             const onPos = pos => {
-                const { latitude: lat, longitude: lng } = pos.coords;
+                const lat = pos.coords.latitude  + LAT_OFFSET;
+                const lng = pos.coords.longitude + LNG_OFFSET;
                 arisaPos = [lat, lng];
                 map.setView([lat, lng], 17);
                 playerMarker.setLatLng([lat, lng]);
