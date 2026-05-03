@@ -785,7 +785,7 @@
         mapEl.style.height = mainEl.clientHeight + 'px';
         window.addEventListener('resize', () => { mapEl.style.height = mainEl.clientHeight + 'px'; map.invalidateSize(); });
 
-        const map = L.map('map', { zoomControl: true }).setView([35.6895, 139.6917], 16);
+        const map = L.map('map', { zoomControl: true }).setView([38.2553, 140.3394], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
             maxZoom: 19,
@@ -976,7 +976,7 @@
                     // フェードアウト開始
                     cyberOverlay.classList.add('fade-out');
                     // マーカー配置・地図移動
-                    const defLat = 35.6895, defLng = 139.6917;
+                    const defLat = 38.2553, defLng = 140.3394;
                     arisaPos = [lat, lng];
                     map.setView([lat, lng], 17);
                     playerMarker = L.marker([lat, lng], { icon: playerIcon(), zIndexOffset: 900 }).addTo(map);
@@ -992,12 +992,12 @@
                 }, 1200);
             }
 
-            // GPS タイムアウト（12秒）→ 東京フォールバック
+            // GPS タイムアウト（12秒）→ 山形城フォールバック
             const fallbackTimer = setTimeout(() => {
-                cyberText.textContent = '東京にワープ中...';
-                cyberSub.textContent  = 'GPS TIMEOUT — WARP TO TOKYO';
+                cyberText.textContent = '山形城にワープ中...';
+                cyberSub.textContent  = 'GPS TIMEOUT — WARP TO YAMAGATA';
                 cyberScope.classList.add('locked');
-                setTimeout(() => revealMap(35.6895, 139.6917, '⚡ 東京にワープしました'), 800);
+                setTimeout(() => revealMap(38.2553, 140.3394, '⚡ 山形城にワープしました'), 800);
             }, 12000);
 
             // GPS取得
