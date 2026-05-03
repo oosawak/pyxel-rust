@@ -1985,16 +1985,16 @@
             const card = document.createElement('div');
             card.className = `tl-card ${cssClass}`;
             card.innerHTML = `<span style="font-size:0.7rem;line-height:1">${icon}</span>`;
-            card.style.cssText = `top:${headerH}px; transform:translateY(0px);`;
+            card.style.top = `${headerH}px`;
             laneEl.appendChild(card);
             tlLiveCards.push(card);
 
-            // 20ms後にトランジション開始（モバイルでも確実に初期フレームをコミット）
+            // Web Animations API で確実に落下（CSSトランジションの初期フレーム問題を回避）
             const FALL_DELAY = 20;
-            setTimeout(() => {
-                card.style.transition = `transform ${fallMs}ms linear`;
-                card.style.transform  = `translateY(${travelPx}px)`;
-            }, FALL_DELAY);
+            card.animate(
+                [{ transform: 'translateY(0px)' }, { transform: `translateY(${travelPx}px)` }],
+                { duration: fallMs, easing: 'linear', fill: 'forwards', delay: 0 }
+            );
 
             const removeCard = () => {
                 const i = tlLiveCards.indexOf(card);
