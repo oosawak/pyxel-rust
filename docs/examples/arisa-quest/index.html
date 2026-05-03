@@ -1350,6 +1350,8 @@
             if (!window.wasmModule) return;
             const state = window.wasmModule.get_game_state?.() ?? 0;
             // ── 戦闘終了の確実な検知（simulateKeys後の一時的state≠2を無視する） ──
+            // inBattle=true なら WASMがstate=2を返す前でも描画開始（起動遅延を解消）
+            const isBattleScene = inBattle || state === 2;
             if (state === 2) {
                 _bgLoopHadBattle = true;
                 _bgEndDebounce   = 0;
@@ -1362,13 +1364,17 @@
                 }
                 return; // デバウンス中は前フレームの描画を維持
             }
-            if (state !== 2) {
+            if (!isBattleScene) {
                 bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
                 return;
             }
             if (loadedCount < SHEET_LIST.length) return;
 
-            const enemyIdx    = window.wasmModule.get_enemy_idx?.()    ?? -1;
+            // inBattle開始直後はWASMのenemyIdxがまだ-1の場合があるので currentEnemyInfo で補完
+            const enemyIdx    = (() => {
+                const v = window.wasmModule.get_enemy_idx?.() ?? -1;
+                return v >= 0 ? v : (currentEnemyInfo?.eIdx ?? -1);
+            })();
             const bgIdx       = window.wasmModule.get_bg_idx?.()       ??  0;
             const enemyFlash  = window.wasmModule.get_enemy_flash?.()  ??  0;
             const playerFlash = window.wasmModule.get_player_flash?.() ??  0;
@@ -2678,7 +2684,11 @@
             currentEnemyMaxHp = eMapEntry?.maxHp ?? 30;
             currentEnemyHp    = currentEnemyMaxHp;
             const eName = ENEMY_NAMES[enemyInfo.eIdx] ?? '???';
-            setTimeout(() => pushBattleMsg(`${eName} が現れた！`, 'system'), 300);
+            // 即座にメッセージを出してバトル画面を起動（WASMのstate=2待ちを回避）
+            pushBattleMsg(`バトル開始！`, 'system');
+            pushBattleMsg(`${eName} が現れた！`, 'system');
+            // renderBgが inBattle=true で即描画できるよう _bgLoopHadBattle をセット
+            _bgLoopHadBattle = true;
 
             // 静的スプライト情報をセット
             const e = ENEMY_MAP[enemyInfo.eIdx];
