@@ -260,6 +260,22 @@
         }
         #btn-hud.on { color: #ffcc66; border-color: #ffcc66; }
 
+        /* バトル距離バッジ（常時表示・右上固定） */
+        #battle-dist-badge {
+            position: absolute; top: 6px; right: 8px; z-index: 95;
+            display: none;
+            align-items: center; gap: 5px;
+            background: rgba(0,0,20,0.72); border: 1px solid #446;
+            border-radius: 20px; padding: 3px 10px;
+            font-family: 'DotGothic16', monospace; font-size: 0.72rem;
+            color: #c8d8ff; pointer-events: none;
+        }
+        #battle-overlay.active #battle-dist-badge { display: flex; }
+        #battle-dist-badge .dist-icon { font-size: 0.85rem; }
+        #battle-dist-badge #badge-dist.near { color: #ff6677; }
+        #battle-dist-badge #badge-dist.mid  { color: #ffcc44; }
+        #battle-dist-badge #badge-dist.far  { color: #88ddff; }
+
         /* バトルHUD情報オーバーレイ */
         #battle-hud {
             display: none;
@@ -942,6 +958,11 @@
         <div id="battle-overlay">
             <button id="btn-debug">DBG</button>
             <button id="btn-hud">HUD</button>
+            <!-- 距離バッジ（常時表示・右上） -->
+            <div id="battle-dist-badge">
+                <span class="dist-icon">📡</span>
+                <span id="badge-dist">---</span>
+            </div>
             <div id="debug-overlay"></div>
             <!-- バトルHUD情報オーバーレイ -->
             <div id="battle-hud">
@@ -1922,10 +1943,12 @@
             laneEl.appendChild(card);
             tlLiveCards.push(card);
 
-            // 強制リフローで初期位置をコミットしてからトランジション開始
-            void card.offsetHeight;
-            card.style.transition = `transform ${fallMs}ms linear`;
-            card.style.transform  = `translateY(${travelPx}px)`;
+            // 20ms後にトランジション開始（モバイルでも確実に初期フレームをコミット）
+            const FALL_DELAY = 20;
+            setTimeout(() => {
+                card.style.transition = `transform ${fallMs}ms linear`;
+                card.style.transform  = `translateY(${travelPx}px)`;
+            }, FALL_DELAY);
 
             const removeCard = () => {
                 const i = tlLiveCards.indexOf(card);
@@ -1999,7 +2022,7 @@
                 };
                 if (side === 'player') pendingPlayerAtk = pending;
                 else if (side === 'enemy') pendingEnemyAtk = pending;
-            }, fallMs);
+            }, fallMs + FALL_DELAY);
             tlCardTimers.push(t);
             return t;
         }
@@ -2092,7 +2115,30 @@
 
         // HUD更新（バトル中の敵との距離・HP情報）
         let currentEnemyInfo = null; // triggerBattleでセット
+
+        function calcBattleDist() {
+            if (!currentEnemyInfo || !arisaPos) return null;
+            const [aLat, aLng] = arisaPos;
+            const dLat = (currentEnemyInfo.lat - aLat) * 111320;
+            const dLng = (currentEnemyInfo.lng - aLng) * 111320 * Math.cos(aLat * Math.PI / 180);
+            return Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+        }
+
+        function updateDistBadge() {
+            const badgeEl = document.getElementById('badge-dist');
+            if (!badgeEl) return;
+            const dist = calcBattleDist();
+            if (dist !== null) {
+                badgeEl.textContent = dist < 1000 ? `${dist}m` : `${(dist/1000).toFixed(1)}km`;
+                badgeEl.className = dist < 80 ? 'near' : dist < 200 ? 'mid' : 'far';
+            } else {
+                badgeEl.textContent = '---';
+                badgeEl.className = '';
+            }
+        }
+
         function updateBattleHud() {
+            updateDistBadge();
             if (!hudVisible || !window.wasmModule) return;
             const hp    = window.wasmModule.get_player_hp?.()     ?? 0;
             const maxHp = window.wasmModule.get_player_max_hp?.() ?? 1;
@@ -2100,13 +2146,10 @@
             phpEl.textContent = `${hp}/${maxHp}`;
             phpEl.className = 'hud-val';
 
-            // 敵との距離（戦闘開始地点のGPS座標から計算）
+            // 敵との距離
             const distEl = document.getElementById('hud-dist');
-            if (currentEnemyInfo && arisaPos) {
-                const [aLat, aLng] = arisaPos;
-                const dLat = (currentEnemyInfo.lat - aLat) * 111320;
-                const dLng = (currentEnemyInfo.lng - aLng) * 111320 * Math.cos(aLat * Math.PI / 180);
-                const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+            const dist = calcBattleDist();
+            if (dist !== null) {
                 distEl.textContent = dist < 1000 ? `${dist}m` : `${(dist/1000).toFixed(1)}km`;
                 distEl.className = 'hud-val ' + (dist < 80 ? 'near' : dist < 200 ? 'mid' : 'far');
             } else {
