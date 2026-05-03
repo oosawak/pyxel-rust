@@ -1221,7 +1221,7 @@
         const SHEET_LIST = ['enemy-sprites', 'arisa-player-sprites', 'arisa-world-backgrounds-2', 'arisa-3d-art'];
         let loadedCount = 0;
 
-        function makeTransparent(img, threshold = 30) {
+        function makeTransparent(img, threshold = 15) {
             const oc = document.createElement('canvas');
             oc.width = img.naturalWidth; oc.height = img.naturalHeight;
             const ctx = oc.getContext('2d');
