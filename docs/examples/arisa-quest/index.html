@@ -28,13 +28,17 @@
             box-shadow: 0 0 8px rgba(255,136,204,0.5);
             cursor: pointer;
         }
-        /* 内側の画像がはみ出さないようクリップ */
-        #status-bar .portrait-wrap img {
+        /* 画像を丸くクリップする内側ラッパー */
+        #status-bar .portrait-inner {
+            position: absolute; inset: 0;
+            border-radius: 50%; overflow: hidden;
+            z-index: 1;
+        }
+        #status-bar .portrait-inner img {
             position: absolute;
             width: 57px; height: auto;
             left: 50%; top: 0px;
             transform: translateX(-50%);
-            clip-path: circle(50% at 50% 50%);
         }
         /* 外側スピナーリング（速）*/
         #status-bar .portrait-wrap::before {
@@ -661,7 +665,9 @@
     <!-- Status bar -->
     <div id="status-bar">
         <div class="portrait-wrap">
-            <img src="../../assets/design/arisa-3d-art.png" alt="アリサ">
+            <div class="portrait-inner">
+                <img src="../../assets/design/arisa-3d-art.png" alt="アリサ">
+            </div>
         </div>
         <div class="stats">
             <div class="stat-row">
