@@ -497,6 +497,54 @@
         const bgCanvas = document.getElementById('bg-canvas');
         const bgCtx    = bgCanvas.getContext('2d');
 
+        // 背景スワイプパン
+        const BG_ZOOM     = 1.6;
+        const BG_Y_ANCHOR = 0.15;
+        let bgXOffset  = 0;   // スプライト空間のX方向オフセット（px）
+        let bgPanVelX  = 0;   // 慣性速度
+        let bgPanLastX = 0;
+        let bgPanActive = false;
+
+        function bgPanClamp() {
+            const cropW = BG_CW / BG_ZOOM;
+            const maxOff = (BG_CW - cropW) / 2;
+            bgXOffset = Math.max(-maxOff, Math.min(maxOff, bgXOffset));
+        }
+
+        // タッチイベント（canvas-area全体で受け取る）
+        const canvasArea = document.getElementById('canvas-area');
+        canvasArea.addEventListener('touchstart', e => {
+            if (e.touches.length !== 1) return;
+            bgPanActive = true;
+            bgPanLastX  = e.touches[0].clientX;
+            bgPanVelX   = 0;
+        }, { passive: true });
+        canvasArea.addEventListener('touchmove', e => {
+            if (!bgPanActive || e.touches.length !== 1) return;
+            const dx = e.touches[0].clientX - bgPanLastX;
+            bgPanLastX = e.touches[0].clientX;
+            // CSS px → スプライト px 変換（ドラッグ方向と逆に背景が動く）
+            const cropW = BG_CW / BG_ZOOM;
+            bgXOffset  -= dx * (cropW / canvasArea.offsetWidth);
+            bgPanVelX   = -dx * (cropW / canvasArea.offsetWidth);
+            bgPanClamp();
+        }, { passive: true });
+        canvasArea.addEventListener('touchend', () => { bgPanActive = false; }, { passive: true });
+        canvasArea.addEventListener('touchcancel', () => { bgPanActive = false; bgPanVelX = 0; }, { passive: true });
+
+        // 慣性ループ（フレームごとに速度を減衰）
+        function bgInertiaStep() {
+            if (!bgPanActive && Math.abs(bgPanVelX) > 0.05) {
+                bgXOffset += bgPanVelX;
+                bgPanVelX *= 0.88;
+                bgPanClamp();
+            } else if (!bgPanActive) {
+                bgPanVelX = 0;
+            }
+            requestAnimationFrame(bgInertiaStep);
+        }
+        bgInertiaStep();
+
         function resizeBgCanvas() {
             const canvasArea = document.getElementById('canvas-area');
             const dpr = window.devicePixelRatio || 1;
@@ -550,8 +598,8 @@
                 const maxMp = window.wasmModule.get_player_max_mp?.() ?? '?';
                 const lv    = window.wasmModule.get_player_level?.()  ?? '?';
                 const bgI2  = ((bgIdx % 24) + 24) % 24;
-                const bgZoom   = 1.6;
-                const bgYAnchor = 0.2;
+                const bgZoom    = BG_ZOOM;
+                const bgYAnchor = BG_Y_ANCHOR;
                 const cropW2   = Math.round(BG_CW / bgZoom);
                 const cropH2   = Math.round(BG_CH / bgZoom);
                 const baseSrcX = (bgI2 % BG_COLS) * BG_CW;
@@ -569,6 +617,7 @@
                     `シート位置: 列${bgI2 % BG_COLS} 行${Math.floor(bgI2/BG_COLS)}`,
                     `セル原点: (${baseSrcX}, ${baseSrcY})  ${BG_CW}×${BG_CH}px`,
                     `ZOOM: ×${bgZoom}`,
+                    `XOffset: ${bgXOffset.toFixed(1)}px (vel:${bgPanVelX.toFixed(2)})`,
                     `クロップ領域: x=${cropX} y=${cropY}`,
                     `クロップサイズ: ${cropW2}×${cropH2}px`,
                     ``,
@@ -588,10 +637,7 @@
             resizeBgCanvas();
 
             // Draw background to fill entire canvas (before scaled transform)
-            // BG_ZOOM: 1.0=全体表示, 1.6=中央1.6倍拡大
-            // BG_Y_ANCHOR: 0.0=上端, 0.5=中央, 1.0=下端
-            const BG_ZOOM     = 1.6;
-            const BG_Y_ANCHOR = 0.2;
+            // BG_ZOOM/BG_Y_ANCHOR はスクリプト上部で定義
             const bgI  = ((bgIdx % 24) + 24) % 24;
             const bgBaseX = (bgI % BG_COLS) * BG_CW;
             const bgBaseY = Math.floor(bgI / BG_COLS) * BG_CH;
@@ -599,7 +645,7 @@
             const cropH = BG_CH / BG_ZOOM;
             bgCtx.drawImage(
                 SHEETS['arisa-world-backgrounds-2'],
-                bgBaseX + (BG_CW - cropW) / 2,
+                bgBaseX + (BG_CW - cropW) / 2 + bgXOffset,
                 bgBaseY + (BG_CH - cropH) * BG_Y_ANCHOR,
                 cropW, cropH,
                 0, 0, bgCanvas.width, bgCanvas.height
