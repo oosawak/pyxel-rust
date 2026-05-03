@@ -2354,12 +2354,14 @@
             const hp = window.wasmModule.get_player_hp?.()    ?? null;
             const eName = currentEnemyInfo ? (ENEMY_NAMES[currentEnemyInfo.eIdx] ?? '敵') : '敵';
 
-            if (ef > 0 && prevEnemyFlash <= 0) {
+            if (pf > 0 && prevPlayerFlash <= 0) {
+                // アリサの攻撃モーション検出
                 const dmg = 3 + Math.floor(Math.random() * 8);
                 currentEnemyHp = Math.max(0, currentEnemyHp - dmg);
                 pushBattleMsg(`アリサの攻撃！ ${dmg} ダメージ`, 'attack');
             }
-            if (pf > 0 && prevPlayerFlash <= 0) {
+            if (ef > 0 && prevEnemyFlash <= 0) {
+                // 敵の攻撃モーション検出
                 pushBattleMsg(`${eName}の攻撃！`, 'damage');
             }
             if (prevPlayerHp !== null && hp !== null && hp < prevPlayerHp) {
@@ -2610,17 +2612,25 @@
 
             // Poll for battle end
             // state=2（バトル中）を一度でも確認してから終了検知する。
-            // ただし 300ms ポーリングで state=2 を見逃すケースに備え、
-            // 2秒後に seenBattleState=true にするフォールバックも設ける。
+            // 攻撃アニメ等で一時的にstate!=2になるため、3連続で非バトルを確認してから終了。
             let seenBattleState = false;
+            let nonBattleCount  = 0;
             const seenFallback = setTimeout(() => { seenBattleState = true; }, 2000);
             watchInterval = setInterval(() => {
                 if (!inBattle) { clearInterval(watchInterval); clearTimeout(seenFallback); return; }
                 const state = window.wasmModule.get_game_state?.() ?? 0;
-                if (state === 2) { seenBattleState = true; clearTimeout(seenFallback); return; }
-                if (seenBattleState) {
+                if (state === 2) {
+                    seenBattleState = true;
+                    nonBattleCount  = 0;
                     clearTimeout(seenFallback);
-                    endBattle(enemyInfo);
+                    return;
+                }
+                if (seenBattleState) {
+                    nonBattleCount++;
+                    if (nonBattleCount >= 3) {
+                        clearTimeout(seenFallback);
+                        endBattle(enemyInfo);
+                    }
                 }
             }, 300);
         }
