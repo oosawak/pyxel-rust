@@ -362,18 +362,6 @@
             width: 100%; height: 100%;
             image-rendering: auto; pointer-events: none; z-index: 0;
         }
-        /* WASM戦闘モード: pyxel_canvasを全面表示、bg-canvasを非表示 */
-        #game-wrapper.wasm-battle #pyxel_canvas {
-            position: absolute !important;
-            top: 0 !important; left: 0 !important;
-            width: 100% !important; height: 100% !important;
-            visibility: visible !important;
-            image-rendering: pixelated;
-            z-index: 5;
-        }
-        #game-wrapper.wasm-battle #bg-canvas {
-            visibility: hidden;
-        }
 
         /* ── Arisa Quest バトルUI ─────────────────────────────────── */
         #battle-ui {
@@ -1378,8 +1366,6 @@
                 bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
                 return;
             }
-            // wasm-battle モード中は bg-canvas 非表示・WASM が全描画担当
-            if (document.getElementById('game-wrapper').classList.contains('wasm-battle')) return;
             if (loadedCount < SHEET_LIST.length) return;
 
             const enemyIdx    = window.wasmModule.get_enemy_idx?.()    ?? -1;
@@ -2679,8 +2665,6 @@
             battleOverlay.classList.add('active');
             battleUI.classList.add('active');
             setActiveTab('tab-battle');
-            // WASMキャンバスを戦闘中に表示（WASMが全描画を担当）
-            document.getElementById('game-wrapper').classList.add('wasm-battle');
             requestAnimationFrame(() => resizeBgCanvas());
 
             // タイムライン開始
@@ -2740,8 +2724,6 @@
             stopTimeline();
             stopSP();
             if (autoInterval) { autoInterval = null; document.getElementById('cmd-auto')?.classList.remove('active-auto'); updateAutoCmdHighlight(); }
-            // WASMキャンバスを非表示に戻す
-            document.getElementById('game-wrapper').classList.remove('wasm-battle');
             inBattle = false;
             _bgLoopHadBattle = false;
             _bgEndDebounce   = 0;
@@ -2839,11 +2821,7 @@
             start_battle_from_js,
         } from './pkg/pyxel_rust.js';
         try {
-            const wasmUrl = new URL('./pkg/pyxel_rust_bg.wasm', import.meta.url).href;
-            console.log('[WASM] loading:', wasmUrl);
-            console.log('[WASM] JS module:', new URL('./pkg/pyxel_rust.js', import.meta.url).href);
             await init({ module_or_path: './pkg/pyxel_rust_bg.wasm' });
-            console.log('[WASM] init OK — exports:', Object.keys(window.wasmModule ?? {}).join(', ') || '(not yet set)');
             window.wasmModule = {
                 set_key,
                 get_game_state, get_enemy_idx, get_bg_idx,
@@ -2854,7 +2832,6 @@
                 start_battle_from_js,
             };
             wasmMain();
-            console.log('[WASM] wasmMain() called — game started');
         } catch(e) {
             console.error('WASM init failed:', e);
         }
