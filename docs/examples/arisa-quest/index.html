@@ -2123,10 +2123,12 @@
                 battleSP = Math.min(MAX_SP, battleSP + getSpRegen());
                 updateSPBar();
                 updateCmdButtons();
-                // オートモード: SPが閾値を超えた瞬間に自動発火
-                if (autoInterval && autoCmd) {
+                // オートモード: SPが足りてキューに空きがあれば発火（ポーリング方式）
+                if (autoInterval && autoCmd && inBattle) {
                     const cost = SP_COSTS[autoCmd] ?? 0;
-                    if (prevSP < cost && battleSP >= cost) triggerAutoCmd();
+                    if (battleSP >= cost && playerQueueCnt < MAX_QUEUE) {
+                        triggerAutoCmd();
+                    }
                 }
             }, 100);
         }
@@ -2312,6 +2314,11 @@
                 currentEnemyHp = Math.max(1, currentEnemyHp - dmg);
                 if (keyCodes.length > 0) simulateKeys(keyCodes);
                 pushBattleMsg(`${icon} ${label}！ ${dmg} ダメージ`, 'attack');
+                // オートモード: カード到着後SP足りてれば即次を発火
+                if (autoInterval && autoCmd) {
+                    const cost = SP_COSTS[autoCmd] ?? 0;
+                    if (battleSP >= cost && playerQueueCnt < MAX_QUEUE) triggerAutoCmd();
+                }
             }, 'player', cmdId ?? 'melee');
         }
 
