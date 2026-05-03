@@ -424,10 +424,17 @@ impl Game {
         #[cfg(target_arch = "wasm32")]
         {
             let req = wb::take_battle_request();
-            if req >= 0 && self.state != GameState::Battle {
-                let idx = (req as usize).min(ENEMIES.len() - 1);
-                self.start_battle(idx);
-                return;
+            if req >= 0 {
+                let in_terminal = matches!(
+                    self.phase,
+                    BattlePhase::Victory | BattlePhase::Defeat | BattlePhase::Fled
+                );
+                let can_start = self.state != GameState::Battle || in_terminal;
+                if can_start {
+                    let idx = (req as usize).min(ENEMIES.len() - 1);
+                    self.start_battle(idx);
+                    return;
+                }
             }
         }
 
