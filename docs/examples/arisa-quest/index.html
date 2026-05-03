@@ -1339,17 +1339,23 @@
         }
 
         let _bgLoopHadBattle = false; // renderBg での戦闘終了検知用フラグ
+        let _bgEndDebounce   = 0;    // 誤検知防止: N連続フレームで非バトルなら確定
 
         function renderBg() {
             if (!window.wasmModule) return;
             const state = window.wasmModule.get_game_state?.() ?? 0;
-            // ── 戦闘終了の確実な検知（毎フレーム実行されるここが最も信頼できる） ──
+            // ── 戦闘終了の確実な検知（simulateKeys後の一時的state≠2を無視する） ──
             if (state === 2) {
                 _bgLoopHadBattle = true;
+                _bgEndDebounce   = 0;
             } else if (_bgLoopHadBattle && inBattle) {
-                _bgLoopHadBattle = false;
-                endBattle(currentEnemyInfo);
-                return;
+                _bgEndDebounce++;
+                if (_bgEndDebounce >= 8) { // 約133ms(8フレーム)連続で非バトルなら確定
+                    _bgLoopHadBattle = false;
+                    _bgEndDebounce   = 0;
+                    endBattle(currentEnemyInfo);
+                }
+                return; // デバウンス中は前フレームの描画を維持
             }
             if (state !== 2) {
                 bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
@@ -2291,8 +2297,15 @@
             spawnFallCard(laneEl, icon, label, cardCss, fallMs, () => {
                 playerQueueCnt = Math.max(0, playerQueueCnt - 1);
                 if (!inBattle) return;
+                // ダメージをカード到着時に直接計算（flash検出に依存しない）
+                const mult = window._criticalMultiplier ?? 1.0;
+                const baseDmg = cmdId === 'skill' ? (8 + Math.floor(Math.random() * 10))
+                              : cmdId === 'ranged' ? (5 + Math.floor(Math.random() * 8))
+                              : (3 + Math.floor(Math.random() * 8));
+                const dmg = Math.round(baseDmg * mult);
+                currentEnemyHp = Math.max(0, currentEnemyHp - dmg);
                 if (keyCodes.length > 0) simulateKeys(keyCodes);
-                pushBattleMsg(`${icon} ${label}！`, 'attack');
+                pushBattleMsg(`${icon} ${label}！ ${dmg} ダメージ`, 'attack');
             }, 'player', cmdId ?? 'melee');
         }
 
@@ -2395,10 +2408,7 @@
             const eName = currentEnemyInfo ? (ENEMY_NAMES[currentEnemyInfo.eIdx] ?? '敵') : '敵';
 
             if (pf > 0 && prevPlayerFlash <= 0) {
-                // アリサの攻撃モーション検出
-                const dmg = 3 + Math.floor(Math.random() * 8);
-                currentEnemyHp = Math.max(0, currentEnemyHp - dmg);
-                pushBattleMsg(`アリサの攻撃！ ${dmg} ダメージ`, 'attack');
+                // アリサの攻撃モーション検出（HP減算はqueuePlayerCmdのonArriveで実施済み）
             }
             if (ef > 0 && prevEnemyFlash <= 0) {
                 // 敵の攻撃モーション検出
@@ -2683,6 +2693,7 @@
             if (autoInterval) { autoInterval = null; document.getElementById('cmd-auto')?.classList.remove('active-auto'); updateAutoCmdHighlight(); }
             inBattle = false;
             _bgLoopHadBattle = false;
+            _bgEndDebounce   = 0;
             // overlay・UI を確実に非表示
             battleOverlay.classList.remove('active');
             battleUI.classList.remove('active');
