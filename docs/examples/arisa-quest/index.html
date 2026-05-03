@@ -2750,8 +2750,10 @@
                 titleEl.classList.add('fled');
                 msgEl.textContent = '';
             }
-            resultEl.classList.add('active');
-            updateStatusBar();
+            setTimeout(() => {
+                resultEl.classList.add('active');
+                updateStatusBar();
+            }, 1800);
         }
 
         // ── Status bar update ────────────────────────────────────────────────
