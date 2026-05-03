@@ -309,6 +309,71 @@
             width: 100%; max-width: 480px; margin: 0 auto;
         }
         #battle-ui.active { display: flex; }
+
+        /* ── 落下コマンドタイムライン ── */
+        #battle-timeline {
+            position: absolute; inset: 0; z-index: 10;
+            pointer-events: none; display: none;
+        }
+        #battle-timeline.active { display: block; }
+        .tl-lane {
+            position: absolute; top: 0; bottom: 0; width: 52px;
+            background: rgba(0,0,10,0.62);
+            border-radius: 6px; overflow: hidden;
+        }
+        #tl-left  { left: 3px; }
+        #tl-right { right: 3px; }
+        .tl-header {
+            text-align: center; padding: 4px 2px 3px;
+            font-size: 0.48rem; font-family: 'DotGothic16', monospace;
+            line-height: 1.3; border-bottom: 1px solid rgba(255,255,255,0.08);
+            position: relative; z-index: 1;
+        }
+        #tl-left  .tl-header { color: rgba(100,190,255,0.85); }
+        #tl-right .tl-header { color: rgba(255,100,100,0.85); }
+        .tl-execute-line {
+            position: absolute; bottom: 20px; left: 0; right: 0;
+            height: 2px; background: rgba(255,255,255,0.22);
+        }
+        .tl-execute-line::before {
+            content: '▼発動'; position: absolute;
+            bottom: 3px; left: 0; right: 0;
+            font-size: 0.4rem; color: rgba(255,255,255,0.3);
+            font-family: 'DotGothic16', monospace; text-align: center;
+        }
+        /* クールダウンバー */
+        .tl-bar-track {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 6px;
+        }
+        .tl-bar-fill {
+            height: 100%; width: 0%; transition: width linear;
+        }
+        #tl-left  .tl-bar-fill { background: linear-gradient(90deg,#1155cc,#44aaff); }
+        #tl-right .tl-bar-fill { background: linear-gradient(90deg,#aa1133,#ff5544); }
+        /* 落下カード */
+        .tl-card {
+            position: absolute; left: 3px; right: 3px; height: 36px;
+            border-radius: 5px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            font-size: 0.5rem; font-family: 'DotGothic16', monospace;
+            color: white; text-align: center; padding: 2px; line-height: 1.2;
+            will-change: transform;
+        }
+        .tl-card.player {
+            background: linear-gradient(160deg,rgba(18,55,170,0.95),rgba(50,140,255,0.95));
+            border: 1px solid rgba(80,180,255,0.85);
+            box-shadow: 0 0 8px rgba(50,150,255,0.5);
+        }
+        .tl-card.enemy {
+            background: linear-gradient(160deg,rgba(160,18,38,0.95),rgba(255,75,40,0.95));
+            border: 1px solid rgba(255,80,60,0.85);
+            box-shadow: 0 0 8px rgba(255,55,55,0.5);
+        }
+        .tl-card.execute-flash { animation: tlFlash 0.35s ease-out forwards; }
+        @keyframes tlFlash {
+            0%   { opacity: 1; transform: scale(1.4) translateY(0); filter: brightness(2.5); }
+            100% { opacity: 0; transform: scale(0.4) translateY(0); }
+        }
         #battle-commands {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
             padding: 8px 12px 6px;
@@ -820,6 +885,19 @@
                 </div>
                 <!-- バトルメッセージログ -->
                 <div id="battle-msg-log"></div>
+                <!-- 落下コマンドタイムライン -->
+                <div id="battle-timeline">
+                    <div class="tl-lane" id="tl-left">
+                        <div class="tl-header">⚔️<br>アリサ</div>
+                        <div class="tl-execute-line"></div>
+                        <div class="tl-bar-track"><div class="tl-bar-fill" id="tl-player-bar"></div></div>
+                    </div>
+                    <div class="tl-lane" id="tl-right">
+                        <div class="tl-header">💀<br>敵</div>
+                        <div class="tl-execute-line"></div>
+                        <div class="tl-bar-track"><div class="tl-bar-fill" id="tl-enemy-bar"></div></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Arisa Quest バトルUI（十字キーの代替） -->
@@ -1579,6 +1657,123 @@
         const battleUI      = document.getElementById('battle-ui');
         let inBattle = false, watchInterval = null;
 
+        // ── 落下コマンドタイムライン ─────────────────────────────────────────
+        // 敵ごとの設定（fallMs=落下時間＝攻撃ラグ、intervalMs=次の攻撃カード間隔）
+        const ENEMY_TL_CONFIG = [
+            { fallMs: 1500, intervalMs: 4500, atkLabel: 'ぺたり',       atkIcon: '💦' }, // スライム（小）
+            { fallMs: 2200, intervalMs: 3800, atkLabel: 'ひっかき',     atkIcon: '⚡' }, // シャドウキャット（普通）
+            { fallMs: 1800, intervalMs: 3200, atkLabel: 'ファイア',     atkIcon: '🔥' }, // フレイムインプ（速い）
+            { fallMs: 3500, intervalMs: 5500, atkLabel: 'たたりつき',   atkIcon: '👻' }, // ゴースト（大型）
+            { fallMs: 5000, intervalMs: 8000, atkLabel: 'ガンダンセイケン', atkIcon: '💥' }, // ロックゴーレム（ボス）
+        ];
+
+        let tlEnemyBarTimer  = null;
+        let tlEnemyBarRafId  = null;
+        const tlCardTimers   = [];
+        const tlLiveCards    = [];
+        const MAX_QUEUE      = 4;
+        let   playerQueueCnt = 0;
+
+        function getPlayerFallMs() {
+            const lv = arisaSave.level ?? 1;
+            return Math.max(600, 2200 - (lv - 1) * 150);
+        }
+
+        function spawnFallCard(laneEl, icon, label, cssClass, fallMs, onArrive) {
+            const headerH = laneEl.querySelector('.tl-header')?.offsetHeight ?? 36;
+            const laneH   = laneEl.clientHeight || 280;
+            const barH    = 6;
+            const cardH   = 36;
+            const travelPx = Math.max(10, laneH - headerH - barH - cardH - 10);
+
+            const card = document.createElement('div');
+            card.className = `tl-card ${cssClass}`;
+            card.innerHTML = `<span style="font-size:1rem;line-height:1">${icon}</span><span>${label}</span>`;
+            card.style.cssText = `top:${headerH}px; transform:translateY(0px);`;
+            laneEl.appendChild(card);
+            tlLiveCards.push(card);
+
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                card.style.transition = `transform ${fallMs}ms linear`;
+                card.style.transform  = `translateY(${travelPx}px)`;
+            }));
+
+            const t = setTimeout(() => {
+                card.classList.add('execute-flash');
+                onArrive();
+                setTimeout(() => {
+                    card.remove();
+                    const i = tlLiveCards.indexOf(card);
+                    if (i >= 0) tlLiveCards.splice(i, 1);
+                }, 400);
+            }, fallMs);
+            tlCardTimers.push(t);
+            return t;
+        }
+
+        function animateBarFill(fillEl, durationMs, onComplete) {
+            fillEl.style.transition = 'none';
+            fillEl.style.width = '0%';
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                fillEl.style.transition = `width ${durationMs}ms linear`;
+                fillEl.style.width = '100%';
+            }));
+            return setTimeout(onComplete, durationMs);
+        }
+
+        function scheduleEnemyCard(cfg) {
+            if (!inBattle) return;
+            const fillEl = document.getElementById('tl-enemy-bar');
+            if (!fillEl) return;
+            tlEnemyBarTimer = animateBarFill(fillEl, cfg.intervalMs, () => {
+                if (!inBattle) return;
+                const laneEl = document.getElementById('tl-right');
+                spawnFallCard(laneEl, cfg.atkIcon, cfg.atkLabel, 'enemy', cfg.fallMs, () => {
+                    if (!inBattle) return;
+                    simulateKeys([[45,true],[45,false]]);
+                    pushBattleMsg(`💀 ${cfg.atkLabel}！`, 'damage');
+                });
+                scheduleEnemyCard(cfg);
+            });
+        }
+
+        function startTimeline(eIdx) {
+            const cfg = ENEMY_TL_CONFIG[eIdx] ?? ENEMY_TL_CONFIG[0];
+            document.getElementById('battle-timeline')?.classList.add('active');
+            scheduleEnemyCard(cfg);
+        }
+
+        function stopTimeline() {
+            clearTimeout(tlEnemyBarTimer);
+            [...tlCardTimers].forEach(t => clearTimeout(t));
+            tlCardTimers.length = 0;
+            tlLiveCards.forEach(c => c.remove());
+            tlLiveCards.length = 0;
+            playerQueueCnt = 0;
+            document.getElementById('battle-timeline')?.classList.remove('active');
+            ['tl-player-bar','tl-enemy-bar'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.style.transition = 'none'; el.style.width = '0%'; }
+            });
+        }
+
+        function queuePlayerCmd(keyCodes, icon, label) {
+            if (!inBattle || playerQueueCnt >= MAX_QUEUE) return;
+            playerQueueCnt++;
+            const fallMs = getPlayerFallMs();
+            const laneEl = document.getElementById('tl-left');
+            const fillEl = document.getElementById('tl-player-bar');
+            // プレイヤーバーでキュー視覚フィードバック（500ms点滅）
+            if (fillEl) animateBarFill(fillEl, Math.min(fallMs, 500), () => {});
+
+            spawnFallCard(laneEl, icon, label, 'player', fallMs, () => {
+                playerQueueCnt = Math.max(0, playerQueueCnt - 1);
+                if (!inBattle) return;
+                if (keyCodes.length > 0) simulateKeys(keyCodes);
+                pushBattleMsg(`${icon} ${label}！`, 'attack');
+            });
+        }
+
         // ── デバッグ静的テキスト ──────────────────────────────────────────────
         let dbgStaticText = '(戦闘前)';
         let dbgArisaText  = 'sx=0 sy=22 sw=128 sh=106';
@@ -1695,35 +1890,20 @@
             } else {
                 btn.classList.add('active-auto');
                 pushBattleMsg('オートバトル開始！', 'system');
-                autoInterval = setInterval(() => {
+                const autoFn = () => {
                     if (!inBattle) { clearInterval(autoInterval); autoInterval = null; btn.classList.remove('active-auto'); return; }
-                    simulateKeys(CMD_ATTACK);
-                }, 1800);
+                    queuePlayerCmd(CMD_ATTACK, '⚔', '近距離攻撃');
+                };
+                autoFn();
+                autoInterval = setInterval(autoFn, getPlayerFallMs() + 300);
             }
         });
-        document.getElementById('cmd-melee').addEventListener('click', () => {
-            simulateKeys(CMD_ATTACK);
-            pushBattleMsg('近距離攻撃！', 'attack');
-        });
-        document.getElementById('cmd-ranged').addEventListener('click', () => {
-            simulateKeys(CMD_ATTACK);
-            pushBattleMsg('遠距離攻撃！', 'attack');
-        });
-        document.getElementById('cmd-skill').addEventListener('click', () => {
-            simulateKeys(CMD_SKILL);
-            pushBattleMsg('スキルを使う！', 'skill');
-        });
-        document.getElementById('cmd-item').addEventListener('click', () => {
-            simulateKeys(CMD_ITEM);
-            pushBattleMsg('どうぐを使う', 'item');
-        });
-        document.getElementById('cmd-run').addEventListener('click', () => {
-            simulateKeys(CMD_RUN);
-            pushBattleMsg('逃げようとしている...', 'run');
-        });
-        document.getElementById('cmd-lure').addEventListener('click', () => {
-            pushBattleMsg('🎵 アリサが歌って敵を誘っている...', 'skill');
-        });
+        document.getElementById('cmd-melee').addEventListener('click',  () => queuePlayerCmd(CMD_ATTACK, '⚔',  '近距離攻撃'));
+        document.getElementById('cmd-ranged').addEventListener('click', () => queuePlayerCmd(CMD_ATTACK, '🏹', '遠距離攻撃'));
+        document.getElementById('cmd-skill').addEventListener('click',  () => queuePlayerCmd(CMD_SKILL,  '✨', 'スキル'));
+        document.getElementById('cmd-item').addEventListener('click',   () => queuePlayerCmd(CMD_ITEM,   '🎒', 'どうぐ'));
+        document.getElementById('cmd-run').addEventListener('click',    () => queuePlayerCmd(CMD_RUN,    '💨', 'にげる'));
+        document.getElementById('cmd-lure').addEventListener('click',   () => queuePlayerCmd([],         '🎵', '誘う'));
 
         // バトル結果画面「マップに戻る」ボタン
         document.getElementById('btn-back-to-map').addEventListener('click', () => {
@@ -1859,6 +2039,9 @@
             setActiveTab('tab-battle');
             requestAnimationFrame(() => resizeBgCanvas());
 
+            // タイムライン開始
+            startTimeline(enemyInfo.eIdx);
+
             // バトル開始メッセージ
             prevEnemyFlash = 0; prevPlayerFlash = 0;
             prevPlayerHp = window.wasmModule.get_player_hp?.() ?? null;
@@ -1877,21 +2060,34 @@
                 `dest x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
             ].join('\n');
 
-            // Poll for battle end（state=2を確認してから終了検知）
+            // Poll for battle end
+            // state=2（バトル中）を一度でも確認してから終了検知する。
+            // ただし 300ms ポーリングで state=2 を見逃すケースに備え、
+            // 2秒後に seenBattleState=true にするフォールバックも設ける。
             let seenBattleState = false;
+            const seenFallback = setTimeout(() => { seenBattleState = true; }, 2000);
             watchInterval = setInterval(() => {
+                if (!inBattle) { clearInterval(watchInterval); clearTimeout(seenFallback); return; }
                 const state = window.wasmModule.get_game_state?.() ?? 0;
-                if (state === 2) { seenBattleState = true; return; }
-                if (seenBattleState) endBattle(enemyInfo);
+                if (state === 2) { seenBattleState = true; clearTimeout(seenFallback); return; }
+                if (seenBattleState) {
+                    clearTimeout(seenFallback);
+                    endBattle(enemyInfo);
+                }
             }, 300);
         }
 
         function endBattle(enemyInfo) {
+            if (!inBattle) return;  // 二重呼び出し防止
             clearInterval(watchInterval);
+            stopTimeline();
             if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('cmd-auto')?.classList.remove('active-auto'); }
             inBattle = false;
             battleUI.classList.remove('active');
-            battleOverlay.classList.remove('active');  // キャンバスを即座に非表示
+            battleOverlay.classList.remove('active');
+            // battle-msg-log を次の戦闘のためにクリア
+            const msgLog = document.getElementById('battle-msg-log');
+            if (msgLog) setTimeout(() => { msgLog.innerHTML = ''; }, 800);
 
             const state = window.wasmModule?.get_game_state?.() ?? 0;
             if (state === 1) {
