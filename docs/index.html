@@ -18,9 +18,6 @@
         h2 { color: #444; margin-top: 30px; }
         a { color: #007bff; text-decoration: none; }
         a:hover { text-decoration: underline; }
-        .nav { background: white; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        .nav ul { list-style: none; padding: 0; }
-        .nav li { margin: 10px 0; }
         .section { background: white; padding: 20px; border-radius: 5px; margin: 20px 0; }
         .badge {
             display: inline-block;
@@ -37,7 +34,7 @@
             border-left: 4px solid #ffc107;
             padding: 12px 16px;
             border-radius: 0 4px 4px 0;
-            margin: 12px 0;
+            margin: 16px 0;
             font-size: 0.95em;
         }
         .github-btn {
@@ -54,6 +51,15 @@
         }
         .github-btn:hover { background: #444d56; text-decoration: none; }
         .github-btn svg { flex-shrink: 0; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        th { background: #f0f4ff; text-align: left; padding: 8px 12px; border: 1px solid #dde; font-size: 0.9em; }
+        td { padding: 8px 12px; border: 1px solid #dde; font-size: 0.9em; }
+        code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+        .example-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+        .example-card { background: #f8f9ff; border: 1px solid #dde; border-radius: 6px; padding: 14px; }
+        .example-card h3 { margin: 0 0 6px; font-size: 1em; }
+        .example-card p { margin: 0 0 10px; font-size: 0.85em; color: #555; }
+        .example-card a { font-size: 0.9em; }
     </style>
 </head>
 <body>
@@ -63,66 +69,106 @@
         <span class="badge">WebAssembly</span>
         <span class="badge">wasm-bindgen</span>
         <span class="badge">Canvas 2D</span>
+        <span class="badge">SDL2</span>
     </p>
     <p>
-        Pyxel ライクな API を持つ <strong>Rust 製ゲームライブラリ</strong>。
-        ブラウザ上で動作する WebAssembly ゲームを Rust で開発できます。
+        <a href="https://github.com/kitao/pyxel">Pyxel</a> にインスパイアされた <strong>Rust 製 2D ゲームライブラリ</strong>。<br>
+        <code>wasm-bindgen</code> を使ってブラウザ上でも動作します（Emscripten 不使用）。
     </p>
-
-    <div class="note">
-        🔧 <strong>デュアルバックエンド構成</strong><br>
-        本プロジェクトは <a href="https://github.com/kitao/pyxel">Pyxel</a> の API 仕様をベースに Rust で実装したゲームライブラリです。
-        <strong>デスクトップビルドでは pyxel-core（SDL2）または wgpu バックエンド</strong> を使用し、
-        <strong>WebAssembly ビルドでは wasm-bindgen + Canvas 2D API（web-sys）による独自バックエンド</strong>で動作します（Emscripten 不使用）。
-        用途に応じてバックエンドを切り替えられる柔軟な構成になっています。
-    </div>
 
     <a class="github-btn" href="https://github.com/oosawak/pyxel-rust" target="_blank" rel="noopener">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.572C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/></svg>
         GitHub リポジトリを見る (oosawak/pyxel-rust)
     </a>
 
+    <div class="note">
+        ⚠️ <strong>開発中</strong> — API・仕様は予告なく変更される可能性があります。
+    </div>
+
     <div class="section">
-        <h2>🏗️ アーキテクチャ</h2>
-        <ul>
-            <li><strong>描画バックエンド（デスクトップ）:</strong> pyxel-core（SDL2）— Pyxel の C コアを利用、または wgpu バックエンド</li>
-            <li><strong>描画バックエンド（ブラウザ）:</strong> Canvas 2D API（web-sys）— wasm-bindgen 経由（Emscripten 不使用）</li>
-            <li><strong>ウィンドウ管理:</strong> winit（デスクトップ）/ ブラウザ DOM（WASM）</li>
-            <li><strong>WASM バンドル:</strong> wasm-pack + wasm-bindgen で生成</li>
-            <li><strong>Pyxel API 互換:</strong> <code>init</code> / <code>run</code> / <code>cls</code> / <code>blt</code> / <code>text</code> など主要 API を Rust で実装</li>
-            <li><strong>CLI ツール:</strong> <code>pyxel_rust_cli.py</code>（Python 製、Pyxel CLI を拡張）</li>
-        </ul>
+        <h2>🏗️ バックエンド構成</h2>
+        <p>用途に応じて3つのバックエンドを切り替えられます：</p>
+        <table>
+            <tr>
+                <th>バックエンド</th>
+                <th>対象</th>
+                <th>使用ライブラリ</th>
+                <th>feature フラグ</th>
+            </tr>
+            <tr>
+                <td>pyxel-core-backend</td>
+                <td>デスクトップ（デフォルト）</td>
+                <td>pyxel-core (SDL2)</td>
+                <td><code>pyxel-core-backend</code></td>
+            </tr>
+            <tr>
+                <td>wgpu-backend</td>
+                <td>デスクトップ（代替）</td>
+                <td>pixels + winit</td>
+                <td><code>wgpu-backend</code></td>
+            </tr>
+            <tr>
+                <td>wasm-backend</td>
+                <td>ブラウザ</td>
+                <td>wasm-bindgen + web-sys (Canvas 2D)</td>
+                <td><code>wasm-backend</code></td>
+            </tr>
+        </table>
+        <p style="margin-top:10px; font-size:0.9em; color:#555;">
+            ※ ブラウザ版は <code>wasm32-unknown-unknown</code> ターゲットで <code>wasm-pack</code> を使ってビルドします。Emscripten は使用していません。
+        </p>
     </div>
 
     <div class="section">
         <h2>✨ 特徴</h2>
         <ul>
-            <li>Pyxel ライクな API — Python Pyxel の知識がそのまま活かせる</li>
-            <li>デスクトップ: pyxel-core（SDL2）または wgpu バックエンド</li>
-            <li>ブラウザ: wasm-bindgen + Canvas 2D API（Emscripten 不使用）</li>
-            <li>高パフォーマンス — GPU 描画バックエンド（wgpu、デスクトップのみ）</li>
-            <li>クロスプラットフォーム — デスクトップ / ブラウザ 両対応</li>
-            <li>Python CLI ツール — <code>pyxel_rust_cli.py</code> で Pyxel CLI コマンドを拡張</li>
+            <li>🦀 <strong>Rust 製コア</strong> — 型安全で高速</li>
+            <li>🌐 <strong>WASM 対応</strong> — <code>wasm-bindgen</code> / <code>wasm-pack</code> でブラウザ向けにビルド</li>
+            <li>🖼️ <strong>Canvas 2D 統合</strong> — ブラウザでは <code>web-sys</code> 経由で Canvas 2D API を使用</li>
+            <li>🎮 <strong>Pyxel 互換 API</strong> — <code>init</code> / <code>run</code> / <code>cls</code> / <code>blt</code> / <code>text</code> など主要 API を実装</li>
+            <li>🐍 <strong>Python CLI</strong> — <code>pyxel_rust_cli.py</code>（Python 製）で Rust ゲームのビルド・実行を管理</li>
         </ul>
     </div>
 
     <div class="section">
-        <h2>📚 ドキュメント・リンク</h2>
-        <div class="nav">
-            <ul>
-                <li><a href="https://github.com/oosawak/pyxel-rust">📦 GitHub リポジトリ</a></li>
-                <li><a href="https://github.com/oosawak/pyxel-rust/blob/master/README.md">📄 README</a></li>
-                <li><a href="https://github.com/oosawak/pyxel-rust/blob/master/ROADMAP.md">🗺️ ロードマップ</a></li>
-                <li><a href="examples/">🎯 サンプルゲーム一覧</a></li>
-            </ul>
+        <h2>🎯 デモ・サンプル</h2>
+        <div class="example-grid">
+            <div class="example-card">
+                <h3>🗺️ Arisa Quest</h3>
+                <p>GPS 連動 RPG デモ。現実の地図上でモンスターと戦う。</p>
+                <a href="examples/arisa-quest/">▶ 遊ぶ</a>
+            </div>
+            <div class="example-card">
+                <h3>📦 Cubeboy</h3>
+                <p>プラットフォーマーデモ。</p>
+                <a href="examples/cubeboy/">▶ 遊ぶ</a>
+            </div>
+            <div class="example-card">
+                <h3>📏 Lineboy</h3>
+                <p>ラインアクションデモ。</p>
+                <a href="examples/lineboy/">▶ 遊ぶ</a>
+            </div>
         </div>
+        <p style="margin-top:12px;"><a href="examples/">→ サンプル一覧</a></p>
+    </div>
+
+    <div class="section">
+        <h2>📚 リンク</h2>
+        <ul>
+            <li><a href="https://github.com/oosawak/pyxel-rust">📦 GitHub リポジトリ</a></li>
+            <li><a href="https://github.com/oosawak/pyxel-rust/blob/master/README.md">📄 README（ビルド方法・セットアップ）</a></li>
+            <li><a href="https://github.com/oosawak/pyxel-rust/blob/master/ROADMAP.md">🗺️ ロードマップ</a></li>
+            <li><a href="https://github.com/kitao/pyxel">🐍 Pyxel 公式（API 参考元）</a></li>
+            <li><a href="https://rustwasm.github.io/docs/wasm-pack/">📦 wasm-pack</a></li>
+        </ul>
     </div>
 
     <div class="section">
         <h2>📝 プロジェクト情報</h2>
         <p><strong>バージョン:</strong> 0.1.0</p>
-        <p><strong>言語:</strong> Rust</p>
-        <p><strong>レンダリング:</strong> pyxel-core/SDL2（デスクトップ）/ Canvas 2D API・web-sys（WASM）</p>
+        <p><strong>言語:</strong> Rust（エンジンコア）/ Python（CLI ツール）</p>
+        <p><strong>レンダリング:</strong> pyxel-core/SDL2（デスクトップ）/ Canvas 2D・web-sys（WASM）</p>
+        <p><strong>WASM ビルド:</strong> wasm-pack + wasm-bindgen（wasm32-unknown-unknown）</p>
         <p><strong>API 参考:</strong> <a href="https://github.com/kitao/pyxel">Pyxel</a></p>
         <p><strong>ライセンス:</strong> MIT</p>
     </div>

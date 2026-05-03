@@ -1,83 +1,71 @@
 # pyxel-rust Development Roadmap
 
-## プロジェクト目標
+## プロジェクト概要
 
-✅ Pyxel ゲームエンジンの完全な Rust 実装
-✅ Emscripten WASM 対応で、ブラウザで動作
-✅ Cubeboy・Lineboy を Python → Rust に移植
-✅ Nantaraquad の NQuad とは独立（将来の連携は可能）
+[Pyxel](https://github.com/kitao/pyxel) にインスパイアされた Rust 製 2D ゲームライブラリ。  
+`wasm-bindgen` を使用してブラウザ（WASM）でも動作します（Emscripten は使用していません）。
 
-## フェーズ
+---
 
-### Phase 1: プロジェクト基盤 (1-2日)
-- [x] pyxel-rust プロジェクト作成
-- [x] Pyxel フォーク統合
-- [x] Cargo.toml 設定
-- [ ] Git 初期化 & リモート設定
-- [ ] ドキュメント基盤
-- [ ] TODO 管理体制構築
+## 現在の状態
 
-### Phase 2: コア API 実装 (3-5日)
-- [ ] System API (init, run, quit, clip, camera)
-- [ ] Graphics API (pset, pget, line, rect, circ, etc)
-- [ ] Input API (btn, btnp, btnr, mouse)
-- [ ] Math utilities (sin, cos, sqrt, rnd)
-- [ ] Constants (KEY_*, COLOR_*)
+### ✅ 完了済み
 
-### Phase 3: 高度な描画 (2-3日)
-- [ ] Image/Tilemap support
-- [ ] Text rendering
-- [ ] blt (sprite blitting)
-- [ ] bltm (tilemap rendering)
+**コア実装**
+- Rust プロジェクト基盤・Cargo.toml 設定
+- Pyxel フォーク（pyxel-core）統合
+- System API: `init` / `run` / `quit` / `width` / `height` / `frame_count`
+- Graphics API: `cls` / `pset` / `pget` / `line` / `rect` / `rectfill` / `circ` / `circfill` / `text` / `blt` / `bltm` / `clip` / `camera` / `pal` / `dither`
+- Input API: `btn` / `btnp` / `btnr` / `mouse_x` / `mouse_y` / `mouse_wheel`
+- Math API: `sin` / `cos` / `sqrt` / `rnd` など
+- Constants: `KEY_*` / `COLOR_*`
+- Audio API: `play` / `playm` / `stop`（バックエンド依存）
+- Resource API: Image / Tilemap / Sound / Music
 
-### Phase 4: オーディオ実装 (2-3日)
-- [ ] Audio API (play, playm, stop)
-- [ ] Sound class
-- [ ] Music class
+**バックエンド**
+- `pyxel-core-backend`（SDL2 静的リンク、デフォルト）
+- `wgpu-backend`（pixels + winit、デスクトップ代替）
+- `wasm-backend`（wasm-bindgen + web-sys Canvas 2D、ブラウザ）
 
-### Phase 5: Cubeboy 移植 (3-5日)
-- [ ] Cubeboy Python コード解析
-- [ ] Rust への翻訳
-- [ ] テスト・デバッグ
+**ゲーム移植・デモ**
+- Cubeboy（プラットフォーマー）— Rust 移植完了
+- Lineboy（ラインアクション）— Rust 移植完了
+- RPG サンプル — Rust 実装済み
+- Arisa Quest（GPS 連動 RPG デモ）— ブラウザデモ公開中
 
-### Phase 6: Lineboy 移植 (2-3日)
-- [ ] Lineboy Python コード解析
-- [ ] Rust への翻訳
-- [ ] テスト・デバッグ
+**インフラ・ツール**
+- Python CLI ツール（`pyxel_rust_cli.py`）— Pyxel CLI 拡張、`rust_run` / `rust_package` / `rust_app2wasm` など
+- ビルド依存インストーラー（`install-deps.sh`）
+- CI スクリプト（`scripts/ci.sh`）— fmt / clippy / build / test
+- GitHub Pages 公開（`docs/` ディレクトリ）
 
-### Phase 7: WASM 統合 (2-3日)
-- [ ] Emscripten セットアップ
-- [ ] WASM ビルド検証
-- [ ] ブラウザテスト
+---
 
-### Phase 8: ドキュメント & 最適化 (2-3日)
-- [ ] API ドキュメント整備
-- [ ] 使用例・チュートリアル
-- [ ] パフォーマンス最適化
+## 今後の課題
 
-## 進捗追跡
+### 🔧 未整備・改善余地あり
 
-進捗は `TODO.md` で管理します。
+- **WASM ビルド手順の整備** — wasm-pack のインストールから公開までのフローを簡略化したい
+- **GitHub Actions** — CI / GitHub Pages 自動デプロイのワークフロー未設定
+- **Audio（WASM）** — ブラウザでのオーディオ再生は未検証
+- **Tilemap / Image ロード** — `.pyxres` リソースファイルの WASM 対応
+- **API カバレッジ拡充** — Pyxel 全 API との差分を埋める
 
-### ステータス
-- `pending` - 未開始
-- `in_progress` - 実施中
-- `done` - 完了
-- `blocked` - ブロック中
+### 🎮 ゲーム・デモ
 
-## リソース
+- **Arisa Quest** — GPS 連動 RPG デモの継続開発（バトルシステム・地図機能）
+- **追加サンプル** — より多くのゲームジャンルのデモ
+
+### 📚 ドキュメント
+
+- API リファレンスの整備
+- チュートリアル・使用例の充実
+
+---
+
+## リソース・参考
 
 - **Pyxel-core**: `./pyxel_fork/crates/pyxel-core/`
-- **参考実装**: `/home/oosawak/Workspace/Nantaraquad/` (NQuad)
-- **Discord 通知**: 進捗自動配信
+- **参考**: [Pyxel 公式](https://github.com/kitao/pyxel)
+- **WASM ビルド**: [wasm-pack](https://rustwasm.github.io/docs/wasm-pack/)
 
-## 依存プロジェクト
-
-- ❌ **影響を受けない**: Nantaraquad (完全独立)
-- ✅ **将来の統合**: NQuad を pyxel-rust に組み込む可能性あり
-
-## 注意点
-
-- NQuad は変更しない（参考のみ）
-- Cubeboy・Lineboy の移植は新しいプロジェクト内で行う
-- Pyxel フォークは定期的に上流と同期する
