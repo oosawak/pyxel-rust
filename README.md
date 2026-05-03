@@ -11,10 +11,11 @@ WebAssembly (WASM) ターゲットをサポートし、ブラウザ上でゲー�
 ## 特徴
 
 - 🦀 **Rust 製コア** — 型安全で高速なゲームエンジン
-- 🌐 **WASM 対応** — `wasm-pack` でブラウザ向けにビルド可能
+- 🌐 **WASM 対応** — `wasm-bindgen` / `wasm-pack` でブラウザ向けにビルド可能（Emscripten 不使用）
 - 🎮 **Pyxel 互換 API** — スプライト・BGM・入力など Pyxel ライクな API
-- 🖼️ **Canvas API 統合** — ブラウザの Canvas 2D / WebGL で描画
-- 🖥️ **デスクトップ対応** — ネイティブウィンドウでの実行もサポート
+- 🖼️ **Canvas API 統合** — ブラウザの Canvas 2D (web-sys) で描画
+- 🖥️ **デスクトップ対応** — pyxel-core (SDL2) または wgpu バックエンドで実行
+- 🐍 **Python CLI** — `pyxel_rust_cli.py` で Pyxel CLI コマンドを拡張
 
 ---
 
@@ -26,12 +27,14 @@ pyxel-rust/
 │   ├── lib.rs
 │   ├── api/              ← graphics, input, audio, system ...
 │   └── backend/
-│       └── wasm_backend/ ← Canvas API 統合 (WASM)
+│       ├── wasm_backend/ ← Canvas 2D API 統合 (WASM / wasm-bindgen)
+│       └── wgpu_backend/ ← wgpu バックエンド (デスクトップ)
 ├── docs/
 │   └── examples/         ← サンプル・デモ
 │       ├── arisa-quest/  ← GPS連動RPGデモ
 │       ├── cubeboy/      ← プラットフォーマーデモ
 │       └── lineboy/      ← ラインアクションデモ
+├── pyxel_rust_cli.py     ← Python CLI (Pyxel CLI を拡張)
 └── ROADMAP.md
 ```
 

@@ -61,8 +61,8 @@
     <p>
         <span class="badge">Rust</span>
         <span class="badge">WebAssembly</span>
-        <span class="badge">wgpu</span>
         <span class="badge">wasm-bindgen</span>
+        <span class="badge">Canvas 2D</span>
     </p>
     <p>
         Pyxel ライクな API を持つ <strong>Rust 製ゲームライブラリ</strong>。
@@ -72,8 +72,8 @@
     <div class="note">
         🔧 <strong>デュアルバックエンド構成</strong><br>
         本プロジェクトは <a href="https://github.com/kitao/pyxel">Pyxel</a> の API 仕様をベースに Rust で実装したゲームライブラリです。
-        <strong>デスクトップビルドでは pyxel-core（SDL2）</strong> を使用し、
-        <strong>WebAssembly ビルドでは wgpu + wasm-bindgen による独自バックエンド</strong>で動作します。
+        <strong>デスクトップビルドでは pyxel-core（SDL2）または wgpu バックエンド</strong> を使用し、
+        <strong>WebAssembly ビルドでは wasm-bindgen + Canvas 2D API（web-sys）による独自バックエンド</strong>で動作します（Emscripten 不使用）。
         用途に応じてバックエンドを切り替えられる柔軟な構成になっています。
     </div>
 
@@ -85,11 +85,12 @@
     <div class="section">
         <h2>🏗️ アーキテクチャ</h2>
         <ul>
-            <li><strong>描画バックエンド（デスクトップ）:</strong> pyxel-core（SDL2）— Pyxel の C コアを利用</li>
-            <li><strong>描画バックエンド（ブラウザ）:</strong> wgpu + Web Canvas API — wasm-bindgen 経由</li>
+            <li><strong>描画バックエンド（デスクトップ）:</strong> pyxel-core（SDL2）— Pyxel の C コアを利用、または wgpu バックエンド</li>
+            <li><strong>描画バックエンド（ブラウザ）:</strong> Canvas 2D API（web-sys）— wasm-bindgen 経由（Emscripten 不使用）</li>
             <li><strong>ウィンドウ管理:</strong> winit（デスクトップ）/ ブラウザ DOM（WASM）</li>
             <li><strong>WASM バンドル:</strong> wasm-pack + wasm-bindgen で生成</li>
             <li><strong>Pyxel API 互換:</strong> <code>init</code> / <code>run</code> / <code>cls</code> / <code>blt</code> / <code>text</code> など主要 API を Rust で実装</li>
+            <li><strong>CLI ツール:</strong> <code>pyxel_rust_cli.py</code>（Python 製、Pyxel CLI を拡張）</li>
         </ul>
     </div>
 
@@ -97,10 +98,11 @@
         <h2>✨ 特徴</h2>
         <ul>
             <li>Pyxel ライクな API — Python Pyxel の知識がそのまま活かせる</li>
-            <li>デスクトップ: pyxel-core（SDL2）バックエンド使用</li>
-            <li>ブラウザ: wgpu + wasm-bindgen による独自 WASM バックエンド</li>
-            <li>高パフォーマンス — GPU 描画バックエンド（wgpu）</li>
+            <li>デスクトップ: pyxel-core（SDL2）または wgpu バックエンド</li>
+            <li>ブラウザ: wasm-bindgen + Canvas 2D API（Emscripten 不使用）</li>
+            <li>高パフォーマンス — GPU 描画バックエンド（wgpu、デスクトップのみ）</li>
             <li>クロスプラットフォーム — デスクトップ / ブラウザ 両対応</li>
+            <li>Python CLI ツール — <code>pyxel_rust_cli.py</code> で Pyxel CLI コマンドを拡張</li>
         </ul>
     </div>
 
@@ -120,7 +122,7 @@
         <h2>📝 プロジェクト情報</h2>
         <p><strong>バージョン:</strong> 0.1.0</p>
         <p><strong>言語:</strong> Rust</p>
-        <p><strong>レンダリング:</strong> pyxel-core/SDL2（デスクトップ）/ wgpu + Web Canvas（WASM）</p>
+        <p><strong>レンダリング:</strong> pyxel-core/SDL2（デスクトップ）/ Canvas 2D API・web-sys（WASM）</p>
         <p><strong>API 参考:</strong> <a href="https://github.com/kitao/pyxel">Pyxel</a></p>
         <p><strong>ライセンス:</strong> MIT</p>
     </div>
