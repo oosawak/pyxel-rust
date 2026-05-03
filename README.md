@@ -1,69 +1,20 @@
-# pyxel-rust / アリサクエスト
+# pyxel-rust
 
 > ⚠️ **このリポジトリは現在開発中です。**  
 > API・仕様は予告なく変更される可能性があります。
 
----
-
-**アリサクエスト**は、GPS位置情報と連動するブラウザ動作のターン制RPGデモです。  
-現実の地図上を歩くと敵とエンカウントし、WebAssembly製のバトルエンジンで戦闘が始まります。
-
-🎮 **プレイはこちら**: https://oosawak.github.io/pyxel-rust/examples/arisa-quest/
+**pyxel-rust** は、[Pyxel](https://github.com/kitao/pyxel) にインスパイアされた Rust 製の 2D ゲームエンジンです。  
+WebAssembly (WASM) ターゲットをサポートし、ブラウザ上でゲームを動作させることができます。
 
 ---
 
 ## 特徴
 
-- 🗺️ **GPS連動マップ** — OpenStreetMap (Leaflet.js) で現在地を表示
-- ⚔️ **WASMバトルエンジン** — Rust製バトルロジックをWebAssemblyで実行
-- 📡 **サイバー空間演出** — GPS取得前は戦国武将の辞世の句によるマトリックス雨
-- 📍 **距離感応エンカウント** — 敵との実距離に応じて遠近感のある表示
-- 👆 **タッチ対応** — スマートフォンで背景スワイプ、タップ操作に対応
-- 🏯 **山形城フォールバック** — GPS取得不可時は山形城（霞城公園）を起点に
-
----
-
-## 技術構成
-
-```
-┌─────────────────────────────────────────────┐
-│              ブラウザ (HTML/JS)              │
-│                                             │
-│  ┌──────────────┐    ┌───────────────────┐  │
-│  │  Leaflet.js  │    │  bg-canvas (JS)   │  │
-│  │  OpenStreet  │    │  スプライト描画    │  │
-│  │  Map表示     │    │  背景・キャラ・UI  │  │
-│  └──────────────┘    └───────────────────┘  │
-│         ↑ GPS情報              ↑             │
-│  ┌──────────────┐    ┌───────────────────┐  │
-│  │ Geolocation  │    │  WASM (Rust)      │  │
-│  │    API       │    │  バトルロジック    │  │
-│  │  (ブラウザ)  │    │  HP/MP/状態遷移   │  │
-│  └──────────────┘    └───────────────────┘  │
-└─────────────────────────────────────────────┘
-```
-
-### WASM (Rust) が担当する領域
-
-| 機能 | 詳細 |
-|------|------|
-| バトルロジック | HP/MP管理、コマンド処理、状態遷移 |
-| バトル状態エクスポート | `get_game_state()` `get_player_hp()` など |
-| 描画エンジン基盤 | pyxel-rust カスタムエンジン（Canvas API 経由） |
-
-### JavaScript が担当する領域
-
-| 機能 | 詳細 |
-|------|------|
-| GPS・位置情報 | Geolocation API（JS必須） |
-| 地図表示 | Leaflet.js + OpenStreetMap |
-| スプライト描画 | `bg-canvas` でキャラ・背景を合成 |
-| UI・アニメーション | CSS アニメーション、Canvas 2D |
-| タッチ操作 | Touch Events API |
-| サイバー演出 | マトリックス雨、GPSロックオン演出 |
-
-> **設計原則**: WASMはゲームのコア（演算・ルール）、JSは現実世界とのブリッジ（GPS・地図・UI）。  
-> GPS処理をWASMに持たせることはブラウザAPI制約上できないため、この分担は変えないこと。
+- 🦀 **Rust 製コア** — 型安全で高速なゲームエンジン
+- 🌐 **WASM 対応** — `wasm-pack` でブラウザ向けにビルド可能
+- 🎮 **Pyxel 互換 API** — スプライト・BGM・入力など Pyxel ライクな API
+- 🖼️ **Canvas API 統合** — ブラウザの Canvas 2D / WebGL で描画
+- 🖥️ **デスクトップ対応** — ネイティブウィンドウでの実行もサポート
 
 ---
 
@@ -71,19 +22,16 @@
 
 ```
 pyxel-rust/
-├── src/                          ← pyxel-rust エンジン (Rust)
+├── src/                  ← pyxel-rust エンジン (Rust)
 │   ├── lib.rs
-│   ├── api/                      (graphics, input, audio, system...)
+│   ├── api/              ← graphics, input, audio, system ...
 │   └── backend/
-│       └── wasm_backend/mod.rs   ← Canvas API 統合
+│       └── wasm_backend/ ← Canvas API 統合 (WASM)
 ├── docs/
-│   └── examples/
-│       ├── arisa-quest/          ← 🎯 メインゲーム
-│       │   ├── index.html        ← すべての実装（CSS+HTML+JS）
-│       │   └── pkg/              ← WASM ビルド成果物
-│       ├── cubeboy/              ← プラットフォーマーデモ
-│       └── lineboy/              ← ラインアクションデモ
-├── ARISA_QUEST_HANDOVER.md       ← 詳細な引き継ぎ資料
+│   └── examples/         ← サンプル・デモ
+│       ├── arisa-quest/  ← GPS連動RPGデモ
+│       ├── cubeboy/      ← プラットフォーマーデモ
+│       └── lineboy/      ← ラインアクションデモ
 └── ROADMAP.md
 ```
 
@@ -91,60 +39,43 @@ pyxel-rust/
 
 ## ビルド方法
 
-### WASM ビルド（GitHub Pages 向け）
+### WASM ビルド
 
 ```bash
-# wasm-pack が必要
+# wasm-pack のインストール
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-# ビルド（arisa_quest パッケージ）
-cd docs/examples/arisa-quest
-wasm-pack build ../../.. --target web --out-dir docs/examples/arisa-quest/pkg -- -p arisa_quest
+# ビルド例（arisa-quest パッケージ）
+wasm-pack build . --target web --out-dir docs/examples/arisa-quest/pkg -- -p arisa_quest
 ```
 
-### ローカル確認
-
-```bash
-# 簡易 HTTP サーバー（Python）
-python3 -m http.server 8000 --directory docs
-# → http://localhost:8000/examples/arisa-quest/
-```
-
-### Rust エンジン単体ビルド（デスクトップ）
+### デスクトップビルド
 
 ```bash
 cargo build
 cargo run --example cubeboy
 ```
 
----
+### ローカル確認（GitHub Pages 相当）
 
-## デプロイ
-
-GitHub Actions で `main` ブランチへの push 時に自動デプロイ。  
-`docs/` フォルダを GitHub Pages のルートとして公開。
-
-手動デプロイ:
 ```bash
-git add docs/examples/arisa-quest/pkg/
-git commit -m "Update WASM build"
-git push origin main
+python3 -m http.server 8000 --directory docs
+# → http://localhost:8000/examples/arisa-quest/
 ```
 
 ---
 
-## ドキュメント
+## デプロイ
 
-- [引き継ぎ資料 (詳細)](./ARISA_QUEST_HANDOVER.md) — エンジニア向け設計・実装詳細
-- [ロードマップ](./ROADMAP.md)
+GitHub Actions で `main` ブランチへの push 時に `docs/` を GitHub Pages として自動公開。
 
 ---
 
 ## 参考
 
 - [Pyxel 公式](https://github.com/kitao/pyxel)
-- [Leaflet.js](https://leafletjs.com/)
 - [wasm-pack](https://rustwasm.github.io/docs/wasm-pack/)
+- [Leaflet.js](https://leafletjs.com/)
 
 ## ライセンス
 
