@@ -40,7 +40,7 @@
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            image-rendering: pixelated; image-rendering: crisp-edges;
+            image-rendering: auto;
             pointer-events: none;
         }
 
@@ -88,7 +88,7 @@
     <!-- game-wrapper: bg-canvas (art layer) + pyxel_canvas (UI layer, mix-blend-mode: screen) -->
     <div id="canvas-area">
         <div id="game-wrapper">
-            <canvas id="bg-canvas" width="160" height="120"></canvas>
+            <canvas id="bg-canvas"></canvas>
             <canvas id="pyxel_canvas"></canvas>
         </div>
     </div>
@@ -205,9 +205,31 @@
         const bgCanvas = document.getElementById('bg-canvas');
         const bgCtx    = bgCanvas.getContext('2d');
 
+        // Resize bg-canvas pixel buffer to match actual display size.
+        // Drawing code stays in 160×120 coordinate space via ctx.scale().
+        function resizeBgCanvas() {
+            const pyxel = document.getElementById('pyxel_canvas');
+            const w = pyxel.offsetWidth;
+            const h = pyxel.offsetHeight;
+            if (w > 0 && h > 0 && (bgCanvas.width !== w || bgCanvas.height !== h)) {
+                bgCanvas.width  = w;
+                bgCanvas.height = h;
+            }
+        }
+        window.addEventListener('resize', resizeBgCanvas);
+
+        // Apply scale so all drawing uses 160×120 logical pixels
+        function beginScaledDraw() {
+            resizeBgCanvas();
+            bgCtx.save();
+            bgCtx.imageSmoothingEnabled = true;
+            bgCtx.imageSmoothingQuality = 'high';
+            bgCtx.scale(bgCanvas.width / 160, bgCanvas.height / 120);
+        }
+
         function renderTitle() {
+            beginScaledDraw();
             bgCtx.clearRect(0, 0, 160, 120);
-            // Dark gradient background
             const grad = bgCtx.createLinearGradient(0, 0, 0, 120);
             grad.addColorStop(0, '#0a0520');
             grad.addColorStop(1, '#1a0535');
@@ -215,19 +237,17 @@
             bgCtx.fillRect(0, 0, 160, 120);
 
             const arisa3d = SHEETS['arisa-3d-art'];
-            if (arisa3d && arisa3d.complete) {
-                // Draw Arisa 3D art — right-center, portrait crop
+            if (arisa3d && arisa3d.complete && arisa3d.naturalWidth > 0) {
                 const srcW = arisa3d.naturalWidth;
                 const srcH = arisa3d.naturalHeight;
-                // Crop: use middle 70% of width, full height
                 const cropX = srcW * 0.15;
                 const cropW = srcW * 0.70;
-                // Display: right portion of title, large
                 const dstH = 105;
                 const dstW = dstH * cropW / srcH;
                 const dstX = 160 - dstW - 4;
                 bgCtx.drawImage(arisa3d, cropX, 0, cropW, srcH, dstX, 8, dstW, dstH);
             }
+            bgCtx.restore();
         }
 
         function renderBg() {
@@ -236,28 +256,26 @@
             const state = window.wasmModule.get_game_state?.() ?? 0;
 
             if (state === 0) {
-                // Title screen
                 renderTitle();
                 return;
             }
 
             if (state !== 2) {
-                // Map or other non-battle state — clear art layer
-                bgCtx.clearRect(0, 0, 160, 120);
+                bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
                 return;
             }
 
-            if (loadedCount < SHEET_LIST.length) return;  // wait for assets
+            if (loadedCount < SHEET_LIST.length) return;
 
             const enemyIdx    = window.wasmModule.get_enemy_idx?.()    ?? -1;
             const bgIdx       = window.wasmModule.get_bg_idx?.()       ??  0;
             const enemyFlash  = window.wasmModule.get_enemy_flash?.()  ??  0;
             const playerFlash = window.wasmModule.get_player_flash?.() ??  0;
 
-            // Clear previous frame
+            beginScaledDraw();
             bgCtx.clearRect(0, 0, 160, 120);
 
-            // ── Battle background (scene area only, y=0..SCENE_H) ────────────
+            // ── Battle background ─────────────────────────────────────────────
             const bgI  = ((bgIdx % 24) + 24) % 24;
             const bgSx = (bgI % BG_COLS) * BG_CW;
             const bgSy = Math.floor(bgI / BG_COLS) * BG_CH;
@@ -267,11 +285,9 @@
                 0, 0, 160, SCENE_H
             );
 
-            // ── Arisa sprite (LEFT side) ──────────────────────────────────────
+            // ── Arisa sprite (LEFT) ───────────────────────────────────────────
             const showArisa = playerFlash <= 0 || Math.floor(playerFlash / 4) % 2 === 0;
             if (showArisa) {
-                bgCtx.globalAlpha = 1.0;
-                // col=0, row=0 first cell (待機), use left half (128px wide = one pose column)
                 bgCtx.drawImage(
                     SHEETS['arisa-player-sprites'],
                     0, 0, 128, 256,
@@ -279,12 +295,11 @@
                 );
             }
 
-            // ── Enemy sprite (RIGHT side, slightly higher) ────────────────────
+            // ── Enemy sprite (RIGHT, slightly higher) ─────────────────────────
             if (enemyIdx >= 0 && enemyIdx < ENEMY_MAP.length) {
                 const e = ENEMY_MAP[enemyIdx];
                 const showEnemy = enemyFlash <= 0 || Math.floor(enemyFlash / 4) % 2 === 0;
                 if (showEnemy) {
-                    bgCtx.globalAlpha = 1.0;
                     bgCtx.drawImage(
                         SHEETS[e.sheet],
                         e.sx, e.sy, e.sw, e.sh,
@@ -294,6 +309,7 @@
             }
 
             bgCtx.globalAlpha = 1.0;
+            bgCtx.restore();
         }
 
         function bgLoop() {
@@ -317,6 +333,8 @@
                 get_enemy_flash, get_player_flash,
             };
             document.getElementById('status').textContent = '▶ 実行中';
+            // pyxel_canvas now has its size set by WASM — resize bg-canvas to match
+            requestAnimationFrame(() => resizeBgCanvas());
         } catch(e) {
             document.getElementById('status').textContent = '❌ ' + e;
             console.error(e);
