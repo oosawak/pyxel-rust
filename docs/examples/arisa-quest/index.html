@@ -452,19 +452,20 @@
         function spawnEnemies(lat, lng) {
             enemyMarkers.forEach(m => m.marker.remove());
             enemyMarkers = [];
-            const count = 5 + Math.floor(Math.random() * 4);
-            for (let i = 0; i < count; i++) {
+            // 全5種類を必ず1体ずつ + ランダム追加3体
+            const indices = [0, 1, 2, 3, 4];
+            for (let i = 0; i < 3; i++) indices.push(Math.floor(Math.random() * ENEMY_NAMES.length));
+            indices.forEach(eIdx => {
                 const angle = Math.random() * Math.PI * 2;
-                const dist  = 0.0004 + Math.random() * 0.0012;
+                const dist  = 0.002 + Math.random() * 0.006; // 約200m〜900m
                 const eLat  = lat + Math.cos(angle) * dist;
                 const eLng  = lng + Math.sin(angle) * dist;
-                const eIdx  = Math.floor(Math.random() * ENEMY_NAMES.length);
                 const icon  = makeEnemyIcon(eIdx);
                 const marker = L.marker([eLat, eLng], { icon }).addTo(map);
                 const info  = { marker, eIdx, lat: eLat, lng: eLng };
                 marker.on('click', () => triggerBattle(info));
                 enemyMarkers.push(info);
-            }
+            });
         }
 
         // ── GPS ───────────────────────────────────────────────────────────────
