@@ -44,10 +44,11 @@
 
         /* ── Map layer ───────────────────────────────────────────── */
         #map-layer { position: absolute; inset: 0; z-index: 1; }
-        /* Dark overlay — subtle tint over Voyager tiles */
+        /* Dark overlay with multiply blend — darkens map while keeping contrast */
         #map-dark-overlay {
             position: absolute; inset: 0; z-index: 2;
-            background: rgba(10, 5, 40, 0.40);
+            background: rgba(20, 10, 60, 0.50);
+            mix-blend-mode: multiply;
             pointer-events: none;
         }
 
@@ -389,9 +390,8 @@
         window.addEventListener('resize', () => { mapEl.style.height = mainEl.clientHeight + 'px'; map.invalidateSize(); });
 
         const map = L.map('map', { zoomControl: true }).setView([35.6895, 139.6917], 16);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors © <a href="https://carto.com">CARTO</a>',
-            subdomains: 'abcd',
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
             maxZoom: 19,
         }).addTo(map);
 
