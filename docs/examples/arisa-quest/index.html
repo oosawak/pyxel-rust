@@ -438,7 +438,7 @@
             const bgH = Math.round(1024 * scaleF);
             // Center horizontally within the 52px circle
             const bgX = -Math.round(e.sx * scaleF) - Math.round((dispW - 52) / 2);
-            const bgY = -Math.round(e.sy * scaleF);
+            const bgY = -Math.round(e.sy * scaleF) - 26;
             const spriteStyle = [
                 `width:52px;height:52px;border-radius:50%;overflow:hidden`,
                 `background-image:url('${ASSET_BASE}${e.sheet}.png')`,
