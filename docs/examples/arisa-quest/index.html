@@ -44,10 +44,16 @@
 
         /* ── Map layer ───────────────────────────────────────────── */
         #map-layer { position: absolute; inset: 0; z-index: 1; }
+        /* Dark overlay — map still visible but moody/game-like */
+        #map-dark-overlay {
+            position: absolute; inset: 0; z-index: 2;
+            background: rgba(10, 5, 40, 0.45);
+            pointer-events: none;
+        }
 
         /* ── Location overlay ────────────────────────────────────── */
         #loc-overlay {
-            position: absolute; inset: 0; z-index: 20;
+            position: absolute; inset: 0; z-index: 25;
             background: rgba(10,5,30,0.92);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 14px; padding: 24px; text-align: center;
@@ -198,6 +204,7 @@
         <!-- OpenStreetMap -->
         <div id="map-layer">
             <div id="map" style="width:100%;height:100%"></div>
+            <div id="map-dark-overlay"></div>
             <div id="toast"></div>
             <div id="loc-overlay">
                 <h2>🐱 アリサクエスト</h2>
@@ -382,9 +389,8 @@
         window.addEventListener('resize', () => { mapEl.style.height = mainEl.clientHeight + 'px'; map.invalidateSize(); });
 
         const map = L.map('map', { zoomControl: true }).setView([35.6895, 139.6917], 16);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors © <a href="https://carto.com">CARTO</a>',
-            subdomains: 'abcd',
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
             maxZoom: 19,
         }).addTo(map);
 
