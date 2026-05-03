@@ -134,12 +134,14 @@
 
         /* タイル切り替えボタン */
         #btn-tile-switch {
-            position: absolute; bottom: 10px; right: 10px; z-index: 900;
+            position: fixed; bottom: calc(var(--tab-h) + 10px); right: 10px; z-index: 9000;
             background: rgba(0,0,20,0.82); border: 1px solid #447;
             border-radius: 8px; color: #aac8ff; font-size: 0.62rem;
             font-family: 'DotGothic16', monospace; padding: 4px 9px;
             cursor: pointer; pointer-events: auto; white-space: nowrap;
+            display: none;
         }
+        #btn-tile-switch.visible { display: block; }
         #btn-tile-switch:active { background: rgba(60,60,180,0.7); }
 
         /* Dark overlay with multiply blend — darkens map while keeping contrast */
@@ -1506,12 +1508,14 @@
         let currentTileIdx = 0;
         let currentTileLayer = L.tileLayer(TILE_STYLES[0].url, TILE_STYLES[0].opts).addTo(map);
 
-        document.getElementById('btn-tile-switch').addEventListener('click', () => {
+        const btnTileSwitch = document.getElementById('btn-tile-switch');
+        btnTileSwitch.classList.add('visible'); // 初期表示
+        btnTileSwitch.addEventListener('click', () => {
             currentTileIdx = (currentTileIdx + 1) % TILE_STYLES.length;
             const style = TILE_STYLES[currentTileIdx];
             map.removeLayer(currentTileLayer);
             currentTileLayer = L.tileLayer(style.url, style.opts).addTo(map);
-            document.getElementById('btn-tile-switch').textContent = `🗺 ${style.name}`;
+            btnTileSwitch.textContent = `🗺 ${style.name}`;
         });
 
         let playerMarker = null, arisaMarker = null, arisaPos = null;
