@@ -287,7 +287,73 @@ pub fn main() {
 
 ---
 
-## 8. 高品質バトル画面の実装方針
+## 8. WASM と JavaScript の役割分担（設計思想）
+
+アリサクエスト Web 版は「WASM がバトルエンジン」「JS が世界（地図・GPS・UI）」という明確な分担で設計されています。
+
+### 現在の役割分担
+
+| 領域 | 担当 | 理由 |
+|------|------|------|
+| バトルロジック（HP/MP/コマンド/状態遷移） | **WASM (Rust)** | 複雑な計算・型安全性 |
+| バトルキャラクター描画（bg-canvas） | **JavaScript** | スプライトシート・Canvas API 直接操作が楽 |
+| バトル状態エクスポート | **WASM → JS** | `get_game_state()` など関数経由で渡す |
+| GPS・位置情報取得 | **JavaScript 必須** | ブラウザ Geolocation API |
+| Leaflet 地図表示 | **JavaScript 必須** | JS ライブラリ |
+| 距離計算・エンカウント判定 | **JavaScript** | GPS データが JS 側にあるため |
+| UI アニメーション・CSS 演出 | **JavaScript / CSS** | DOM 操作・CSS アニメーション優位 |
+| タッチ・スワイプ操作 | **JavaScript 必須** | ブラウザ Touch Events API |
+| サイバー演出（マトリックス雨） | **JavaScript** | Canvas API アニメーション |
+
+### WASM エクスポート関数（JS から呼ぶもの）
+
+```javascript
+// ゲーム状態 (0=タイトル, 1=スタンバイ, 2=バトル)
+Module.get_game_state()
+
+// キャラクター情報
+Module.get_enemy_idx()      // 敵スプライトIndex
+Module.get_bg_idx()         // 背景Index
+Module.get_enemy_flash()    // 敵フラッシュフラグ
+Module.get_player_flash()   // プレイヤーフラッシュフラグ
+
+// ステータス
+Module.get_player_hp()
+Module.get_player_max_hp()
+Module.get_player_mp()
+Module.get_player_max_mp()
+Module.get_player_level()
+```
+
+### JS → WASM へ渡す情報
+
+```javascript
+// キー入力（WASM 側でポーリング）
+// WASM が内部で pyxel の btn() を使うため、
+// JS 側からの注入は不要（WASM キャンバスが入力を受け取る）
+```
+
+### WASM に移せるもの（将来の選択肢）
+
+- 距離計算・戦闘パラメータ計算 → 計算量が増えれば移す価値あり
+- 敵 AI のルーティング・行動パターン → 複雑化した場合
+
+### WASM に移せないもの（JS 必須）
+
+- **GPS・Geolocation API** → ブラウザ標準 API、JS からしか呼べない
+- **Leaflet 地図** → JS ライブラリ
+- **DOM・CSS 操作** → JS/CSS の領域
+- **Touch/Pointer Events** → ブラウザイベント、JS で受け取る必要あり
+
+### 設計原則
+
+> **「WASMはゲームのコア（ルール・演算）、JSは現実世界とのブリッジ（GPS・地図・UI）」**
+
+この分割は変えないこと。WASMにGPS処理を持たせようとすると、ブラウザAPIの壁にぶつかる。
+
+---
+
+## 9. 高品質バトル画面の実装方針
 
 オーナーの要望: **AI生成アートアセットをバトル画面に表示し、スマホアプリ並みのクオリティにする**
 

@@ -1,137 +1,151 @@
-# pyxel-rust
+# pyxel-rust / アリサクエスト
 
 > ⚠️ **このリポジトリは現在開発中です。**  
-> API・ディレクトリ構成は予告なく変更される可能性があります。  
-> 現時点では一般利用を想定していません。  
-> **This repository is under active development and not ready for general use.**
+> API・仕様は予告なく変更される可能性があります。
 
 ---
 
-Rust implementation of the Pyxel game engine, based on official Pyxel-core.
+**アリサクエスト**は、GPS位置情報と連動するブラウザ動作のターン制RPGデモです。  
+現実の地図上を歩くと敵とエンカウントし、WebAssembly製のバトルエンジンで戦闘が始まります。
 
-## 概要
+🎮 **プレイはこちら**: https://oosawak.github.io/pyxel-rust/examples/arisa-quest/
 
-**pyxel-rust** は、Pyxel ゲームエンジンの完全な Rust 実装です。
+---
 
-- 🎮 **完全な API 互換性**: Pyxel の 140+ API をすべて Rust で実装
-- 🌐 **WASM対応**: Emscripten を使用してブラウザで動作
-- 🔧 **簡潔な API**: Pyxel と同じシンプルで直感的なインターフェース
-- 🎨 **豊富な描画機能**: 図形描画、テキスト、スプライト、タイルマップ対応
+## 特徴
 
-## クイックスタート
+- 🗺️ **GPS連動マップ** — OpenStreetMap (Leaflet.js) で現在地を表示
+- ⚔️ **WASMバトルエンジン** — Rust製バトルロジックをWebAssemblyで実行
+- 📡 **サイバー空間演出** — GPS取得前は戦国武将の辞世の句によるマトリックス雨
+- 📍 **距離感応エンカウント** — 敵との実距離に応じて遠近感のある表示
+- 👆 **タッチ対応** — スマートフォンで背景スワイプ、タップ操作に対応
+- 🏯 **山形城フォールバック** — GPS取得不可時は山形城（霞城公園）を起点に
 
-### インストール
+---
 
-```bash
-cd /home/oosawak/Workspace/pyxel-rust
-cargo build
+## 技術構成
+
+```
+┌─────────────────────────────────────────────┐
+│              ブラウザ (HTML/JS)              │
+│                                             │
+│  ┌──────────────┐    ┌───────────────────┐  │
+│  │  Leaflet.js  │    │  bg-canvas (JS)   │  │
+│  │  OpenStreet  │    │  スプライト描画    │  │
+│  │  Map表示     │    │  背景・キャラ・UI  │  │
+│  └──────────────┘    └───────────────────┘  │
+│         ↑ GPS情報              ↑             │
+│  ┌──────────────┐    ┌───────────────────┐  │
+│  │ Geolocation  │    │  WASM (Rust)      │  │
+│  │    API       │    │  バトルロジック    │  │
+│  │  (ブラウザ)  │    │  HP/MP/状態遷移   │  │
+│  └──────────────┘    └───────────────────┘  │
+└─────────────────────────────────────────────┘
 ```
 
-### ゲーム作成例
+### WASM (Rust) が担当する領域
 
-```rust
-use pyxel_rust::prelude::*;
+| 機能 | 詳細 |
+|------|------|
+| バトルロジック | HP/MP管理、コマンド処理、状態遷移 |
+| バトル状態エクスポート | `get_game_state()` `get_player_hp()` など |
+| 描画エンジン基盤 | pyxel-rust カスタムエンジン（Canvas API 経由） |
 
-fn main() {
-    init(128, 128, "My Game", 60);
-    
-    run(update, draw);
-}
+### JavaScript が担当する領域
 
-fn update() {
-    if btn(KEY_Q) {
-        quit();
-    }
-}
+| 機能 | 詳細 |
+|------|------|
+| GPS・位置情報 | Geolocation API（JS必須） |
+| 地図表示 | Leaflet.js + OpenStreetMap |
+| スプライト描画 | `bg-canvas` でキャラ・背景を合成 |
+| UI・アニメーション | CSS アニメーション、Canvas 2D |
+| タッチ操作 | Touch Events API |
+| サイバー演出 | マトリックス雨、GPSロックオン演出 |
 
-fn draw() {
-    cls(COLOR_BLACK);
-    circ(64, 64, 10, COLOR_WHITE);
-}
-```
+> **設計原則**: WASMはゲームのコア（演算・ルール）、JSは現実世界とのブリッジ（GPS・地図・UI）。  
+> GPS処理をWASMに持たせることはブラウザAPI制約上できないため、この分担は変えないこと。
 
-## 構造
+---
+
+## リポジトリ構成
 
 ```
 pyxel-rust/
-├── src/
-│   ├── lib.rs              ← メイン API
-│   ├── api/                ← API モジュール
-│   │   ├── system.rs       (init, run, quit)
-│   │   ├── graphics.rs     (pset, rect, circ)
-│   │   ├── input.rs        (btn, btnp)
-│   │   ├── audio.rs        (play, playm)
-│   │   └── constants.rs    (KEY_*, COLOR_*)
-│   └── wasm/               ← WASM 統合
-├── examples/
-│   ├── cubeboy.rs
-│   └── lineboy.rs
-└── pyxel_fork/             ← Pyxel 公式フォーク
+├── src/                          ← pyxel-rust エンジン (Rust)
+│   ├── lib.rs
+│   ├── api/                      (graphics, input, audio, system...)
+│   └── backend/
+│       └── wasm_backend/mod.rs   ← Canvas API 統合
+├── docs/
+│   └── examples/
+│       ├── arisa-quest/          ← 🎯 メインゲーム
+│       │   ├── index.html        ← すべての実装（CSS+HTML+JS）
+│       │   └── pkg/              ← WASM ビルド成果物
+│       ├── cubeboy/              ← プラットフォーマーデモ
+│       └── lineboy/              ← ラインアクションデモ
+├── ARISA_QUEST_HANDOVER.md       ← 詳細な引き継ぎ資料
+└── ROADMAP.md
 ```
 
-## ビルド・実行
+---
 
-### デバッグビルド
+## ビルド方法
+
+### WASM ビルド（GitHub Pages 向け）
+
+```bash
+# wasm-pack が必要
+curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+# ビルド（arisa_quest パッケージ）
+cd docs/examples/arisa-quest
+wasm-pack build ../../.. --target web --out-dir docs/examples/arisa-quest/pkg -- -p arisa_quest
+```
+
+### ローカル確認
+
+```bash
+# 簡易 HTTP サーバー（Python）
+python3 -m http.server 8000 --directory docs
+# → http://localhost:8000/examples/arisa-quest/
+```
+
+### Rust エンジン単体ビルド（デスクトップ）
+
 ```bash
 cargo build
-cargo test
-```
-
-### リリースビルド
-```bash
-cargo build --release
-```
-
-### Pyxel-rust CLI
-
-完全な Rust 実装の CLI ツール：
-
-```bash
-# ゲーム例を実行
-pyxel-rust run cubeboy
-
-# ゲーム例を HTML/WASM に変換してブラウザで実行
-pyxel-rust app2html cubeboy
-pyxel-rust app2html cubeboy -p 3000  # カスタムポート指定
-
-# 新しいプロジェクトを作成
-pyxel-rust new my_game
-
-# 他のコマンド
-pyxel-rust editor
-pyxel-rust build --release
-pyxel-rust version
-```
-
-**注意**: CLI は Python 依存なし、完全な Rust 実装です。
-
-### サンプルゲームの実行
-
-#### Cubeboy (プラットフォーマー)
-```bash
-pyxel-rust run cubeboy
-# または
 cargo run --example cubeboy
 ```
-プレイヤーを移動・ジャンプ・ダッシュさせるプラットフォーマーゲーム。
-- **操作**: 矢印キーで移動、SPACE でジャンプ、X でダッシュ
 
-### WASM ビルド
+---
+
+## デプロイ
+
+GitHub Actions で `main` ブランチへの push 時に自動デプロイ。  
+`docs/` フォルダを GitHub Pages のルートとして公開。
+
+手動デプロイ:
 ```bash
-./scripts/build-wasm.sh --release
+git add docs/examples/arisa-quest/pkg/
+git commit -m "Update WASM build"
+git push origin main
 ```
+
+---
 
 ## ドキュメント
 
-- [使用ガイド](./docs/GUIDE.md)
-- [API リファレンス](./docs/API.md)
-- [開発ロードマップ](./ROADMAP.md)
+- [引き継ぎ資料 (詳細)](./ARISA_QUEST_HANDOVER.md) — エンジニア向け設計・実装詳細
+- [ロードマップ](./ROADMAP.md)
+
+---
+
+## 参考
+
+- [Pyxel 公式](https://github.com/kitao/pyxel)
+- [Leaflet.js](https://leafletjs.com/)
+- [wasm-pack](https://rustwasm.github.io/docs/wasm-pack/)
 
 ## ライセンス
 
-MIT License - See LICENSE file
-
-## 参考資料
-
-- [Pyxel 公式](https://github.com/kitao/pyxel)
-- [Pyxel-core (Rust実装)](./pyxel_fork/crates/pyxel-core/)
+MIT License
