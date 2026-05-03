@@ -8,7 +8,7 @@
 //! Entry: the browser calls main() via wasm-bindgen, which calls init() then run().
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
     CanvasRenderingContext2d, HtmlCanvasElement, ImageData,
     KeyboardEvent, MouseEvent,
@@ -108,6 +108,7 @@ pub struct WasmState {
     pub frame_count: u32,
     pub image_banks: [Vec<u8>; 3],         // 256×256 offscreen pixel banks
     pub tilemaps: [Vec<(u8, u8)>; 8],      // 256×256 tile grids (tx, ty)
+    pub text_overlay: Vec<(i32, i32, String, u8)>, // non-ASCII text drawn via fillText
 }
 
 impl WasmState {
@@ -121,7 +122,7 @@ impl WasmState {
             rgba_buffer: vec![0u8; pixels * 4],
             palette: DEFAULT_PALETTE, color_map,
             clip_rect: None, camera_x: 0.0, camera_y: 0.0, dither_alpha: 1.0,
-            input: InputState::new(), should_quit: false, frame_count: 0,
+            input: InputState::new(), should_quit: false, frame_count: 0, text_overlay: Vec::new(),
             image_banks: [
                 vec![0u8; IMAGE_SIZE],
                 vec![0u8; IMAGE_SIZE],
@@ -226,6 +227,12 @@ impl WasmState {
     }
 
     pub fn draw_text(&mut self, x: f32, y: f32, s: &str, col: u8) {
+        // Non-ASCII (Japanese etc.) → defer to Canvas fillText overlay
+        if s.chars().any(|c| c as u32 > 127) {
+            let (cx, cy) = self.cam(x, y);
+            self.text_overlay.push((cx, cy, s.to_string(), col));
+            return;
+        }
         let (mut cx, cy) = self.cam(x, y);
         for ch in s.chars() {
             let code = ch as usize;
@@ -522,6 +529,9 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
                 let h = s.height;
                 let scale = s.display_scale;
                 let rgba = s.rgba_buffer.clone();
+                let overlays: Vec<(i32, i32, String, u8)> = s.text_overlay.drain(..).collect();
+                let palette = s.palette;
+                let color_map = s.color_map;
 
                 if let Ok(img_data) = ImageData::new_with_u8_clamped_array_and_sh(
                     wasm_bindgen::Clamped(&rgba), w, h
@@ -545,6 +555,25 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
                             w as f64, h as f64,
                             0.0, 0.0,
                             (w * scale) as f64, (h * scale) as f64,
+                        );
+                    }
+                }
+
+                // Draw non-ASCII text (Japanese) via Canvas fillText
+                if !overlays.is_empty() {
+                    let font_px = scale * 7;
+                    ctx.set_font(&format!("{}px 'DotGothic16', 'M PLUS Rounded 1c', monospace", font_px));
+                    ctx.set_text_baseline("top");
+                    for (x, y, text, col) in &overlays {
+                        let mapped = color_map[(col & 0x0f) as usize] as usize;
+                        let [r, g, b, _] = palette[mapped];
+                        ctx.set_fill_style(&JsValue::from_str(
+                            &format!("rgb({},{},{})", r, g, b)
+                        ));
+                        let _ = ctx.fill_text(
+                            text,
+                            *x as f64 * scale as f64,
+                            *y as f64 * scale as f64,
                         );
                     }
                 }
