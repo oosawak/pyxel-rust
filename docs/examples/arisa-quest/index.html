@@ -21,10 +21,17 @@
             padding: 6px 12px;
             display: flex; align-items: center; gap: 10px;
         }
-        #status-bar .portrait {
-            width: 34px; height: 34px; border-radius: 50%;
-            border: 2px solid #ff88cc; object-fit: cover; object-position: 50% 10%;
-            flex-shrink: 0;
+        #status-bar .portrait-wrap {
+            width: 40px; height: 40px; border-radius: 50%;
+            border: 2px solid #ff88cc; overflow: hidden;
+            flex-shrink: 0; position: relative;
+            box-shadow: 0 0 8px rgba(255,136,204,0.5);
+        }
+        #status-bar .portrait-wrap img {
+            position: absolute;
+            width: 130px; height: auto;
+            left: 50%; top: 0px;
+            transform: translateX(-50%);
         }
         #status-bar .stats { flex: 1; display: flex; flex-direction: column; gap: 3px; }
         .stat-row { display: flex; align-items: center; gap: 5px; }
@@ -182,7 +189,9 @@
 <body>
     <!-- Status bar -->
     <div id="status-bar">
-        <img class="portrait" src="../../assets/design/arisa-3d-art.png" alt="アリサ">
+        <div class="portrait-wrap">
+            <img src="../../assets/design/arisa-3d-art.png" alt="アリサ">
+        </div>
         <div class="stats">
             <div class="stat-row">
                 <span class="stat-lbl">HP</span>
@@ -417,23 +426,30 @@
 
         function makeEnemyIcon(idx) {
             const e = ENEMY_MAP[idx];
-            // CSS sprite clipping — no canvas/CORS needed
-            const scaleX = 56 / e.sw, scaleY = 36 / e.sh;
-            const bgW = Math.round(1536 * scaleX), bgH = Math.round(1024 * scaleY);
-            const bgX = -Math.round(e.sx * scaleX), bgY = -Math.round(e.sy * scaleY);
+            // Scale to fit height=52, maintain aspect ratio, show top portion (face/body)
+            const dispH = 52;
+            const scaleF = dispH / e.sh;
+            const dispW = Math.round(e.sw * scaleF);
+            const bgW = Math.round(1536 * scaleF);
+            const bgH = Math.round(1024 * scaleF);
+            // Center horizontally within the 52px circle
+            const bgX = -Math.round(e.sx * scaleF) - Math.round((dispW - 52) / 2);
+            const bgY = -Math.round(e.sy * scaleF);
             const spriteStyle = [
-                `width:56px;height:36px;overflow:hidden`,
+                `width:52px;height:52px;border-radius:50%;overflow:hidden`,
                 `background-image:url('${ASSET_BASE}${e.sheet}.png')`,
                 `background-size:${bgW}px ${bgH}px`,
                 `background-position:${bgX}px ${bgY}px`,
                 `image-rendering:pixelated`,
+                `border:2px solid #aa44ff`,
+                `box-shadow:0 0 10px rgba(180,80,255,0.7)`,
             ].join(';');
             return L.divIcon({
                 html: `<div class="enemy-marker">
-                    <div class="enemy-sprite enemy-pulse" style="${spriteStyle}"></div>
+                    <div class="enemy-pulse" style="${spriteStyle}"></div>
                     <div class="enemy-lbl">${ENEMY_NAMES[idx]}</div>
                 </div>`,
-                iconSize: [56, 52], iconAnchor: [28, 52], className: '',
+                iconSize: [52, 68], iconAnchor: [26, 68], className: '',
             });
         }
 
@@ -456,6 +472,7 @@
         }
 
         // ── GPS ───────────────────────────────────────────────────────────────
+        let isTokyoFallback = false;
         function startGPS() {
             document.getElementById('loc-overlay').style.display = 'none';
             const opts = { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 };
@@ -463,21 +480,21 @@
                 const { latitude: lat, longitude: lng } = pos.coords;
                 arisaPos = [lat, lng];
                 map.setView([lat, lng], 17);
-                // 自分マーカー（青ドット）
                 if (!playerMarker) playerMarker = L.marker([lat, lng], { icon: playerIcon(), zIndexOffset: 900 }).addTo(map);
                 else playerMarker.setLatLng([lat, lng]);
-                // アリサマーカー（少し上に表示）
                 const aLat = lat + 0.00005;
                 if (!arisaMarker) arisaMarker = L.marker([aLat, lng], { icon: arisaIcon(), zIndexOffset: 1000 }).addTo(map);
                 else arisaMarker.setLatLng([aLat, lng]).setIcon(arisaIcon());
-                if (enemyMarkers.length === 0) {
-                    // Wait for sprite sheets to load before creating icons
+                // 東京フォールバック後に実GPS取得 → 敵を実座標に再スポーン
+                if (enemyMarkers.length === 0 || isTokyoFallback) {
+                    isTokyoFallback = false;
+                    if (isTokyoFallback) showToast('📍 現在地に移動しました');
                     const trySpawn = () => loadedCount >= SHEET_LIST.length ? spawnEnemies(lat, lng) : setTimeout(trySpawn, 200);
                     trySpawn();
                 }
             };
             const onErr = () => {
-                // Fallback: Tokyo with notice
+                isTokyoFallback = true;
                 const lat = 35.6895, lng = 139.6917;
                 arisaPos = [lat, lng];
                 map.setView([lat, lng], 17);
