@@ -538,7 +538,15 @@
         function renderBg() {
             if (!window.wasmModule) return;
             const state = window.wasmModule.get_game_state?.() ?? 0;
-            if (state !== 2) { bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height); return; }
+            const pyxelCanvas = document.getElementById('pyxel_canvas');
+            if (state !== 2) {
+                bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+                // WASMが内部マップ等に遷移した瞬間、pyxel_canvasを即座に隠す（地図フラッシュ防止）
+                if (pyxelCanvas.style.opacity !== '0') pyxelCanvas.style.opacity = '0';
+                return;
+            }
+            // バトル中: pyxel_canvasを表示
+            if (pyxelCanvas.style.opacity === '0') pyxelCanvas.style.opacity = '';
             if (loadedCount < SHEET_LIST.length) return;
 
             const enemyIdx    = window.wasmModule.get_enemy_idx?.()    ?? -1;
