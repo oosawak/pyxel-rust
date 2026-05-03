@@ -1999,7 +1999,7 @@
 
         const battleOverlay = document.getElementById('battle-overlay');
         const battleUI      = document.getElementById('battle-ui');
-        let inBattle = false, watchInterval = null;
+        let inBattle = false, watchInterval = null, endBattleOverlayTimer = null;
 
         // ── 落下コマンドタイムライン ─────────────────────────────────────────
         // 敵ごとの設定（fallMs=落下時間＝攻撃ラグ、intervalMs=次の攻撃カード間隔）
@@ -2669,6 +2669,8 @@
         function triggerBattle(enemyInfo) {
             if (inBattle || !window.wasmModule) return;
             inBattle = true;
+            // 前回バトル終了のoverlay非表示タイマーが残っていればキャンセル
+            if (endBattleOverlayTimer) { clearTimeout(endBattleOverlayTimer); endBattleOverlayTimer = null; }
             currentEnemyInfo = enemyInfo;
             window.currentEnemyInfo = enemyInfo;
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
@@ -2747,8 +2749,9 @@
             // バトルオーバーレイをぼかし＋フェードアウト
             battleOverlay.classList.add('ending');
             battleUI.classList.remove('active');
-            // 1.6秒後にoverlay非表示＋マップ復帰
-            setTimeout(() => {
+            // overlay非表示＋マップ復帰（IDを保存してtriggerBattleでキャンセル可能に）
+            endBattleOverlayTimer = setTimeout(() => {
+                endBattleOverlayTimer = null;
                 battleOverlay.classList.remove('active', 'ending');
                 battleOverlay.style.display = 'none';
                 setActiveTab('tab-map');
