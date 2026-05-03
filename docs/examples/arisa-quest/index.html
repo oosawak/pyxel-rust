@@ -92,7 +92,7 @@
         #battle-overlay {
             position: absolute; inset: 0; bottom: var(--tab-h); z-index: 10;
             display: none; flex-direction: column;
-            background: #000;
+            background: rgba(0, 0, 18, 0.62);
         }
         #battle-overlay.active { display: flex; }
         #debug-overlay {
@@ -112,6 +112,13 @@
             font-family: monospace; padding: 3px 6px; cursor: pointer;
         }
         #btn-debug.on { color: #0f0; border-color: #0f0; }
+        #btn-wasm-hud {
+            position: absolute; top: 4px; left: 40px; z-index: 100;
+            background: rgba(0,0,0,0.7); border: 1px solid #555;
+            border-radius: 4px; color: #888; font-size: 0.55rem;
+            font-family: monospace; padding: 3px 6px; cursor: pointer;
+        }
+        #btn-wasm-hud.on { color: #ffcc66; border-color: #ffcc66; }
 
         /* Canvas area */
         #canvas-area {
@@ -131,6 +138,14 @@
             width: 100%; height: 100%;
             image-rendering: auto; pointer-events: none;
         }
+        /* WASMのHP/コマンドUIエリア（下30%）を隠すカバー */
+        #wasm-ui-cover {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            height: 30.5%; z-index: 2;
+            background: linear-gradient(to bottom, rgba(0,2,8,0.7) 0%, rgba(0,2,8,0.97) 40%);
+            transition: opacity 0.25s; pointer-events: none;
+        }
+        #wasm-ui-cover.revealed { opacity: 0; }
 
         /* ── Gamepad (only during battle) ────────────────────────── */
         #gamepad {
@@ -341,11 +356,13 @@
         <!-- Battle overlay (shown when WASM is in battle state) -->
         <div id="battle-overlay">
             <button id="btn-debug">DBG</button>
+            <button id="btn-wasm-hud">HUD</button>
             <div id="debug-overlay"></div>
             <div id="canvas-area">
                 <div id="game-wrapper">
                     <canvas id="bg-canvas"></canvas>
                     <canvas id="pyxel_canvas"></canvas>
+                    <div id="wasm-ui-cover"></div>
                 </div>
             </div>
             <div id="gamepad">
@@ -755,6 +772,15 @@
         btnDebug.addEventListener('click', () => {
             const on = dbgOverlay.classList.toggle('visible');
             btnDebug.classList.toggle('on', on);
+        });
+
+        // WASM HUDトグルボタン（下部UIカバーの表示/非表示）
+        const btnWasmHud = document.getElementById('btn-wasm-hud');
+        const wasmUiCover = document.getElementById('wasm-ui-cover');
+        btnWasmHud.addEventListener('click', () => {
+            const revealed = wasmUiCover.classList.toggle('revealed');
+            btnWasmHud.classList.toggle('on', revealed);
+            btnWasmHud.textContent = revealed ? 'HUD▲' : 'HUD';
         });
 
         // ── バトルコマンド キーシミュレーション ──────────────────────────────
