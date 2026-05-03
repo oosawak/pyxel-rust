@@ -2303,7 +2303,8 @@
                               : cmdId === 'ranged' ? (5 + Math.floor(Math.random() * 8))
                               : (3 + Math.floor(Math.random() * 8));
                 const dmg = Math.round(baseDmg * mult);
-                currentEnemyHp = Math.max(0, currentEnemyHp - dmg);
+                // 表示HPは1を下限に（WASM確認前にゲージが0になるのを防ぐ）
+                currentEnemyHp = Math.max(1, currentEnemyHp - dmg);
                 if (keyCodes.length > 0) simulateKeys(keyCodes);
                 pushBattleMsg(`${icon} ${label}！ ${dmg} ダメージ`, 'attack');
             }, 'player', cmdId ?? 'melee');
@@ -2687,6 +2688,7 @@
 
         function endBattle(enemyInfo) {
             if (!inBattle) return;  // 二重呼び出し防止
+            currentEnemyHp = 0; // WASM確認後にゲージを0へ
             clearInterval(watchInterval);
             stopTimeline();
             stopSP();
