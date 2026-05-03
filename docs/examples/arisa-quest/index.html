@@ -64,7 +64,7 @@
             position: absolute; inset: 0; z-index: 1000;
             background: rgba(10,5,30,0.92);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 14px; padding: 24px; padding-bottom: 25%; text-align: center;
+            gap: 14px; padding: 24px; padding-bottom: 30px; text-align: center;
         }
         #loc-overlay h2 { font-size: 1.1rem; color: #ff88cc; }
         #loc-overlay p  { font-size: 0.8rem; color: #aaa; line-height: 1.6; }
@@ -438,7 +438,7 @@
             const bgH = Math.round(1024 * scaleF);
             // Center horizontally within the 52px circle
             const bgX = -Math.round(e.sx * scaleF) - Math.round((dispW - 52) / 2);
-            const bgY = -Math.round(e.sy * scaleF) - 26;
+            const bgY = -Math.round(e.sy * scaleF) - 30;
             const spriteStyle = [
                 `width:52px;height:52px;border-radius:50%;overflow:hidden`,
                 `background-image:url('${ASSET_BASE}${e.sheet}.png')`,
