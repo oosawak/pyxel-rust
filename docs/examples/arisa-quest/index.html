@@ -860,13 +860,28 @@
                 cyberCanvas.height = cyberOverlay.offsetHeight;
             }
             resizeCyberCanvas();
-            const POEM = 'ツユトオチツユトキエニシワガミカナナニワノコトハユメノマタユメオモイオクコトノハナクバツイニユクミハホドモナクカルクモアルカナココロカラココロヲヤトヒココロシテココロニココロハズサセナユメクモナリヤタケナリヤトモワガココロハレユクトキノミナトナルラムゴカイクノイチネントッパムリョウジュシチテンハットウヒトリショウミョウカゲロウノソレトモミエテヨノナカハアリトモナクナクモナキカナヨニアラバマタモコノハノアサザクラサリトテノミハナドトドムベキコクウニキタリコクウニサリユクミチハコノミチヨリホカニナシハテハミナユメナリケリトオモフニハシニユクミチゾタノシカリケルムマワレタウタヨリサキニヨハフケヌハナミニアケムノチノミチシバ';
-            const CHARS = [...new Set(POEM.split(''))].filter(c => c.trim());
+            // 10首の辞世の句（1行 = 1首、スペース除去済み）
+            const POEMS = [
+                'ツユトオチツユトキエニシワガミカナナニワノコトハユメノマタユメ',
+                'オモイオクコトノハナクバツイニユクミハホドモナクカルクモアルカナ',
+                'ココロカラココロヲヤトヒココロシテココロニココロハズサセナユメ',
+                'クモナリヤタケナリヤトモワガココロハレユクトキノミナトナルラム',
+                'ゴカイクノイチネントッパムリョウジュシチテンハットウヒトリショウミョウ',
+                'カゲロウノソレトモミエテヨノナカハアリトモナクナクモナキカナ',
+                'ヨニアラバマタモコノハノアサザクラサリトテノミハナドトドムベキ',
+                'コクウニキタリコクウニサリユクミチハコノミチヨリホカニナシ',
+                'ハテハミナユメナリケリトオモフニハシニユクミチゾタノシカリケル',
+                'ムマワレタウタヨリサキニヨハフケヌハナミニアケムノチノミチシバ',
+            ];
             const COL_W = 18;
-            let drops = [];
+            let drops = [];     // 各列の現在Y行（文字単位）
+            let colPoem = [];   // 各列に割り当てる詩のインデックス
+            let colChar = [];   // 各列の現在文字位置
             function resetDrops() {
                 const cols = Math.floor(cyberCanvas.width / COL_W);
-                drops = Array.from({ length: cols }, () => Math.random() * -50);
+                drops   = Array.from({ length: cols }, () => Math.random() * -60);
+                colPoem = Array.from({ length: cols }, (_, i) => i % POEMS.length);
+                colChar = Array.from({ length: cols }, () => 0);
             }
             resetDrops();
             let cyberRunning = true;
@@ -875,18 +890,27 @@
                 cctx.fillStyle = 'rgba(0,8,20,0.18)';
                 cctx.fillRect(0, 0, cyberCanvas.width, cyberCanvas.height);
                 drops.forEach((y, i) => {
-                    const ch = CHARS[Math.floor(Math.random() * CHARS.length)];
-                    // 先頭は明るく
-                    cctx.fillStyle = `rgba(180,255,240,${0.5 + Math.random() * 0.5})`;
+                    const poem = POEMS[colPoem[i]];
+                    const ci   = ((colChar[i] % poem.length) + poem.length) % poem.length;
+                    const ch   = poem[ci];
+                    // 先頭文字は明るく白
+                    cctx.fillStyle = `rgba(220,255,245,${0.7 + Math.random() * 0.3})`;
                     cctx.font = `bold ${COL_W - 2}px monospace`;
                     cctx.fillText(ch, i * COL_W, y * COL_W);
-                    // トレイルは暗いシアン
-                    cctx.fillStyle = `rgba(0,200,140,${0.15 + Math.random() * 0.2})`;
+                    // 1つ前の文字はシアン
+                    const prevCi = ((ci - 1) + poem.length) % poem.length;
+                    cctx.fillStyle = `rgba(0,220,160,0.4)`;
                     cctx.font = `${COL_W - 4}px monospace`;
-                    const trail = CHARS[Math.floor(Math.random() * CHARS.length)];
-                    cctx.fillText(trail, i * COL_W, (y - 2) * COL_W);
-                    if (y * COL_W > cyberCanvas.height && Math.random() > 0.97) drops[i] = 0;
-                    else drops[i] += 0.6;
+                    cctx.fillText(poem[prevCi], i * COL_W, (y - 2) * COL_W);
+                    if (y * COL_W > cyberCanvas.height && Math.random() > 0.97) {
+                        drops[i]   = 0;
+                        // 次の詩へ切り替え
+                        colPoem[i] = (colPoem[i] + 1) % POEMS.length;
+                        colChar[i] = 0;
+                    } else {
+                        drops[i]   += 0.55;
+                        colChar[i] += 1;
+                    }
                 });
                 requestAnimationFrame(drawCyber);
             }
