@@ -2304,16 +2304,20 @@
             spawnFallCard(laneEl, icon, label, cardCss, fallMs, () => {
                 playerQueueCnt = Math.max(0, playerQueueCnt - 1);
                 if (!inBattle) return;
-                // ダメージをカード到着時に直接計算（flash検出に依存しない）
-                const mult = window._criticalMultiplier ?? 1.0;
-                const baseDmg = cmdId === 'skill' ? (8 + Math.floor(Math.random() * 10))
-                              : cmdId === 'ranged' ? (5 + Math.floor(Math.random() * 8))
-                              : (3 + Math.floor(Math.random() * 8));
-                const dmg = Math.round(baseDmg * mult);
-                // 表示HPは1を下限に（WASM確認前にゲージが0になるのを防ぐ）
-                currentEnemyHp = Math.max(1, currentEnemyHp - dmg);
                 if (keyCodes.length > 0) simulateKeys(keyCodes);
-                pushBattleMsg(`${icon} ${label}！ ${dmg} ダメージ`, 'attack');
+                // ダメージは攻撃系コマンドのみ
+                const ATTACK_CMDS = ['melee', 'ranged', 'skill'];
+                if (ATTACK_CMDS.includes(cmdId)) {
+                    const mult = window._criticalMultiplier ?? 1.0;
+                    const baseDmg = cmdId === 'skill' ? (8 + Math.floor(Math.random() * 10))
+                                  : cmdId === 'ranged' ? (5 + Math.floor(Math.random() * 8))
+                                  : (3 + Math.floor(Math.random() * 8));
+                    const dmg = Math.round(baseDmg * mult);
+                    currentEnemyHp = Math.max(1, currentEnemyHp - dmg);
+                    pushBattleMsg(`${icon} ${label}！ ${dmg} ダメージ`, 'attack');
+                } else {
+                    pushBattleMsg(`${icon} ${label}！`, 'system');
+                }
                 // オートモード: カード到着後SP足りてれば即次を発火
                 if (autoInterval && autoCmd) {
                     const cost = SP_COSTS[autoCmd] ?? 0;
