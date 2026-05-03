@@ -207,14 +207,6 @@ impl Player {
     }
     fn draw_battle(&self, x: f32, y: f32) {
         if self.flash > 0 && self.flash % 4 < 2 { return; }
-        // Slot 0 = arisa-player-sprites. Row 0 = Idle (8 frames at 7 ticks each ≈ 8fps)
-        #[cfg(feature = "wasm-backend")]
-        {
-            let sp_col = ((self.timer / 7) as u32) % 8;
-            crate::api::blt_sp(x - 14.0, y - 18.0, 0, sp_col, 0, 28.0, 28.0, false);
-            return;
-        }
-        #[allow(unreachable_code)]
         draw_arisa(x, y, self.timer);
     }
     fn draw_map(&self) {

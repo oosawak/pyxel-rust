@@ -374,7 +374,6 @@
         #game-wrapper.wasm-battle #bg-canvas {
             visibility: hidden;
         }
-        /* アリサスプライトオーバーレイ - WASM側で描画するため CSS 不要 */
 
         /* ── Arisa Quest バトルUI ─────────────────────────────────── */
         #battle-ui {
@@ -2881,7 +2880,6 @@
         import init, {
             main as wasmMain,
             set_key,
-            register_sprite_sheet,
             get_game_state, get_enemy_idx, get_bg_idx,
             get_enemy_flash, get_player_flash,
             get_player_hp, get_player_max_hp,
@@ -2889,38 +2887,6 @@
             get_enemy_hp, get_enemy_max_hp,
             start_battle_from_js,
         } from './pkg/pyxel_rust.js';
-
-        // アリサスプライトシートをWASMに登録（module内でregister_sprite_sheetに直接アクセス）
-        async function loadSpriteSheetForWasm(slot, url, frameW, frameH, cols) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    try {
-                        // マゼンタ透過処理
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.naturalWidth;
-                        canvas.height = img.naturalHeight;
-                        const ctx2 = canvas.getContext('2d');
-                        ctx2.drawImage(img, 0, 0);
-                        const id = ctx2.getImageData(0, 0, canvas.width, canvas.height);
-                        const d = id.data;
-                        for (let i = 0; i < d.length; i += 4) {
-                            if (d[i] > 200 && d[i+1] < 50 && d[i+2] > 200) d[i+3] = 0;
-                        }
-                        ctx2.putImageData(id, 0, 0);
-                        register_sprite_sheet(slot, canvas, frameW, frameH, cols);
-                        console.log(`[sprite] slot ${slot} registered: ${canvas.width}x${canvas.height}`);
-                    } catch(e) {
-                        console.warn('[sprite] sheet processing failed:', e);
-                    }
-                    resolve();
-                };
-                img.onerror = (e) => { console.warn('[sprite] sheet load failed:', e); resolve(); };
-                img.src = url;
-            });
-        }
-
         try {
             await init('./pkg/pyxel_rust_bg.wasm');
             window.wasmModule = {
@@ -2932,12 +2898,7 @@
                 get_enemy_hp, get_enemy_max_hp,
                 start_battle_from_js,
             };
-            // wasmMain()を先に呼ぶ → init()でSTATEが初期化される
-            // register_sprite_sheetはSTATE初期化後に呼ぶ必要があるため
-            console.log('[wasm] calling wasmMain()');
             wasmMain();
-            // アリサスプライトシートをWASMに登録（slot 0）
-            await loadSpriteSheetForWasm(0, '../../assets/design/arisa-player-sprites.png', 128, 128, 8);
         } catch(e) {
             console.error('WASM init failed:', e);
         }
