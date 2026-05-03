@@ -546,11 +546,11 @@
 
         /* ── バトルメッセージログ ──────────────────────────────── */
         #battle-msg-log {
-            position: absolute; top: 8px; right: 28px; left: auto; bottom: auto;
-            z-index: 20; pointer-events: none;
+            position: absolute; left: 0; right: 0; bottom: 18px; z-index: 20;
+            pointer-events: none;
+            padding: 0 8px;
             display: flex; flex-direction: column; gap: 3px;
-            align-items: flex-end;
-            max-width: calc(100% - 56px);
+            justify-content: flex-end;
         }
         .battle-msg-item {
             display: flex; align-items: center; gap: 7px;
