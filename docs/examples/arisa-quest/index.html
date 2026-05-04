@@ -898,7 +898,7 @@
         /* ── Post Input Panel ────────────────────────────────────── */
         #post-input-panel {
             position: absolute; bottom: var(--tab-h); left: 0; right: 0;
-            background: linear-gradient(180deg, rgba(10,5,30,0.95), rgba(5,2,15,0.98));
+            background: linear-gradient(180deg, rgba(10,5,30,0.70), rgba(5,2,15,0.75));
             border-top: 2px solid #6633aa; padding: 12px; z-index: 100;
             display: flex; gap: 8px; align-items: flex-end;
         }
@@ -1251,6 +1251,7 @@
 
         <!-- 投稿入力パネル（画面下部） -->
         <div id="post-input-panel">
+            <div id="post-panel-points" style="font-size:0.7rem;color:#bbaaff;margin-bottom:6px;text-align:center;letter-spacing:0.08em;min-height:14px;"></div>
             <textarea id="post-textarea" placeholder="いまここで何があった？" maxlength="200"></textarea>
             <div class="char-count"><span id="char-count">0</span>/200</div>
             <button id="btn-voice-input" title="音声入力">🎤</button>
@@ -3132,25 +3133,19 @@
         }
         
         function updateTerritoryPointsDisplay() {
-            const display = document.getElementById('territory-points-display');
-            const valueEl = display.querySelector('.points-value');
-            const rateEl = display.querySelector('.points-rate');
+            const panelPoints = document.getElementById('post-panel-points');
             
             if (territoryMarkers.length < 3) {
-                display.classList.add('inactive');
-                valueEl.textContent = '0';
-                rateEl.textContent = '0/sec';
+                panelPoints.textContent = '';
                 territoryPointsPerSecond = 0;
             } else {
-                display.classList.remove('inactive');
                 const hull = computeConvexHull(territoryMarkers);
                 const areaSqKm = computePolygonAreaKm2(hull);
                 
                 // 面積 (km²) × 10 = 秒単位のポイント生成速度
                 territoryPointsPerSecond = Math.max(1, Math.floor(areaSqKm * 10));
                 
-                valueEl.textContent = Math.floor(territoryPoints);
-                rateEl.textContent = territoryPointsPerSecond + '/sec';
+                panelPoints.textContent = `📊 領地ポイント: ${Math.floor(territoryPoints)} (+${territoryPointsPerSecond}/sec)`;
             }
         }
 
