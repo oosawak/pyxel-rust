@@ -1733,7 +1733,7 @@ document.getElementById('cap-row-sel').addEventListener('change', e => {
   buildCapSheet(); buildCapFrameList(); showCapDetail();
 });
 
-// ---- export captured frames as PNG ----
+// ---- export captured frames as PNG + spec.json ----
 document.getElementById('btn-cap-export').addEventListener('click', () => {
   const activeRows = capturedRows.filter(r => r.frames.length > 0);
   if (!activeRows.length || !rawImg) return;
@@ -1754,10 +1754,28 @@ document.getElementById('btn-cap-export').addEventListener('click', () => {
       oc.drawImage(rawImg, f.sx, f.sy, f.w, f.h, colIdx * CELL_W, rowIdx * CELL_H, f.w, f.h);
     });
   });
+  const names = getOutNames();
+  // spec.json を生成（ビューアーで直接読み込み可能）
+  const capSpec = {
+    frame_w:  CELL_W,
+    frame_h:  CELL_H,
+    cols:     COLS,
+    bg:       '#FF8000',
+    origin_x: 0,
+    origin_y: 0,
+    anims:    activeRows.map(r => r.name),
+  };
+  // spec.json をダウンロード
+  const specBlob = new Blob([JSON.stringify(capSpec, null, 2)], { type: 'application/json' });
+  const sa = document.createElement('a');
+  sa.href = URL.createObjectURL(specBlob);
+  sa.download = names.spec;
+  sa.click();
+  // PNG をダウンロード
   out.toBlob(blob => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = getOutNames().png;
+    a.download = names.png;
     a.click();
   }, 'image/png');
 });
