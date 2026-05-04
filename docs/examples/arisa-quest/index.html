@@ -1837,17 +1837,11 @@
             });
         }
         
-        // マーカーを地図に追加
-        const locations = [
-            { name: '青葉城', lat: 38.2650, lng: 141.0480, emoji: '🏯' },
-            { name: '仙台大観音', lat: 38.2700, lng: 141.0420, emoji: '🗿' },
-            { name: 'ナノテラス', lat: 38.2676, lng: 141.0447, emoji: '🏟️' },
-        ];
-        
-        locations.forEach(loc => {
-            const icon = createLocationMarker(loc.name, loc.lat, loc.lng, loc.emoji);
-            L.marker([loc.lat, loc.lng], { icon }).addTo(map);
-        });
+        // ランドマークマーカーを地図に追加する関数
+        function addLandmarkMarker(lat, lng, name, emoji) {
+            const icon = createLocationMarker(name, lat, lng, emoji);
+            L.marker([lat, lng], { icon }).addTo(map);
+        }
 
         // ── 投稿機能 ──────────────────────────────────────────────────────────
         let posts = JSON.parse(localStorage.getItem('arisa_quest_posts') || '[]');
@@ -2184,6 +2178,22 @@
                     arisaMarker  = L.marker([lat + 0.00005, lng], { icon: arisaIcon(true), zIndexOffset: 1000 }).addTo(map);
                     arisaMarker.on('click', onArisaTap);
                     mapFollowArisa = true;
+                    
+                    // ユーザーGPS周辺にランドマークを動的配置
+                    const landmarks = [
+                        { name: '青葉城', emoji: '🏯' },
+                        { name: '仙台大観音', emoji: '🗿' },
+                        { name: 'ナノテラス', emoji: '🏟️' }
+                    ];
+                    landmarks.forEach((lm, idx) => {
+                        // GPS位置から±0.008度のランダムオフセット（約900m以内）
+                        const dlat = (Math.random() - 0.5) * 0.016;
+                        const dlng = (Math.random() - 0.5) * 0.016;
+                        const lmLat = lat + dlat;
+                        const lmLng = lng + dlng;
+                        addLandmarkMarker(lmLat, lmLng, lm.name, lm.emoji);
+                    });
+                    
                     showToast(toastMsg);
                     // フェードアウト完了後に非表示
                     setTimeout(() => {
