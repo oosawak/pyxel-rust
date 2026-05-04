@@ -1245,13 +1245,49 @@
 
         const SHEETS = {};
         const SHEET_LIST = ['enemy-sprites', 'arisa-player-sprites', 'arisa-world-backgrounds-2', 'arisa-3d-art'];
+        // マゼンタ系背景を除去するスプライト（AI生成のため色ブレあり → 四隅検出方式）
+        const CHROMA_TARGETS = new Set(['arisa-player-sprites']);
         let loadedCount = 0;
+
+        function applyChromakey(img) {
+            const cv  = document.createElement('canvas');
+            cv.width  = img.width;
+            cv.height = img.height;
+            const ctx = cv.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            // 四隅ピクセルを平均して実際の背景色を検出
+            const corners = [
+                ctx.getImageData(0, 0, 1, 1).data,
+                ctx.getImageData(img.width - 1, 0, 1, 1).data,
+                ctx.getImageData(0, img.height - 1, 1, 1).data,
+                ctx.getImageData(img.width - 1, img.height - 1, 1, 1).data,
+            ];
+            const tr = Math.round(corners.reduce((s, c) => s + c[0], 0) / 4);
+            const tg = Math.round(corners.reduce((s, c) => s + c[1], 0) / 4);
+            const tb = Math.round(corners.reduce((s, c) => s + c[2], 0) / 4);
+            const id = ctx.getImageData(0, 0, cv.width, cv.height);
+            const d  = id.data;
+            const TOL = 50;
+            for (let i = 0; i < d.length; i += 4) {
+                if (Math.abs(d[i]-tr) < TOL && Math.abs(d[i+1]-tg) < TOL && Math.abs(d[i+2]-tb) < TOL) {
+                    d[i+3] = 0;
+                }
+            }
+            ctx.putImageData(id, 0, 0);
+            return cv;
+        }
+
         for (const name of SHEET_LIST) {
             const img = new Image();
-            img.onload = () => loadedCount++;
+            img.onload = () => {
+                if (CHROMA_TARGETS.has(name)) {
+                    SHEETS[name] = applyChromakey(img);
+                }
+                loadedCount++;
+            };
             img.onerror = () => { console.warn('sheet load failed:', name); loadedCount++; };
             img.src = ASSET_BASE + name + '.png';
-            SHEETS[name] = img;
+            if (!CHROMA_TARGETS.has(name)) SHEETS[name] = img;
         }
 
         const bgCanvas = document.getElementById('bg-canvas');
