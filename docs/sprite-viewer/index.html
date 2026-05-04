@@ -417,6 +417,21 @@ function handleFiles(files) {
   });
 }
 
+// ---- auto-load sample on startup ----
+(function loadSample() {
+  const img = new Image();
+  img.onload = () => {
+    rawImg = img;
+    spec = defaultSpec();
+    chromaRGB = null;
+    initSizes();
+    validate();
+    buildChroma(); buildSheetCanvas(); initViewer();
+  };
+  img.onerror = () => {}; // サンプルがなければ無視
+  img.src = 'sample.png';
+})();
+
 function defaultSpec() {
   return {
     frame_w: 128, frame_h: 128, cols: 8, bg: '#FF00FF', facing: 'right',
