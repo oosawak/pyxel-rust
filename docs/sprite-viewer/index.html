@@ -84,7 +84,10 @@
   .cap-cell .cap-idx { color: #7ec8e3; font-size: .72rem; }
   #cap-detail { background: #16162a; border: 1px solid #334; border-radius: 8px;
                 padding: 12px; display: none; flex-direction: column; gap: 8px; }
-  #cap-preview-wrap { display: flex; gap: 16px; align-items: flex-start; }
+  #cap-main-row { display: flex; gap: 16px; align-items: flex-start; }
+  #cap-left     { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  #cap-right    { flex-shrink: 0; }
+  #cap-preview-wrap { display: flex; flex-direction: column; gap: 8px; }
 
   /* ---- sheet overview ---- */
   #sheet-wrap { overflow: auto; max-height: 400px; border: 1px solid #333; border-radius: 4px; }
@@ -189,29 +192,36 @@
       <span style="color:#666;font-size:.8rem">← シートをクリックでフレーム追加</span>
     </div>
 
-    <!-- シート + オーバーレイ -->
-    <div id="cap-sheet-wrap">
-      <canvas id="cap-sheet"></canvas>
-      <canvas id="cap-overlay"></canvas>
-    </div>
+    <!-- シート(左) + プレビュー(右) の横並び -->
+    <div id="cap-main-row">
+      <div id="cap-left">
+        <!-- シート + オーバーレイ -->
+        <div id="cap-sheet-wrap">
+          <canvas id="cap-sheet"></canvas>
+          <canvas id="cap-overlay"></canvas>
+        </div>
 
-    <!-- キャプチャ済みフレーム一覧 -->
-    <div id="cap-frames"></div>
+        <!-- キャプチャ済みフレーム一覧 -->
+        <div id="cap-frames"></div>
 
-    <!-- 選択フレーム詳細 -->
-    <div id="cap-detail">
-      <div class="ctrl-row">
-        <strong style="color:#7ec8e3">選択フレーム調整</strong>
-        <label>X: <input type="number" id="cap-dx" min="0" max="9999" value="0"></label>
-        <label>Y: <input type="number" id="cap-dy" min="0" max="9999" value="0"></label>
-        <label>W: <input type="number" id="cap-dw" min="8" max="1024" value="128"></label>
-        <label>H: <input type="number" id="cap-dh" min="8" max="1024" value="128"></label>
-        <button id="btn-cap-del" class="warn">削除</button>
-        <button id="btn-cap-up">← 前へ</button>
-        <button id="btn-cap-dn">後へ →</button>
-      </div>
-      <div id="cap-preview-wrap">
-        <div>
+        <!-- 選択フレーム詳細 -->
+        <div id="cap-detail">
+          <div class="ctrl-row">
+            <strong style="color:#7ec8e3">選択フレーム調整</strong>
+            <label>X: <input type="number" id="cap-dx" min="0" max="9999" value="0"></label>
+            <label>Y: <input type="number" id="cap-dy" min="0" max="9999" value="0"></label>
+            <label>W: <input type="number" id="cap-dw" min="8" max="1024" value="128"></label>
+            <label>H: <input type="number" id="cap-dh" min="8" max="1024" value="128"></label>
+            <button id="btn-cap-del" class="warn">削除</button>
+            <button id="btn-cap-up">← 前へ</button>
+            <button id="btn-cap-dn">後へ →</button>
+          </div>
+        </div>
+      </div><!-- #cap-left -->
+
+      <!-- プレビュー (シートの右上に固定) -->
+      <div id="cap-right">
+        <div id="cap-preview-wrap">
           <div class="ctrl-row" style="margin-bottom:6px">
             <span style="color:#aaa;font-size:.8rem">プレビュー</span>
             <label style="color:#aaa;font-size:.8rem">基準F:
@@ -223,8 +233,8 @@
           </div>
           <canvas id="cap-preview" style="image-rendering:pixelated;border:1px solid #334"></canvas>
         </div>
-      </div>
-    </div>
+      </div><!-- #cap-right -->
+    </div><!-- #cap-main-row -->
 
   </div><!-- #tab-capture -->
 
