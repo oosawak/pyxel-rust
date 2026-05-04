@@ -50,13 +50,13 @@
   .global-size { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .global-size label { color: #aaa; display: flex; gap: 6px; align-items: center; }
 
-  #strip-scroll { overflow-x: auto; padding-bottom: 8px; }
-  #strip { display: flex; gap: 6px; align-items: flex-start; }
+  #strip-scroll { padding-bottom: 8px; }
+  #strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 
   .frame-cell { display: flex; flex-direction: column; align-items: center; gap: 4px;
                 background: #1e1e38; border: 1px solid #334; border-radius: 6px;
-                padding: 6px 4px; min-width: 48px; }
-  .frame-cell canvas { display: block; image-rendering: pixelated; border: 1px solid #2a2a4a; }
+                padding: 6px 4px; }
+  .frame-cell canvas { display: block; image-rendering: pixelated; border: 1px solid #2a2a4a; max-width: 100%; }
   .frame-cell .fidx  { color: #7ec8e3; font-size: .75rem; }
   .frame-cell input  { width: 56px; }
   .frame-cell .fh-inp { margin-top: 2px; }
