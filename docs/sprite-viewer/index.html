@@ -114,12 +114,12 @@
 
   <!-- タブバー -->
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="viewer">📽 ビューアー</button>
-    <button class="tab-btn" data-tab="capture">✂️ フレームキャプチャ</button>
+    <button class="tab-btn active" data-tab="capture">✂️ フレームキャプチャ</button>
+    <button class="tab-btn" data-tab="viewer">📽 ビューアー</button>
   </div>
 
   <!-- ═══ タブ1: ビューアー ═══ -->
-  <div id="tab-viewer" class="tab-panel active">
+  <div id="tab-viewer" class="tab-panel">
 
   <!-- アニメーション再生コントロール -->
   <div class="ctrl-row">
@@ -190,7 +190,7 @@
   </div><!-- #tab-viewer -->
 
   <!-- ═══ タブ2: フレームキャプチャ ═══ -->
-  <div id="tab-capture" class="tab-panel">
+  <div id="tab-capture" class="tab-panel active">
 
     <div class="ctrl-row">
       <label>キャプチャ幅(W): <input type="number" id="cap-w" min="8" max="1024" value="128"></label>
