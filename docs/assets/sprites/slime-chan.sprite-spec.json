@@ -1,0 +1,21 @@
+{
+  "frame_w": 128,
+  "frame_h": 128,
+  "cols": 8,
+  "bg": "#FF00FF",
+  "facing": "right",
+  "anims": [
+    "Idle",
+    "Walk",
+    "Run",
+    "Jump",
+    "MeleeAttack",
+    "RangedAttack",
+    "Damage",
+    "TurnInPlace",
+    "SpecialAttack",
+    "Singing",
+    "Resting",
+    "Victory"
+  ]
+}

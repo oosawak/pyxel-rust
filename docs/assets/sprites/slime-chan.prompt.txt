@@ -1,0 +1,55 @@
+A production-ready 2D sprite sheet of a cute chibi cat-eared slime character.
+
+CRITICAL CHARACTER CONSISTENCY:
+- The character must remain a soft, jelly-like slime creature
+- Preserve the cat ears shape
+- Maintain a semi-transparent glossy body
+- Keep the cute face and proportions consistent
+- DO NOT convert into humanoid or solid character
+
+STRICT TECHNICAL REQUIREMENTS:
+- Each frame must be exactly 128x128 pixels
+- Perfect grid: 8 columns × 12 rows
+- No spacing or padding
+- Left-aligned frames in each row
+- Exactly 8 frames per animation
+- Character centered
+- Bottom aligned (2px above edge)
+- Same scale across all frames
+
+BACKGROUND:
+- Solid pure magenta (#FF00FF)
+
+VISUAL CLEAN:
+- No text
+- No UI
+- No guides
+
+ORIENTATION:
+- Always facing RIGHT
+- 3/4 side view
+- Face always visible
+
+ANIMATIONS:
+1. Idle (soft bounce)
+2. Walk (squish movement)
+3. Run (stretch and squash)
+4. Jump (compress → stretch → land)
+5. Melee (body slam or stretch attack)
+6. Ranged (spit motion, no projectile)
+7. Damage (squish and wobble)
+8. Turn (body rotation without back view)
+9. Special (charge pose only)
+10. Singing (vibration-like motion)
+11. Rest (flattened sleepy state)
+12. Victory (bounce celebration)
+
+IMPORTANT:
+- No effects
+- Motion must emphasize squash and stretch
+
+STYLE:
+- Clean 2D sprite
+- NOT realistic 3D
+- Soft shading
+- Game-ready animation

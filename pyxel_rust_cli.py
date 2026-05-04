@@ -51,7 +51,14 @@ def cli():
         (["rust_play", f"PYXEL_APP_FILE({pyxel.APP_FILE_EXTENSION})"], rust_play),
         (["rust_app2html", "PROJECT_NAME", "[PORT]"], rust_app2html),
         (["rust_app2wasm", "PROJECT_NAME", "[PORT]"], rust_app2wasm),
+        # ---- Sprite tools ----
+        (["sprite_prompt", "DESCRIPTION", "[--name NAME]", "[--frame-size N]", "[--cols N]", "[--bg COLOR]", "[--facing DIR]"], _sprite_prompt_stub),
     ]
+
+    # sprite_prompt uses its own argparse — intercept before the standard dispatcher
+    if len(sys.argv) >= 2 and sys.argv[1] == 'sprite_prompt':
+        sprite_prompt()
+        return
 
     def print_usage(command_name=None):
         print("usage:")
@@ -419,3 +426,138 @@ def rust_app2wasm(project_name, port_str='8000'):
 
 if __name__ == '__main__':
     cli()
+
+
+# ============================================================================
+# Sprite tools
+# ============================================================================
+
+# Stub used only for usage-line display in the command table
+def _sprite_prompt_stub(*_):
+    sprite_prompt()
+
+
+def sprite_prompt():
+    """Generate an AI image prompt + spec JSON for a pyxel-rust sprite sheet.
+
+    Usage:
+        pyxel-rust sprite_prompt "cute cat warrior" --name mychar
+        pyxel-rust sprite_prompt "red dragon boss" --frame-size 256 --cols 6
+
+    Writes {name}.sprite-spec.json and prints the full AI prompt to stdout.
+    The spec JSON is shared with the game engine so both sides use the same rules.
+    """
+    import argparse
+    import json
+
+    BG_COLORS = {
+        'magenta': {'hex': '#FF00FF', 'name': 'solid pure magenta (#FF00FF)'},
+        'green':   {'hex': '#00FF00', 'name': 'solid pure green (#00FF00)'},
+        'blue':    {'hex': '#0000FF', 'name': 'solid pure blue (#0000FF)'},
+    }
+
+    DEFAULT_ANIMS = [
+        'Idle', 'Walk', 'Run', 'Jump',
+        'MeleeAttack', 'RangedAttack', 'Damage', 'TurnInPlace',
+        'SpecialAttack', 'Singing', 'Resting', 'Victory',
+    ]
+
+    parser = argparse.ArgumentParser(
+        prog='pyxel-rust sprite_prompt',
+        description='Generate an AI image prompt for a pyxel-rust compatible sprite sheet',
+    )
+    parser.add_argument('description',
+                        help='Character description  e.g. "cute chibi cat warrior"')
+    parser.add_argument('--name', default=None,
+                        help='Base name for output files (default: derived from description)')
+    parser.add_argument('--frame-size', type=int, default=128, metavar='N',
+                        help='Frame size in pixels (default: 128)')
+    parser.add_argument('--cols', type=int, default=8, metavar='N',
+                        help='Frames per animation row (default: 8)')
+    parser.add_argument('--bg', default='magenta', choices=list(BG_COLORS),
+                        help='Background colour for chromakey (default: magenta)')
+    parser.add_argument('--facing', default='right', choices=['right', 'left'],
+                        help='Character facing direction (default: right)')
+    parser.add_argument('--anims', default=None, metavar='ANIM;...',
+                        help='Semicolon-separated animation list (default: 12 standard rows)')
+
+    opts = parser.parse_args(sys.argv[2:])
+
+    anims = opts.anims.split(';') if opts.anims else DEFAULT_ANIMS
+    rows = len(anims)
+    bg = BG_COLORS[opts.bg]
+    frame_size = opts.frame_size
+    cols = opts.cols
+    total_w = frame_size * cols
+    total_h = frame_size * rows
+
+    name = opts.name or opts.description.lower().replace(' ', '-')[:32]
+    name = ''.join(c if c.isalnum() or c in '-_' else '-' for c in name).strip('-')
+
+    # Write spec JSON (shared with the game engine)
+    spec = {
+        'frame_w': frame_size,
+        'frame_h': frame_size,
+        'cols': cols,
+        'bg': bg['hex'],
+        'facing': opts.facing,
+        'anims': anims,
+    }
+    spec_file = Path(f'{name}.sprite-spec.json')
+    spec_file.write_text(json.dumps(spec, indent=2, ensure_ascii=False), encoding='utf-8')
+    print(f'✓ Spec written: {spec_file}', file=sys.stderr)
+
+    # Build animation list for the prompt
+    anim_lines = '\n'.join(
+        f'{i + 1}. {anim} (exactly {cols} frames, duplicate to fill if needed)'
+        for i, anim in enumerate(anims)
+    )
+
+    prompt = f"""\
+A production-ready 2D sprite sheet of {opts.description}.
+
+STRICT TECHNICAL REQUIREMENTS:
+- Each frame must be exactly {frame_size}x{frame_size} pixels
+- The entire sheet must be a perfect grid: {cols} columns x {rows} rows
+- Total image size: {total_w}x{total_h} pixels
+- Frames must be tightly packed with NO spacing or padding
+- Each animation row must start from the LEFTMOST column
+- Character must be centered horizontally in every frame
+- Character feet must be consistently positioned 2 pixels above the bottom edge
+- Character scale must remain identical across all frames
+
+BACKGROUND RULE:
+- Background must be {bg['name']}
+- No gradients, no patterns, no transparency
+- No checkerboard transparency
+
+VISUAL CLEANLINESS:
+- NO grid lines, NO guides, NO borders
+- NO text, NO labels, NO UI elements, NO annotations
+
+ORIENTATION RULE (CRITICAL):
+- Character must ALWAYS face {opts.facing.upper()}
+- Use a 3/4 side view (face must always be visible)
+- NO front-facing views, NO back-facing views
+- NO camera rotation between frames
+
+ANIMATION STRUCTURE (ALL MUST BE EXACTLY {cols} FRAMES PER ROW):
+{anim_lines}
+
+EFFECT RULE:
+- NO visual effects at all
+- No glow, no particles, no beams, no magic, no dust
+
+STYLE:
+- Clean, game-ready sprite style
+- Slight chibi proportions, stable silhouette
+- Consistent lighting and shading
+- Designed for real-time game use
+
+FINAL OUTPUT REQUIREMENT:
+- Image size must be exactly {total_w}x{total_h} pixels
+- Clean sprite atlas ready for direct use in a game engine\
+"""
+
+    print(prompt)
+    print(f'\n✓ Prompt printed above. Spec: {spec_file}', file=sys.stderr)
