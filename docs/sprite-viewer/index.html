@@ -1307,24 +1307,27 @@ document.getElementById('btn-cap-clear').addEventListener('click', () => {
 // ---- export captured frames as PNG ----
 document.getElementById('btn-cap-export').addEventListener('click', () => {
   if (!capturedFrames.length || !rawImg) return;
-  const n   = capturedFrames.length;
-  // lay out as rows of 8 (matching spec cols)
-  const COLS = Math.min(8, n);
-  const ROWS = Math.ceil(n / COLS);
-  const OUT  = Math.max(...capturedFrames.map(f => Math.max(f.w, f.h)));
-  const out  = document.createElement('canvas');
-  out.width  = OUT * COLS;
-  out.height = OUT * ROWS;
-  const oc   = out.getContext('2d');
-  oc.fillStyle = '#FF00FF';
+  const n     = capturedFrames.length;
+  const COLS  = Math.min(8, n);
+  const ROWS  = Math.ceil(n / COLS);
+  // セルサイズ: 幅・高さそれぞれの最大値（正方形強制しない）
+  const CELL_W = Math.max(...capturedFrames.map(f => f.w));
+  const CELL_H = Math.max(...capturedFrames.map(f => f.h));
+  const out   = document.createElement('canvas');
+  out.width   = CELL_W * COLS;
+  out.height  = CELL_H * ROWS;
+  const oc    = out.getContext('2d');
+  // 背景はオレンジ（クロマキーは後で適用）
+  oc.fillStyle = '#FF8000';
   oc.fillRect(0, 0, out.width, out.height);
   oc.imageSmoothingEnabled = false;
+  const src = rawImg; // 元画像をそのまま使用
   capturedFrames.forEach((f, i) => {
     const col = i % COLS, row = Math.floor(i / COLS);
-    oc.drawImage(useChroma ? ckImg : rawImg, f.sx, f.sy, f.w, f.h,
-                 col * OUT + Math.round((OUT - f.w) / 2),
-                 row * OUT + Math.round((OUT - f.h) / 2),
-                 f.w, f.h);
+    // 各フレームをセル内に左上寄せ（センタリングしない）
+    const dx = col * CELL_W;
+    const dy = row * CELL_H;
+    oc.drawImage(src, f.sx, f.sy, f.w, f.h, dx, dy, f.w, f.h);
   });
   out.toBlob(blob => {
     const a = document.createElement('a');
