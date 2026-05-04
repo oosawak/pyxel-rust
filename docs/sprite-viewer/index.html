@@ -105,7 +105,7 @@
                 padding: 12px; display: none; flex-direction: column; gap: 8px; }
   #cap-main-row { display: flex; gap: 16px; align-items: flex-start; }
   #cap-left     { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  #cap-right    { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; max-height: 90vh; overflow-y: auto; }
+  #cap-right    { flex-shrink: 0; }
   #cap-preview-wrap { display: flex; flex-direction: column; gap: 8px; }
 
   /* ---- sheet overview ---- */
@@ -267,6 +267,23 @@
       📌 F0基準: <span id="cap-f0-text"></span>
     </div>
 
+    <!-- キャプチャ済みフレーム一覧（シート・プレビューの上） -->
+    <div id="cap-frames"></div>
+
+    <!-- 選択フレーム詳細（シート・プレビューの上） -->
+    <div id="cap-detail">
+      <div class="ctrl-row">
+        <strong style="color:#7ec8e3">選択フレーム調整</strong>
+        <label>X: <input type="number" id="cap-dx" min="0" max="9999" value="0"></label>
+        <label>Y: <input type="number" id="cap-dy" min="0" max="9999" value="0"></label>
+        <label>W: <input type="number" id="cap-dw" min="8" max="1024" value="128"></label>
+        <label>H: <input type="number" id="cap-dh" min="8" max="1024" value="128"></label>
+        <button id="btn-cap-del" class="warn">削除</button>
+        <button id="btn-cap-up">← 前へ</button>
+        <button id="btn-cap-dn">後へ →</button>
+      </div>
+    </div>
+
     <!-- シート(左) + プレビュー(右) の横並び -->
     <div id="cap-main-row">
       <div id="cap-left">
@@ -277,25 +294,8 @@
         </div>
       </div><!-- #cap-left -->
 
-      <!-- 右カラム：フレーム一覧 + 調整 + プレビュー -->
+      <!-- 右カラム：プレビュー -->
       <div id="cap-right">
-        <!-- キャプチャ済みフレーム一覧 -->
-        <div id="cap-frames"></div>
-
-        <!-- 選択フレーム詳細 -->
-        <div id="cap-detail">
-          <div class="ctrl-row">
-            <strong style="color:#7ec8e3">選択フレーム調整</strong>
-            <label>X: <input type="number" id="cap-dx" min="0" max="9999" value="0"></label>
-            <label>Y: <input type="number" id="cap-dy" min="0" max="9999" value="0"></label>
-            <label>W: <input type="number" id="cap-dw" min="8" max="1024" value="128"></label>
-            <label>H: <input type="number" id="cap-dh" min="8" max="1024" value="128"></label>
-            <button id="btn-cap-del" class="warn">削除</button>
-            <button id="btn-cap-up">← 前へ</button>
-            <button id="btn-cap-dn">後へ →</button>
-          </div>
-        </div>
-
         <!-- プレビュー -->
         <div id="cap-preview-wrap">
           <div class="ctrl-row" style="margin-bottom:6px">
