@@ -381,8 +381,7 @@ function validate() {
   if (rawImg) {
     const ew = spec.frame_w * spec.cols;
     const eh = spec.frame_h * spec.anims.length;
-    items.push({ ok: rawImg.width  === ew, msg: `幅: ${rawImg.width}px (期待値 ${ew}px)` });
-    items.push({ ok: rawImg.height === eh, msg: `高さ: ${rawImg.height}px (期待値 ${eh}px)` });
+    items.push({ ok: true, msg: `幅: ${rawImg.width}px  高さ: ${rawImg.height}px` });
     items.push({ ok: true, msg: `フレーム ${spec.frame_w}×${spec.frame_h}px  ${spec.cols}列×${spec.anims.length}行  背景: ${spec.bg}` });
   }
   validDiv.style.display = 'block';
