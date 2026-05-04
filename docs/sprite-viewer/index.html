@@ -237,6 +237,25 @@
       <button id="btn-normalize">✂️ 正規化 PNG エクスポート</button>
     </div>
 
+    <!-- 出力設定 -->
+    <details id="export-settings" style="margin:6px 0; background:#1e2030; border:1px solid #444; border-radius:6px; padding:8px 12px;">
+      <summary style="cursor:pointer; color:#7ec8e3; font-size:.85rem; user-select:none;">📁 出力設定（ファイル名・フォルダー）</summary>
+      <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; align-items:center; font-size:.82rem; color:#ccc;">
+        <label>assetsフォルダー名:
+          <input type="text" id="out-folder" value="player" style="width:100px; margin-left:4px; background:#111; color:#eee; border:1px solid #555; border-radius:3px; padding:2px 4px;">
+        </label>
+        <label>PNG ファイル名:
+          <input type="text" id="out-png" value="sprite.png" style="width:120px; margin-left:4px; background:#111; color:#eee; border:1px solid #555; border-radius:3px; padding:2px 4px;">
+        </label>
+        <label>spec.json ファイル名:
+          <input type="text" id="out-spec" value="sprite-spec.json" style="width:150px; margin-left:4px; background:#111; color:#eee; border:1px solid #555; border-radius:3px; padding:2px 4px;">
+        </label>
+        <div id="out-path-preview" style="color:#888; font-family:monospace; font-size:.78rem; margin-top:4px; width:100%;">
+          → assets/player/sprite.png &nbsp;|&nbsp; assets/player/sprite-spec.json
+        </div>
+      </div>
+    </details>
+
     <!-- 選択中アニメ行のフレームストリップ -->
     <div style="display:flex; gap:12px; align-items:flex-start;">
       <div id="strip-scroll">
@@ -393,6 +412,23 @@ const gFhInput   = document.getElementById('g-fh');
 const pCtx       = preview.getContext('2d');
 const gCtx       = gridOvl.getContext('2d');
 const sCtx       = sheetCv.getContext('2d');
+
+// 出力設定
+const outFolder  = document.getElementById('out-folder');
+const outPng     = document.getElementById('out-png');
+const outSpec    = document.getElementById('out-spec');
+const outPathPrev= document.getElementById('out-path-preview');
+function getOutNames() {
+  const folder = outFolder.value.trim() || 'assets';
+  const png    = outPng.value.trim()   || 'sprite.png';
+  const spec   = outSpec.value.trim()  || 'sprite-spec.json';
+  return { folder, png, spec };
+}
+function updateOutPreview() {
+  const { folder, png, spec } = getOutNames();
+  outPathPrev.textContent = `→ assets/${folder}/${png}  |  assets/${folder}/${spec}`;
+}
+[outFolder, outPng, outSpec].forEach(el => el.addEventListener('input', updateOutPreview));
 
 // ═══════════════════════════════════════════════════════════════════
 // Drop / File
@@ -1204,7 +1240,7 @@ document.getElementById('btn-normalize').addEventListener('click', () => {
   out.toBlob(blob => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'normalized.png';
+    a.download = getOutNames().png;
     a.click();
   }, 'image/png');
 });
@@ -1673,7 +1709,7 @@ document.getElementById('btn-cap-export').addEventListener('click', () => {
   out.toBlob(blob => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'captured.png';
+    a.download = getOutNames().png;
     a.click();
   }, 'image/png');
 });
@@ -1696,7 +1732,7 @@ document.getElementById('btn-export-spec').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(out, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'adjusted.sprite-spec.json';
+  a.download = getOutNames().spec;
   a.click();
 });
 </script>
