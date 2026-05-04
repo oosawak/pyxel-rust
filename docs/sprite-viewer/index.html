@@ -165,8 +165,9 @@ const SCALE   = 3;
 const STRIP_S = 1.5; // strip preview scale
 
 // per-column widths and per-row heights (adjusted by user)
-let colWidths = [];   // length = spec.cols
-let rowHeights = [];  // length = spec.anims.length
+let colWidths    = [];   // length = spec.cols
+let rowHeights   = [];   // length = spec.anims.length
+let frameEnabled = [];   // length = spec.cols — false = skip in playback & export
 let originX = 0;      // sprite grid start X (skip headers/margins)
 let originY = 0;      // sprite grid start Y
 
@@ -246,10 +247,11 @@ function defaultSpec() {
 }
 
 function initSizes() {
-  originX    = spec.origin_x || 0;
-  originY    = spec.origin_y || 0;
-  colWidths  = Array(spec.cols).fill(spec.frame_w);
-  rowHeights = Array(spec.anims.length).fill(spec.frame_h);
+  originX      = spec.origin_x || 0;
+  originY      = spec.origin_y || 0;
+  colWidths    = Array(spec.cols).fill(spec.frame_w);
+  rowHeights   = Array(spec.anims.length).fill(spec.frame_h);
+  frameEnabled = Array(spec.cols).fill(true);
   gFwInput.value = spec.frame_w;
   gFhInput.value = spec.frame_h;
   document.getElementById('g-ox').value = originX;
@@ -378,11 +380,25 @@ function buildStrip() {
 
     const cell = document.createElement('div');
     cell.className = 'frame-cell';
+    if (!frameEnabled[c]) cell.style.opacity = '0.35';
 
+    // checkbox
+    const chkRow = document.createElement('div');
+    chkRow.style.cssText = 'display:flex;align-items:center;gap:4px;width:100%';
     const lbl = document.createElement('div');
     lbl.className = 'fidx';
     lbl.textContent = `F${c}`;
-    cell.appendChild(lbl);
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = frameEnabled[c];
+    chk.style.marginLeft = 'auto';
+    chk.addEventListener('change', () => {
+      frameEnabled[c] = chk.checked;
+      cell.style.opacity = chk.checked ? '1' : '0.35';
+    });
+    chkRow.appendChild(lbl);
+    chkRow.appendChild(chk);
+    cell.appendChild(chkRow);
 
     const cv  = document.createElement('canvas');
     cv.width  = dw; cv.height = dh;
@@ -465,7 +481,14 @@ function resizePreviewCanvas() {
 function tick(t) {
   rafId = requestAnimationFrame(tick);
   if (playing) {
-    if (t - lastT >= 1000 / fps) { frame = (frame + 1) % spec.cols; lastT = t; }
+    if (t - lastT >= 1000 / fps) {
+      // advance to next enabled frame
+      let next = (frame + 1) % spec.cols;
+      let tries = 0;
+      while (!frameEnabled[next] && tries < spec.cols) { next = (next + 1) % spec.cols; tries++; }
+      frame = next;
+      lastT = t;
+    }
   }
   drawFrame();
 }
@@ -621,6 +644,11 @@ document.getElementById('btn-normalize').addEventListener('click', () => {
     for (let col = 0; col < COLS; col++) {
       const sx = cOff[col];
       const sw = colWidths[col];
+
+      if (!frameEnabled[col]) {
+        frames.push({ tmp: null, bbox: null, row, col });
+        continue;
+      }
 
       const tmp = document.createElement('canvas');
       tmp.width = sw; tmp.height = sh;
