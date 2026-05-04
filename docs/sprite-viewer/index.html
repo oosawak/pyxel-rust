@@ -1043,6 +1043,15 @@ function showCapDetail() {
   drawCapPreview();
 }
 
+function drawCheckerboard(ctx, w, h, size = 8) {
+  for (let y = 0; y < h; y += size) {
+    for (let x = 0; x < w; x += size) {
+      ctx.fillStyle = ((x / size + y / size) % 2 === 0) ? '#cccccc' : '#888888';
+      ctx.fillRect(x, y, size, size);
+    }
+  }
+}
+
 function drawCapPreview() {
   if (capSelectedIdx < 0) return;
   const f    = capturedFrames[capSelectedIdx];
@@ -1054,11 +1063,10 @@ function drawCapPreview() {
   const ph = capPreviewCv.height;
   capPCtx.imageSmoothingEnabled = false;
 
-  // background
-  capPCtx.fillStyle = '#2a2a2a';
-  capPCtx.fillRect(0, 0, pw, ph);
+  // checkerboard background (shows transparency)
+  drawCheckerboard(capPCtx, pw, ph, 8);
 
-  // reference frame (semi-transparent)
+  // reference frame (semi-transparent overlay)
   const refIdx = +document.getElementById('cap-ref-idx').value;
   const alpha  = (+document.getElementById('cap-ref-alpha').value) / 100;
   const ref    = (refIdx !== capSelectedIdx && capturedFrames[refIdx]);
@@ -1069,7 +1077,7 @@ function drawCapPreview() {
     capPCtx.globalAlpha = 1;
   }
 
-  // current frame (full opacity)
+  // current frame (full opacity, transparent pixels show checkerboard)
   capPCtx.drawImage(useChroma ? ckImg : rawImg, f.sx, f.sy, f.w, f.h, 0, 0, pw, ph);
 }
 
