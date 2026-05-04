@@ -3062,6 +3062,9 @@
                 // 凸包を計算してポリゴンを作成（簡易版：グラハムスキャン相当）
                 const hull = computeConvexHull(territoryMarkers);
                 
+                // ポリゴン内部のマーカーを削除（凸包の頂点のみを保持）
+                territoryMarkers = hull;
+                
                 // ポリゴンを描画
                 territoryPolygon = L.polygon(hull, {
                     color: '#8844ff',        // 紫色の枠線
