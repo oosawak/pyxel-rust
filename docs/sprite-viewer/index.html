@@ -898,6 +898,7 @@ let capSelectedIdx  = -1;
 let capSheetScale   = 1;
 let capMouseX       = 0;
 let capMouseY       = 0;
+let capMouseOver    = false; // カーソルがシート上にあるか
 
 const capSheetWrap  = document.getElementById('cap-sheet-wrap');
 const capSheetCv    = document.getElementById('cap-sheet');
@@ -970,11 +971,13 @@ capSheetWrap.addEventListener('mousemove', e => {
   const r = capSheetCv.getBoundingClientRect();
   capMouseX = e.clientX - r.left;
   capMouseY = e.clientY - r.top;
+  capMouseOver = true;
   drawCapOverlay();
   drawCapHoverPreview();
 });
 
 capSheetWrap.addEventListener('mouseleave', () => {
+  capMouseOver = false;
   capOCtx.clearRect(0, 0, capOverlayCv.width, capOverlayCv.height);
   // restore selected frame preview if any
   if (capSelectedIdx >= 0) drawCapPreview();
@@ -1140,15 +1143,45 @@ document.getElementById('cap-ref-idx').addEventListener('input', drawCapPreview)
 document.getElementById('cap-ref-alpha').addEventListener('input', drawCapPreview);
 
 // ---- keyboard fine adjustment ----
-// Arrow keys: move selected frame by 1px (Shift: 10px)
-// [ / ]: shrink/grow W by 1px,  { / }: shrink/grow H by 1px
+// カーソルモード(シートホバー中): 矢印=10px移動, Shift+矢印=1px移動, Enter=キャプチャ
+// 選択フレーム調整モード: 矢印=1px, Shift+矢印=10px (従来と逆)
 document.addEventListener('keydown', e => {
-  if (capSelectedIdx < 0 || !capturedFrames[capSelectedIdx]) return;
-  // only act when capture tab is active and no input is focused
   const activeTab = document.querySelector('.tab-btn.active');
   if (!activeTab || activeTab.dataset.tab !== 'capture') return;
   if (['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)) return;
 
+  // ── カーソルモード(ホバー中) ──
+  if (capMouseOver && rawImg) {
+    const step = e.shiftKey ? 1 : 10; // デフォルト10px, Shift=1px
+    const pxStep = step * capSheetScale;
+    let moved = true;
+    switch (e.key) {
+      case 'ArrowLeft':  capMouseX = Math.max(0, capMouseX - pxStep); break;
+      case 'ArrowRight': capMouseX = Math.min(capSheetCv.width,  capMouseX + pxStep); break;
+      case 'ArrowUp':    capMouseY = Math.max(0, capMouseY - pxStep); break;
+      case 'ArrowDown':  capMouseY = Math.min(capSheetCv.height, capMouseY + pxStep); break;
+      case 'Enter': case ' ':
+        // カーソル位置でキャプチャ
+        const cw = +capWInp.value || 128;
+        const ch = +capHInp.value || 128;
+        const sx = Math.round(capMouseX / capSheetScale - cw / 2);
+        const sy = Math.round(capMouseY / capSheetScale - ch / 2);
+        capturedFrames.push({ sx: Math.max(0, sx), sy: Math.max(0, sy), w: cw, h: ch });
+        capSelectedIdx = capturedFrames.length - 1;
+        buildCapSheet(); buildCapFrameList(); showCapDetail();
+        break;
+      default: moved = false;
+    }
+    if (moved) {
+      e.preventDefault();
+      drawCapOverlay();
+      drawCapHoverPreview();
+    }
+    return;
+  }
+
+  // ── 選択フレーム調整モード ──
+  if (capSelectedIdx < 0 || !capturedFrames[capSelectedIdx]) return;
   const f    = capturedFrames[capSelectedIdx];
   const step = e.shiftKey ? 10 : 1;
   let moved  = true;
