@@ -192,6 +192,11 @@
       <span style="color:#666;font-size:.8rem">← シートをクリックでフレーム追加</span>
     </div>
 
+    <!-- F0 基準座標表示 -->
+    <div id="cap-f0-info" style="display:none; background:#1a1a30; border:1px solid #334; border-radius:6px; padding:6px 12px; font-family:monospace; font-size:.82rem; color:#7ec8e3;">
+      📌 F0基準: <span id="cap-f0-text"></span>
+    </div>
+
     <!-- シート(左) + プレビュー(右) の横並び -->
     <div id="cap-main-row">
       <div id="cap-left">
@@ -1007,6 +1012,16 @@ capHInp.addEventListener('input', drawCapOverlay);
 
 function buildCapFrameList() {
   capFramesEl.innerHTML = '';
+  // F0基準座標を更新
+  const f0InfoEl  = document.getElementById('cap-f0-info');
+  const f0TextEl  = document.getElementById('cap-f0-text');
+  if (capturedFrames.length > 0) {
+    const f0 = capturedFrames[0];
+    f0TextEl.textContent = `X=${f0.sx}  Y=${f0.sy}  W=${f0.w}  H=${f0.h}`;
+    f0InfoEl.style.display = '';
+  } else {
+    f0InfoEl.style.display = 'none';
+  }
   const THUMB = 64;
   capturedFrames.forEach((f, i) => {
     const cell = document.createElement('div');
