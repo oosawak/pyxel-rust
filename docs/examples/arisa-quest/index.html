@@ -770,7 +770,7 @@
         
         /* ── Territory Point Display ──────────────────────────────── */
         #territory-points-display {
-            position: absolute; top: 12px; right: 12px; z-index: 200;
+            position: fixed; top: 12px; right: 12px; z-index: 250;
             background: linear-gradient(135deg, rgba(136,68,255,0.95), rgba(100,40,200,0.95));
             border: 2px solid #8844ff; border-radius: 12px;
             padding: 12px 16px; font-family: 'DotGothic16', monospace;
@@ -1025,12 +1025,6 @@
             <button id="btn-tile-switch">🗺 Bright日本語</button>
             <button id="btn-3d-toggle" title="3D/2D切替">🌐 2D</button>
             <div id="map-dark-overlay"></div>
-            <!-- 領地ポイント表示 -->
-            <div id="territory-points-display" class="inactive">
-                <span class="points-label">📊 領地ポイント</span>
-                <span class="points-value">0</span>
-                <span class="points-rate">0/sec</span>
-            </div>
             <!-- 電子空間オーバーレイ（GPS確定前） -->
             <div id="cyber-overlay">
                 <canvas id="cyber-canvas"></canvas>
@@ -1087,6 +1081,13 @@
                     </svg>現在地を取得する</button>
                 <p style="font-size:0.7rem;color:#665577">位置情報の許可が必要です</p>
             </div>
+        </div>
+
+        <!-- 領地ポイント表示 (map-layer外) -->
+        <div id="territory-points-display" class="inactive">
+            <span class="points-label">📊 領地ポイント</span>
+            <span class="points-value">0</span>
+            <span class="points-rate">0/sec</span>
         </div>
 
         <!-- Battle overlay (shown when WASM is in battle state) -->
