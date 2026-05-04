@@ -294,12 +294,15 @@
     <div class="ctrl-row">
       <label>キャプチャ幅(W): <input type="number" id="cap-w" min="8" max="1024" value="128"></label>
       <label>キャプチャ高(H): <input type="number" id="cap-h" min="8" max="1024" value="128"></label>
-      <label title="何フレームごとに次の行にするか（アニメ1行あたりのフレーム数）">1行のフレーム数:
-        <input type="number" id="cap-cols" min="1" max="64" value="8" style="width:50px">
-      </label>
       <button id="btn-cap-clear" class="warn">🗑 全削除</button>
       <button id="btn-cap-export">📋 PNG エクスポート</button>
       <span style="color:#666;font-size:.8rem">← シートをクリックでフレーム追加</span>
+    </div>
+    <div class="ctrl-row">
+      <label>アニメ行: <select id="cap-row-sel"></select></label>
+      <input type="text" id="cap-row-name" placeholder="行名（例: Walk）" style="width:110px; background:#111; color:#eee; border:1px solid #555; border-radius:3px; padding:2px 4px;">
+      <button id="btn-cap-row-add">＋ 行追加</button>
+      <button id="btn-cap-row-del" class="warn">－ 行削除</button>
     </div>
 
     <!-- F0 基準座標表示 -->
@@ -944,6 +947,7 @@ function initViewer() {
   buildStrip();
   drawFrameEditPreview();
   buildCapSheet();
+  buildCapRowSel();
 }
 
 function rebuildAnimSelect() {
@@ -1267,12 +1271,29 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // ═══════════════════════════════════════════════════════════════════
 // Tab 2: Frame Capture
 // ═══════════════════════════════════════════════════════════════════
-let capturedFrames  = [];   // [{sx,sy,w,h}] in raw image coords
-let capSelectedIdx  = -1;
-let capSheetScale   = 1;
-let capMouseX       = 0;
-let capMouseY       = 0;
-let capMouseOver    = false; // カーソルがシート上にあるか
+let capturedRows   = [{ name: 'Idle', frames: [] }];
+let capCurrentRow  = 0;
+let capSelectedIdx = -1;
+let capSheetScale  = 1;
+let capMouseX      = 0;
+let capMouseY      = 0;
+let capMouseOver   = false; // カーソルがシート上にあるか
+// capturedFrames → 現在行のフレーム配列への透過アクセス
+Object.defineProperty(window, 'capturedFrames', {
+  get() { return capturedRows[capCurrentRow].frames; },
+  set(v) { capturedRows[capCurrentRow].frames = v; },
+});
+function buildCapRowSel() {
+  const sel = document.getElementById('cap-row-sel');
+  sel.innerHTML = '';
+  capturedRows.forEach((r, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${i}: ${r.name} (${r.frames.length}f)`;
+    sel.appendChild(opt);
+  });
+  sel.value = capCurrentRow;
+}
 
 const capSheetWrap  = document.getElementById('cap-sheet-wrap');
 const capSheetCv    = document.getElementById('cap-sheet');
@@ -1378,10 +1399,10 @@ capSheetWrap.addEventListener('click', e => {
 
 capWInp.addEventListener('input', drawCapOverlay);
 capHInp.addEventListener('input', drawCapOverlay);
-document.getElementById('cap-cols').addEventListener('input', buildCapFrameList);
 
 function buildCapFrameList() {
   capFramesEl.innerHTML = '';
+  buildCapRowSel();
   // F0基準座標を更新
   const f0InfoEl  = document.getElementById('cap-f0-info');
   const f0TextEl  = document.getElementById('cap-f0-text');
@@ -1392,19 +1413,8 @@ function buildCapFrameList() {
   } else {
     f0InfoEl.style.display = 'none';
   }
-  const COLS = Math.max(1, +document.getElementById('cap-cols').value || 8);
   const THUMB = 64;
   capturedFrames.forEach((f, i) => {
-    // 行区切りを挿入
-    if (i > 0 && i % COLS === 0) {
-      const sep = document.createElement('div');
-      sep.style.cssText = 'width:100%; height:2px; background:#334; margin:4px 0; flex-basis:100%;';
-      const lbl = document.createElement('span');
-      lbl.style.cssText = 'color:#556; font-size:.72rem; font-family:monospace;';
-      lbl.textContent = `── 行${Math.floor(i / COLS)} ──`;
-      sep.appendChild(lbl);
-      capFramesEl.appendChild(sep);
-    }
     const cell = document.createElement('div');
     cell.className = 'cap-cell' + (i === capSelectedIdx ? ' selected' : '');
 
@@ -1696,34 +1706,53 @@ document.getElementById('btn-cap-dn').addEventListener('click', () => {
   buildCapSheet(); buildCapFrameList(); showCapDetail();
 });
 document.getElementById('btn-cap-clear').addEventListener('click', () => {
-  capturedFrames = []; capSelectedIdx = -1;
+  capturedRows = [{ name: 'Idle', frames: [] }];
+  capCurrentRow = 0; capSelectedIdx = -1;
+  buildCapSheet(); buildCapFrameList(); showCapDetail();
+});
+
+// ---- 行追加 / 行削除 ----
+document.getElementById('btn-cap-row-add').addEventListener('click', () => {
+  const name = document.getElementById('cap-row-name').value.trim() || `Anim${capturedRows.length}`;
+  capturedRows.push({ name, frames: [] });
+  capCurrentRow = capturedRows.length - 1;
+  capSelectedIdx = -1;
+  document.getElementById('cap-row-name').value = '';
+  buildCapSheet(); buildCapFrameList(); showCapDetail();
+});
+document.getElementById('btn-cap-row-del').addEventListener('click', () => {
+  if (capturedRows.length <= 1) return;
+  capturedRows.splice(capCurrentRow, 1);
+  capCurrentRow = Math.min(capCurrentRow, capturedRows.length - 1);
+  capSelectedIdx = -1;
+  buildCapSheet(); buildCapFrameList(); showCapDetail();
+});
+document.getElementById('cap-row-sel').addEventListener('change', e => {
+  capCurrentRow = +e.target.value;
+  capSelectedIdx = -1;
   buildCapSheet(); buildCapFrameList(); showCapDetail();
 });
 
 // ---- export captured frames as PNG ----
 document.getElementById('btn-cap-export').addEventListener('click', () => {
-  if (!capturedFrames.length || !rawImg) return;
-  const n     = capturedFrames.length;
-  const COLS  = Math.max(1, +document.getElementById('cap-cols').value || 8);
-  const ROWS  = Math.ceil(n / COLS);
-  // セルサイズ: 幅・高さそれぞれの最大値（正方形強制しない）
-  const CELL_W = Math.max(...capturedFrames.map(f => f.w));
-  const CELL_H = Math.max(...capturedFrames.map(f => f.h));
-  const out   = document.createElement('canvas');
-  out.width   = CELL_W * COLS;
-  out.height  = CELL_H * ROWS;
-  const oc    = out.getContext('2d');
-  // 背景はオレンジ（クロマキーは後で適用）
+  const activeRows = capturedRows.filter(r => r.frames.length > 0);
+  if (!activeRows.length || !rawImg) return;
+  const COLS   = Math.max(...activeRows.map(r => r.frames.length));
+  const ROWS   = activeRows.length;
+  const allF   = activeRows.flatMap(r => r.frames);
+  const CELL_W = Math.max(...allF.map(f => f.w));
+  const CELL_H = Math.max(...allF.map(f => f.h));
+  const out    = document.createElement('canvas');
+  out.width    = CELL_W * COLS;
+  out.height   = CELL_H * ROWS;
+  const oc     = out.getContext('2d');
   oc.fillStyle = '#FF8000';
   oc.fillRect(0, 0, out.width, out.height);
   oc.imageSmoothingEnabled = false;
-  const src = rawImg; // 元画像をそのまま使用
-  capturedFrames.forEach((f, i) => {
-    const col = i % COLS, row = Math.floor(i / COLS);
-    // 各フレームをセル内に左上寄せ（センタリングしない）
-    const dx = col * CELL_W;
-    const dy = row * CELL_H;
-    oc.drawImage(src, f.sx, f.sy, f.w, f.h, dx, dy, f.w, f.h);
+  activeRows.forEach((r, rowIdx) => {
+    r.frames.forEach((f, colIdx) => {
+      oc.drawImage(rawImg, f.sx, f.sy, f.w, f.h, colIdx * CELL_W, rowIdx * CELL_H, f.w, f.h);
+    });
   });
   out.toBlob(blob => {
     const a = document.createElement('a');
