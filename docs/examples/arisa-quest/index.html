@@ -1992,6 +1992,10 @@
             postTextarea.value = '';
             charCount.textContent = '0';
             showToast('投稿しました！ 💬');
+            
+            // 投稿時のポイント加算
+            territoryPoints += 10;
+            updateTerritoryPointsDisplay();
         });
 
         btnVoice.addEventListener('click', async () => {
@@ -2287,13 +2291,13 @@
         }
         document.getElementById('btn-gps').addEventListener('click', startGPS);
         
-        // ── 領地ポイント生成ループ（毎秒） ──────────────────────────────────
+        // ── 領地ポイント生成ループ（10秒おき） ──────────────────────────────────
         setInterval(() => {
             if (territoryMarkers.length >= 3 && territoryPointsPerSecond > 0) {
-                territoryPoints += territoryPointsPerSecond;
+                territoryPoints += territoryPointsPerSecond * 10;
                 updateTerritoryPointsDisplay();
             }
-        }, 1000);
+        }, 10000);
 
         // ── アリサタップ → サーチ演出 → 敵スポーン ───────────────────────────
         const MAX_ENEMIES = 5; // フィールドの最大敵数
