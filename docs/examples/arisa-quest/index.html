@@ -900,7 +900,10 @@
             position: absolute; bottom: var(--tab-h); left: 0; right: 0;
             background: linear-gradient(180deg, rgba(10,5,30,0.70), rgba(5,2,15,0.75));
             border-top: 2px solid #6633aa; padding: 12px; z-index: 100;
-            display: flex; flex-direction: column; gap: 8px;
+            display: none; flex-direction: column; gap: 8px;
+        }
+        #post-input-panel.active {
+            display: flex;
         }
         #post-input-panel textarea {
             flex: 1; min-height: 40px; max-height: 60px;
@@ -1251,12 +1254,15 @@
 
         <!-- 投稿入力パネル（画面下部） -->
         <div id="post-input-panel">
+            <!-- 位置情報表示 -->
+            <div id="post-location-info" style="font-size:0.7rem;color:#aaddff;margin-bottom:6px;text-align:center;min-height:12px;"></div>
             <!-- テキスト入力エリア -->
             <div style="display:flex;gap:8px;align-items:flex-end;width:100%;">
                 <textarea id="post-textarea" placeholder="いまここで何があった？" maxlength="200"></textarea>
                 <div class="char-count"><span id="char-count">0</span>/200</div>
                 <button id="btn-voice-input" title="音声入力">🎤</button>
                 <button id="btn-post-submit">📤</button>
+                <button id="btn-post-cancel" title="キャンセル" style="background:#aa5555;">✕</button>
             </div>
         </div>
 
@@ -1971,9 +1977,14 @@
         const postTextarea = document.getElementById('post-textarea');
         const charCount = document.getElementById('char-count');
         const btnPost = document.getElementById('btn-post-submit');
+        const btnCancel = document.getElementById('btn-post-cancel');
         const btnVoice = document.getElementById('btn-voice-input');
         const postListPanel = document.getElementById('post-list-panel');
         const btnClosePostList = document.getElementById('btn-close-post-list');
+        const postInputPanel = document.getElementById('post-input-panel');
+        const postLocationInfo = document.getElementById('post-location-info');
+        
+        let postClickPos = null;  // マップクリックで選択した投稿位置
 
         postTextarea.addEventListener('input', (e) => {
             charCount.textContent = e.target.value.length;
@@ -1981,11 +1992,12 @@
 
         btnPost.addEventListener('click', () => {
             const text = postTextarea.value.trim();
-            if (!text || !arisaPos) return alert('現在地取得後に投稿できます');
+            if (!text) return alert('投稿文を入力してください');
+            if (!postClickPos) return alert('位置情報が取得できません');
             
             const newPost = {
                 id: Date.now().toString(),
-                text, lat: arisaPos[0], lng: arisaPos[1],
+                text, lat: postClickPos[0], lng: postClickPos[1],
                 time: new Date().toISOString(),
                 likes: 0
             };
@@ -2000,6 +2012,25 @@
             // 投稿時のポイント加算
             territoryPoints += 10;
             updateTerritoryPointsDisplay();
+            
+            // パネルを閉じる
+            postInputPanel.classList.remove('active');
+            postClickPos = null;
+        });
+        
+        btnCancel.addEventListener('click', () => {
+            postInputPanel.classList.remove('active');
+            postTextarea.value = '';
+            charCount.textContent = '0';
+            postClickPos = null;
+        });
+        
+        // マップクリックで投稿パネルを表示
+        map.on('click', (e) => {
+            postClickPos = [e.latlng.lat, e.latlng.lng];
+            postLocationInfo.textContent = `📍 ${postClickPos[0].toFixed(4)}, ${postClickPos[1].toFixed(4)}`;
+            postInputPanel.classList.add('active');
+            postTextarea.focus();
         });
 
         btnVoice.addEventListener('click', async () => {
