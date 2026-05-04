@@ -296,6 +296,7 @@
       <label>キャプチャ高(H): <input type="number" id="cap-h" min="8" max="1024" value="128"></label>
       <button id="btn-cap-clear" class="warn">🗑 全削除</button>
       <button id="btn-cap-export">📋 PNG エクスポート</button>
+      <button id="btn-cap-open-viewer" style="background:#1a4a1a; border-color:#2a8a2a;">▶ ビューアーで開く</button>
       <span style="color:#666;font-size:.8rem">← シートをクリックでフレーム追加</span>
     </div>
     <div class="ctrl-row">
@@ -1780,8 +1781,58 @@ document.getElementById('btn-cap-export').addEventListener('click', () => {
   }, 'image/png');
 });
 
-// ═══════════════════════════════════════════════════════════════════
-// export spec
+// ---- ビューアーで開く ----
+function buildCapSheetCanvas() {
+  const activeRows = capturedRows.filter(r => r.frames.length > 0);
+  if (!activeRows.length || !rawImg) return null;
+  const COLS   = Math.max(...activeRows.map(r => r.frames.length));
+  const allF   = activeRows.flatMap(r => r.frames);
+  const CELL_W = Math.max(...allF.map(f => f.w));
+  const CELL_H = Math.max(...allF.map(f => f.h));
+  const out    = document.createElement('canvas');
+  out.width    = CELL_W * COLS;
+  out.height   = CELL_H * activeRows.length;
+  const oc     = out.getContext('2d');
+  oc.fillStyle = '#FF8000';
+  oc.fillRect(0, 0, out.width, out.height);
+  oc.imageSmoothingEnabled = false;
+  activeRows.forEach((r, rowIdx) => {
+    r.frames.forEach((f, colIdx) => {
+      oc.drawImage(rawImg, f.sx, f.sy, f.w, f.h, colIdx * CELL_W, rowIdx * CELL_H, f.w, f.h);
+    });
+  });
+  return { canvas: out, COLS, CELL_W, CELL_H, activeRows };
+}
+
+document.getElementById('btn-cap-open-viewer').addEventListener('click', () => {
+  const result = buildCapSheetCanvas();
+  if (!result) return;
+  const { canvas, COLS, CELL_W, CELL_H, activeRows } = result;
+  spec = {
+    frame_w:  CELL_W,
+    frame_h:  CELL_H,
+    cols:     COLS,
+    bg:       '#FF8000',
+    origin_x: 0,
+    origin_y: 0,
+    anims:    activeRows.map(r => r.name),
+  };
+  canvas.toBlob(blob => {
+    const img = new Image();
+    img.onload = () => {
+      rawImg = img;
+      chromaRGB = null;
+      initSizes(); validate();
+      buildChroma(); buildSheetCanvas(); initViewer();
+      // ビューアータブへ切り替え
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelector('.tab-btn[data-tab="viewer"]').classList.add('active');
+      document.getElementById('tab-viewer').classList.add('active');
+    };
+    img.src = URL.createObjectURL(blob);
+  }, 'image/png');
+});
 document.getElementById('btn-export-spec').addEventListener('click', () => {
   const avgW = Math.round(colWidths.reduce((a,b)=>a+b,0) / colWidths.length);
   const avgH = Math.round(rowHeights.reduce((a,b)=>a+b,0) / rowHeights.length);
