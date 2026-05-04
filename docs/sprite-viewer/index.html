@@ -124,6 +124,9 @@
   <!-- アニメーション再生コントロール -->
   <div class="ctrl-row">
     <label>アニメーション: <select id="anim-select"></select></label>
+    <input type="text" id="anim-new-name" placeholder="アニメ名" style="width:100px">
+    <button id="btn-anim-add">＋ 行追加</button>
+    <button id="btn-anim-del" class="warn">－ 行削除</button>
     <label>FPS: <input type="range" id="fps-range" min="1" max="30" value="7"><span id="fps-label">7</span></label>
     <button id="btn-play"   class="active">⏸ 停止</button>
     <button id="btn-grid">グリッド ON</button>
@@ -690,18 +693,47 @@ function buildStrip() {
 // ═══════════════════════════════════════════════════════════════════
 function initViewer() {
   viewerDiv.style.display = 'flex';
-  animSel.innerHTML = '';
-  spec.anims.forEach((name, i) => {
-    const opt = document.createElement('option');
-    opt.value = i; opt.textContent = `${i}: ${name}`;
-    animSel.appendChild(opt);
-  });
+  rebuildAnimSelect();
   resizePreviewCanvas();
   frame = 0;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(tick);
   buildStrip();
 }
+
+function rebuildAnimSelect() {
+  animSel.innerHTML = '';
+  spec.anims.forEach((name, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = `${i}: ${name}`;
+    animSel.appendChild(opt);
+  });
+}
+
+document.getElementById('btn-anim-add').addEventListener('click', () => {
+  const nameInp = document.getElementById('anim-new-name');
+  const name = nameInp.value.trim() || `Anim${spec.anims.length}`;
+  spec.anims.push(name);
+  rowHeights.push(rowHeights[rowHeights.length - 1] || spec.frame_h);
+  frameEnabled = Array(spec.cols).fill(true); // reset strip selection
+  nameInp.value = '';
+  rebuildAnimSelect();
+  animSel.value = spec.anims.length - 1;
+  buildSheetCanvas(); buildStrip();
+  infobar.textContent = `行追加: ${name} (行${spec.anims.length - 1})`;
+});
+
+document.getElementById('btn-anim-del').addEventListener('click', () => {
+  const idx = +animSel.value;
+  if (spec.anims.length <= 1) { infobar.textContent = '最低1行必要です'; return; }
+  spec.anims.splice(idx, 1);
+  rowHeights.splice(idx, 1);
+  const newIdx = Math.min(idx, spec.anims.length - 1);
+  rebuildAnimSelect();
+  animSel.value = newIdx;
+  buildSheetCanvas(); buildStrip();
+  infobar.textContent = `行削除完了`;
+});
 
 function resizePreviewCanvas() {
   const fw = colWidths[0] || spec.frame_w;
