@@ -3037,8 +3037,14 @@
                 </div>
             `);
             
-            // 領地座標を記録
-            territoryMarkers.push([enemyInfo.lat, enemyInfo.lng]);
+            // 領地座標を記録（マーカーのアイコン表示位置を考慮）
+            const markerLatLng = L.latLng(enemyInfo.lat, enemyInfo.lng);
+            const markerPixel = map.latLngToContainerPoint(markerLatLng);
+            // アイコンアンカー [25, 60] の影響を考慮（視覚的な中心に調整）
+            const iconOffset = L.point(-25 + 25, -60 + 30); // アイコン中心から視覚的な中心へ
+            const adjustedPixel = markerPixel.add(iconOffset);
+            const adjustedLatLng = map.containerPointToLatLng(adjustedPixel);
+            territoryMarkers.push([adjustedLatLng.lat, adjustedLatLng.lng]);
             
             // 3つ以上の領地がある場合はポリゴンを表示
             updateTerritoryPolygon();
