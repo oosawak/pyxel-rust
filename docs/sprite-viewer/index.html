@@ -244,6 +244,14 @@
       </div>
       <div id="frame-edit-wrap" style="display:none; flex-direction:column; gap:6px;">
         <div style="color:#7ec8e3;font-size:.8rem;">🖊 編集プレビュー <span id="frame-edit-label">F0</span></div>
+        <div class="ctrl-row" style="flex-wrap:wrap;">
+          <button id="btn-eraser2">🧹 消しゴム OFF</button>
+          <label style="color:#aaa" id="eraser-size-wrap2" style="display:none">サイズ:
+            <input type="range" id="eraser-size2" min="2" max="60" value="12" style="width:60px">
+            <span id="eraser-size-label2">12</span>px
+          </label>
+          <button id="btn-pick2">🎨 スポイト</button>
+        </div>
         <canvas id="frame-edit-cv" style="image-rendering:pixelated;border:1px solid #334;cursor:crosshair;display:block;"></canvas>
       </div>
     </div>
@@ -592,20 +600,28 @@ document.getElementById('btn-refine').addEventListener('click', () => refineAlph
 let eraserMode   = false;
 let eraserActive = false; // マウスドラッグ中
 const eraserBtn  = document.getElementById('btn-eraser');
+const eraserBtn2 = document.getElementById('btn-eraser2');
 const eraserSizeInp   = document.getElementById('eraser-size');
 const eraserSizeLabel = document.getElementById('eraser-size-label');
 const eraserSizeWrap  = document.getElementById('eraser-size-wrap');
+const eraserSizeInp2  = document.getElementById('eraser-size2');
+const eraserSizeLabel2= document.getElementById('eraser-size-label2');
+const eraserSizeWrap2 = document.getElementById('eraser-size-wrap2');
 
-eraserBtn.addEventListener('click', () => {
-  eraserMode = !eraserMode;
-  eraserBtn.textContent = `🧹 消しゴム ${eraserMode ? 'ON' : 'OFF'}`;
+function syncEraserUI() {
+  const label = `🧹 消しゴム ${eraserMode ? 'ON' : 'OFF'}`;
+  eraserBtn.textContent  = label;
+  eraserBtn2.textContent = label;
   eraserBtn.classList.toggle('active', eraserMode);
-  eraserSizeWrap.style.display = eraserMode ? '' : 'none';
+  eraserBtn2.classList.toggle('active', eraserMode);
+  eraserSizeWrap.style.display  = eraserMode ? '' : 'none';
+  eraserSizeWrap2.style.display = eraserMode ? '' : 'none';
   sheetCv.style.cursor = eraserMode ? 'crosshair' : '';
-});
-eraserSizeInp.addEventListener('input', () => {
-  eraserSizeLabel.textContent = eraserSizeInp.value;
-});
+}
+eraserBtn.addEventListener('click',  () => { eraserMode = !eraserMode; syncEraserUI(); });
+eraserBtn2.addEventListener('click', () => { eraserMode = !eraserMode; syncEraserUI(); });
+eraserSizeInp.addEventListener('input',  () => { eraserSizeInp2.value = eraserSizeInp.value;  eraserSizeLabel.textContent  = eraserSizeInp.value;  eraserSizeLabel2.textContent = eraserSizeInp.value; });
+eraserSizeInp2.addEventListener('input', () => { eraserSizeInp.value  = eraserSizeInp2.value; eraserSizeLabel2.textContent = eraserSizeInp2.value; eraserSizeLabel.textContent  = eraserSizeInp2.value; });
 
 // shared helper: erase circle at raw image coords rx,ry with raw radius r_raw
 function eraseAtRaw(rx, ry, r_raw) {
@@ -979,14 +995,20 @@ tolRange.addEventListener('input', () => {
   if (ckImg) { buildChroma(); buildSheetCanvas(); buildStrip(); drawFrameEditPreview(); }
 });
 
-const btnPick = document.getElementById('btn-pick');
-btnPick.addEventListener('click', () => {
-  pickMode = !pickMode;
+const btnPick  = document.getElementById('btn-pick');
+const btnPick2 = document.getElementById('btn-pick2');
+
+function syncPickUI() {
+  const label = pickMode ? '🎨 スポイト中…' : '🎨 スポイト';
+  btnPick.textContent  = label;
+  btnPick2.textContent = label;
   btnPick.classList.toggle('active', pickMode);
-  btnPick.textContent = pickMode ? '🎨 スポイト中…' : '🎨 スポイト';
+  btnPick2.classList.toggle('active', pickMode);
   gridOvl.style.cursor = pickMode ? 'crosshair' : '';
   frameEditCv.style.cursor = pickMode ? 'crosshair' : (eraserMode ? 'crosshair' : 'pointer');
-});
+}
+btnPick.addEventListener('click',  () => { pickMode = !pickMode; syncPickUI(); });
+btnPick2.addEventListener('click', () => { pickMode = !pickMode; syncPickUI(); });
 
 function pickColorAt(imgX, imgY) {
   const tmp  = document.createElement('canvas');
@@ -996,10 +1018,7 @@ function pickColorAt(imgX, imgY) {
   const px   = tctx.getImageData(imgX, imgY, 1, 1).data;
   chromaRGB = [px[0], px[1], px[2]];
   pickMode  = false;
-  btnPick.classList.remove('active');
-  btnPick.textContent = '🎨 スポイト';
-  gridOvl.style.cursor = '';
-  frameEditCv.style.cursor = '';
+  syncPickUI();
   buildChroma(); buildSheetCanvas(); buildStrip(); drawFrameEditPreview();
 }
 
