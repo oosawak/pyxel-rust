@@ -251,6 +251,7 @@
             <span id="eraser-size-label2">12</span>px
           </label>
           <button id="btn-pick2">🎨 スポイト</button>
+          <button class="btn-undo" onclick="undo()" style="opacity:.4" disabled>↩ Undo</button>
         </div>
         <canvas id="frame-edit-cv" style="image-rendering:pixelated;border:1px solid #334;cursor:crosshair;display:block;"></canvas>
       </div>
@@ -595,6 +596,47 @@ function refineAlpha(iterations = 2) {
 document.getElementById('btn-refine').addEventListener('click', () => refineAlpha(2));
 
 // ═══════════════════════════════════════════════════════════════════
+// Undo stack
+// ═══════════════════════════════════════════════════════════════════
+const UNDO_MAX = 20;
+const undoStack = []; // [{ckImg: canvas, chromaRGB: [...]}]
+
+function cloneCanvas(src) {
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  c.getContext('2d').drawImage(src, 0, 0);
+  return c;
+}
+
+function pushUndo() {
+  if (!ckImg) return;
+  undoStack.push({ ckImg: cloneCanvas(ckImg), chromaRGB: chromaRGB ? [...chromaRGB] : null });
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  syncUndoUI();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  const snap = undoStack.pop();
+  ckImg = snap.ckImg;
+  chromaRGB = snap.chromaRGB;
+  buildSheetCanvas(); buildStrip(); drawFrameEditPreview();
+  syncUndoUI();
+}
+
+function syncUndoUI() {
+  const hasUndo = undoStack.length > 0;
+  document.querySelectorAll('.btn-undo').forEach(b => {
+    b.disabled = !hasUndo;
+    b.style.opacity = hasUndo ? '1' : '0.4';
+  });
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+});
+
+// ═══════════════════════════════════════════════════════════════════
 // Eraser tool
 // ═══════════════════════════════════════════════════════════════════
 let eraserMode   = false;
@@ -709,6 +751,7 @@ function eraseOnFrameEdit(mx, my) {
 
 frameEditCv.addEventListener('mousedown', e => {
   if (!eraserMode) return;
+  pushUndo();
   frameEditActive = true;
   const r = frameEditCv.getBoundingClientRect();
   eraseOnFrameEdit(e.clientX - r.left, e.clientY - r.top);
@@ -1016,6 +1059,7 @@ function pickColorAt(imgX, imgY) {
   const tctx = tmp.getContext('2d');
   tctx.drawImage(rawImg, 0, 0);
   const px   = tctx.getImageData(imgX, imgY, 1, 1).data;
+  pushUndo();
   chromaRGB = [px[0], px[1], px[2]];
   pickMode  = false;
   syncPickUI();
