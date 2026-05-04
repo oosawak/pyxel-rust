@@ -770,23 +770,23 @@
         
         /* ── Territory Point Display ──────────────────────────────── */
         #territory-points-display {
-            position: fixed; top: 12px; right: 12px; z-index: 250;
+            position: absolute; bottom: calc(var(--tab-h) + 70px); right: 12px; z-index: 250;
             background: linear-gradient(135deg, rgba(136,68,255,0.95), rgba(100,40,200,0.95));
             border: 2px solid #8844ff; border-radius: 12px;
-            padding: 12px 16px; font-family: 'DotGothic16', monospace;
+            padding: 10px 14px; font-family: 'DotGothic16', monospace;
             box-shadow: 0 0 12px rgba(136,68,255,0.5), inset 0 0 8px rgba(255,255,255,0.1);
-            min-width: 140px; text-align: center;
+            min-width: 130px; text-align: center;
         }
         #territory-points-display .points-label {
-            font-size: 0.7rem; color: #ddbbff; letter-spacing: 0.08em;
-            display: block; margin-bottom: 4px;
+            font-size: 0.65rem; color: #ddbbff; letter-spacing: 0.08em;
+            display: block; margin-bottom: 3px;
         }
         #territory-points-display .points-value {
-            font-size: 1.6rem; color: #ffff88; letter-spacing: 1px;
+            font-size: 1.4rem; color: #ffff88; letter-spacing: 1px;
             display: block; font-weight: bold;
         }
         #territory-points-display .points-rate {
-            font-size: 0.65rem; color: #bbaaff; margin-top: 4px;
+            font-size: 0.6rem; color: #bbaaff; margin-top: 3px;
             display: block; letter-spacing: 0.05em;
         }
         #territory-points-display.inactive {
@@ -900,7 +900,7 @@
             position: absolute; bottom: var(--tab-h); left: 0; right: 0;
             background: linear-gradient(180deg, rgba(10,5,30,0.70), rgba(5,2,15,0.75));
             border-top: 2px solid #6633aa; padding: 12px; z-index: 100;
-            display: flex; gap: 8px; align-items: flex-end;
+            display: flex; flex-direction: column; gap: 8px;
         }
         #post-input-panel textarea {
             flex: 1; min-height: 40px; max-height: 60px;
@@ -1251,11 +1251,15 @@
 
         <!-- 投稿入力パネル（画面下部） -->
         <div id="post-input-panel">
-            <div id="post-panel-points" style="font-size:0.7rem;color:#bbaaff;margin-bottom:6px;text-align:center;letter-spacing:0.08em;min-height:14px;"></div>
-            <textarea id="post-textarea" placeholder="いまここで何があった？" maxlength="200"></textarea>
-            <div class="char-count"><span id="char-count">0</span>/200</div>
-            <button id="btn-voice-input" title="音声入力">🎤</button>
-            <button id="btn-post-submit">📤</button>
+            <!-- ポイント情報（右寄せ） -->
+            <div id="post-panel-points" style="text-align:right;font-size:0.7rem;color:#bbaaff;margin-bottom:8px;letter-spacing:0.08em;min-height:14px;"></div>
+            <!-- テキスト入力エリア -->
+            <div style="display:flex;gap:8px;align-items:flex-end;width:100%;">
+                <textarea id="post-textarea" placeholder="いまここで何があった？" maxlength="200"></textarea>
+                <div class="char-count"><span id="char-count">0</span>/200</div>
+                <button id="btn-voice-input" title="音声入力">🎤</button>
+                <button id="btn-post-submit">📤</button>
+            </div>
         </div>
 
         <!-- タブバー（常時表示） -->
