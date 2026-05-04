@@ -93,6 +93,7 @@
     <button id="btn-chroma" class="active">マゼンタ除去 ON</button>
     <button id="btn-pick">🎨 スポイト</button>
     <span id="chroma-swatch" style="display:inline-block;width:16px;height:16px;border:1px solid #666;border-radius:3px;vertical-align:middle;background:#FF00FF"></span>
+    <label style="color:#aaa">許容幅: <input type="range" id="tol-range" min="0" max="120" value="50"><span id="tol-label">50</span></label>
   </div>
 
   <div id="infobar"></div>
@@ -125,6 +126,7 @@
       </label>
       <button id="btn-reset-strip">リセット</button>
       <button id="btn-export-spec">📋 spec.json エクスポート</button>
+      <button id="btn-normalize">✂️ 正規化 PNG エクスポート</button>
     </div>
 
     <!-- 選択中アニメ行のフレームストリップ -->
@@ -155,6 +157,7 @@ let playing   = true;
 let showGrid  = false;
 let useChroma = true;
 let chromaRGB = null;   // [r,g,b] — null = auto-detect from corners
+let chromaTol = 50;     // chroma key tolerance (0-120)
 let pickMode  = false;
 let rafId     = null;
 let lastT     = 0;
@@ -305,7 +308,7 @@ function buildChroma() {
   const detHex = toHex(tr, tg, tb);
   const id = ctx.getImageData(0, 0, cv.width, cv.height);
   const d  = id.data;
-  const TOL = 50;
+  const TOL = chromaTol;
   for (let i = 0; i < d.length; i += 4) {
     if (Math.abs(d[i]-tr) < TOL && Math.abs(d[i+1]-tg) < TOL && Math.abs(d[i+2]-tb) < TOL) d[i+3] = 0;
   }
@@ -596,7 +599,78 @@ document.getElementById('btn-reset-strip').addEventListener('click', () => {
   initSizes(); buildStrip(); buildSheetCanvas();
 });
 
-// ---- export spec ----
+// ---- normalize export ----
+// For each frame: find bounding box of non-transparent pixels in ckImg,
+// scale content to fit within OUT_SIZE x OUT_SIZE preserving aspect ratio,
+// center it, and write into a new normalized sprite sheet PNG.
+document.getElementById('btn-normalize').addEventListener('click', () => {
+  if (!ckImg) return;
+  const OUT = 128;
+  const COLS = spec.cols;
+  const ROWS = spec.anims.length;
+  const cOff = colOffsets();
+  const rOff = rowOffsets();
+
+  const out = document.createElement('canvas');
+  out.width  = OUT * COLS;
+  out.height = OUT * ROWS;
+  const oc = out.getContext('2d');
+
+  for (let row = 0; row < ROWS; row++) {
+    const sy = rOff[row];
+    const sh = rowHeights[row];
+    for (let col = 0; col < COLS; col++) {
+      const sx = cOff[col];
+      const sw = colWidths[col];
+
+      // sample frame pixels from ckImg
+      const tmp = document.createElement('canvas');
+      tmp.width = sw; tmp.height = sh;
+      const tc = tmp.getContext('2d');
+      tc.drawImage(ckImg, sx, sy, sw, sh, 0, 0, sw, sh);
+      const id = tc.getImageData(0, 0, sw, sh);
+      const d  = id.data;
+
+      // find bounding box of non-transparent pixels
+      let minX = sw, minY = sh, maxX = 0, maxY = 0;
+      for (let py = 0; py < sh; py++) {
+        for (let px = 0; px < sw; px++) {
+          if (d[(py * sw + px) * 4 + 3] > 10) {
+            if (px < minX) minX = px;
+            if (px > maxX) maxX = px;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+          }
+        }
+      }
+
+      const dstX = col * OUT;
+      const dstY = row * OUT;
+      oc.fillStyle = '#FF00FF';
+      oc.fillRect(dstX, dstY, OUT, OUT);
+
+      if (maxX >= minX && maxY >= minY) {
+        const cw = maxX - minX + 1;
+        const ch = maxY - minY + 1;
+        // scale preserving aspect ratio to fit OUT x OUT
+        const scale = Math.min(OUT / cw, OUT / ch);
+        const dw = Math.round(cw * scale);
+        const dh = Math.round(ch * scale);
+        const ox = dstX + Math.round((OUT - dw) / 2);
+        const oy = dstY + Math.round((OUT - dh) / 2);
+        oc.imageSmoothingEnabled = false;
+        oc.drawImage(tmp, minX, minY, cw, ch, ox, oy, dw, dh);
+      }
+    }
+  }
+
+  out.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'normalized.png';
+    a.click();
+  }, 'image/png');
+});
 document.getElementById('btn-export-spec').addEventListener('click', () => {
   const avgW = Math.round(colWidths.reduce((a,b)=>a+b,0) / colWidths.length);
   const avgH = Math.round(rowHeights.reduce((a,b)=>a+b,0) / rowHeights.length);
