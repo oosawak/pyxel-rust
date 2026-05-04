@@ -105,7 +105,7 @@
                 padding: 12px; display: none; flex-direction: column; gap: 8px; }
   #cap-main-row { display: flex; gap: 16px; align-items: flex-start; }
   #cap-left     { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  #cap-right    { flex-shrink: 0; }
+  #cap-right    { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; max-height: 90vh; overflow-y: auto; }
   #cap-preview-wrap { display: flex; flex-direction: column; gap: 8px; }
 
   /* ---- sheet overview ---- */
@@ -275,7 +275,10 @@
           <canvas id="cap-sheet"></canvas>
           <canvas id="cap-overlay"></canvas>
         </div>
+      </div><!-- #cap-left -->
 
+      <!-- 右カラム：フレーム一覧 + 調整 + プレビュー -->
+      <div id="cap-right">
         <!-- キャプチャ済みフレーム一覧 -->
         <div id="cap-frames"></div>
 
@@ -292,10 +295,8 @@
             <button id="btn-cap-dn">後へ →</button>
           </div>
         </div>
-      </div><!-- #cap-left -->
 
-      <!-- プレビュー (シートの右上に固定) -->
-      <div id="cap-right">
+        <!-- プレビュー -->
         <div id="cap-preview-wrap">
           <div class="ctrl-row" style="margin-bottom:6px">
             <span style="color:#aaa;font-size:.8rem">プレビュー</span>
