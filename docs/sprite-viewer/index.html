@@ -91,6 +91,8 @@
     <button id="btn-play"   class="active">⏸ 停止</button>
     <button id="btn-grid">グリッド ON</button>
     <button id="btn-chroma" class="active">マゼンタ除去 ON</button>
+    <button id="btn-pick">🎨 スポイト</button>
+    <span id="chroma-swatch" style="display:inline-block;width:16px;height:16px;border:1px solid #666;border-radius:3px;vertical-align:middle;background:#FF00FF"></span>
   </div>
 
   <div id="infobar"></div>
@@ -107,6 +109,12 @@
     <h2>🔧 フレームサイズ調整</h2>
 
     <div class="global-size">
+      <label>開始X:
+        <input type="number" id="g-ox" min="0" max="4096" value="0">
+      </label>
+      <label>開始Y:
+        <input type="number" id="g-oy" min="0" max="4096" value="0">
+      </label>
       <label>全体フレーム幅(W):
         <input type="number" id="g-fw" min="8" max="1024" value="128">
         <button id="btn-apply-gfw">全列に適用</button>
@@ -146,6 +154,8 @@ let fps       = 7;
 let playing   = true;
 let showGrid  = false;
 let useChroma = true;
+let chromaRGB = null;   // [r,g,b] — null = auto-detect from corners
+let pickMode  = false;
 let rafId     = null;
 let lastT     = 0;
 const SCALE   = 3;
@@ -154,14 +164,16 @@ const STRIP_S = 1.5; // strip preview scale
 // per-column widths and per-row heights (adjusted by user)
 let colWidths = [];   // length = spec.cols
 let rowHeights = [];  // length = spec.anims.length
+let originX = 0;      // sprite grid start X (skip headers/margins)
+let originY = 0;      // sprite grid start Y
 
 function colOffsets() {
-  const off = [0];
+  const off = [originX];
   for (let i = 0; i < colWidths.length - 1; i++) off.push(off[i] + colWidths[i]);
   return off;
 }
 function rowOffsets() {
-  const off = [0];
+  const off = [originY];
   for (let i = 0; i < rowHeights.length - 1; i++) off.push(off[i] + rowHeights[i]);
   return off;
 }
@@ -215,6 +227,7 @@ function handleFiles(files) {
   }));
   Promise.all(tasks).then(() => {
     if (!spec) spec = defaultSpec();
+    chromaRGB = null;  // reset to auto-detect on new file
     initSizes();
     validate();
     if (rawImg) { buildChroma(); buildSheetCanvas(); initViewer(); }
@@ -230,10 +243,14 @@ function defaultSpec() {
 }
 
 function initSizes() {
+  originX    = spec.origin_x || 0;
+  originY    = spec.origin_y || 0;
   colWidths  = Array(spec.cols).fill(spec.frame_w);
   rowHeights = Array(spec.anims.length).fill(spec.frame_h);
   gFwInput.value = spec.frame_w;
   gFhInput.value = spec.frame_h;
+  document.getElementById('g-ox').value = originX;
+  document.getElementById('g-oy').value = originY;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -280,8 +297,12 @@ function buildChroma() {
   cv.height = rawImg.height;
   const ctx = cv.getContext('2d');
   ctx.drawImage(rawImg, 0, 0);
-  const [tr, tg, tb] = detectBgColor(ctx, cv.width, cv.height);
-  const detHex = `#${[tr,tg,tb].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase()}`;
+
+  let [tr, tg, tb] = chromaRGB || detectBgColor(ctx, cv.width, cv.height);
+  if (!chromaRGB) chromaRGB = [tr, tg, tb];
+  updateSwatch(tr, tg, tb);
+
+  const detHex = toHex(tr, tg, tb);
   const id = ctx.getImageData(0, 0, cv.width, cv.height);
   const d  = id.data;
   const TOL = 50;
@@ -290,7 +311,15 @@ function buildChroma() {
   }
   ctx.putImageData(id, 0, 0);
   ckImg = cv;
-  infobar.textContent = `背景色 検出: ${detHex}  spec: ${spec.bg || '#FF00FF'}`;
+  infobar.textContent = `クロマキー: ${detHex}  spec: ${spec.bg || '#FF00FF'}`;
+}
+
+function toHex(r, g, b) {
+  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+
+function updateSwatch(r, g, b) {
+  document.getElementById('chroma-swatch').style.background = toHex(r, g, b);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -502,6 +531,56 @@ btnChroma.addEventListener('click', () => {
   if (rawImg) { buildChroma(); buildSheetCanvas(); buildStrip(); }
 });
 
+// ---- pick mode (eyedropper) ----
+const btnPick = document.getElementById('btn-pick');
+btnPick.addEventListener('click', () => {
+  pickMode = !pickMode;
+  btnPick.classList.toggle('active', pickMode);
+  btnPick.textContent = pickMode ? '🎨 スポイト中…' : '🎨 スポイト';
+  gridOvl.style.cursor = pickMode ? 'crosshair' : '';
+});
+
+gridOvl.addEventListener('click', e => {
+  if (!pickMode || !rawImg) return;
+  // map click position on overlay → source image pixel
+  const rect = gridOvl.getBoundingClientRect();
+  const cx   = e.clientX - rect.left;
+  const cy   = e.clientY - rect.top;
+  const sx   = Math.floor(cx / SCALE);
+  const sy_  = Math.floor(cy / SCALE);
+
+  // sample from the raw image using a temp canvas
+  const tmp  = document.createElement('canvas');
+  tmp.width  = rawImg.width; tmp.height = rawImg.height;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(rawImg, 0, 0);
+
+  // actual source pixel = preview is drawing (sx_frame_offset + sx)
+  const cOff = colOffsets();
+  const rOff = rowOffsets();
+  const imgX = cOff[frame] + sx;
+  const imgY = rOff[animIdx] + sy_;
+  const px   = tctx.getImageData(imgX, imgY, 1, 1).data;
+
+  chromaRGB = [px[0], px[1], px[2]];
+  pickMode  = false;
+  btnPick.classList.remove('active');
+  btnPick.textContent = '🎨 スポイト';
+  gridOvl.style.cursor = '';
+
+  buildChroma(); buildSheetCanvas(); buildStrip();
+});
+
+// ---- origin x/y ----
+document.getElementById('g-ox').addEventListener('change', () => {
+  originX = Math.max(0, +document.getElementById('g-ox').value || 0);
+  buildStrip(); buildSheetCanvas();
+});
+document.getElementById('g-oy').addEventListener('change', () => {
+  originY = Math.max(0, +document.getElementById('g-oy').value || 0);
+  buildStrip(); buildSheetCanvas();
+});
+
 // ---- global size apply ----
 document.getElementById('btn-apply-gfw').addEventListener('click', () => {
   const v = Math.max(8, +gFwInput.value || spec.frame_w);
@@ -523,8 +602,11 @@ document.getElementById('btn-export-spec').addEventListener('click', () => {
   const avgH = Math.round(rowHeights.reduce((a,b)=>a+b,0) / rowHeights.length);
   const out = {
     ...spec,
-    frame_w: avgW,
-    frame_h: avgH,
+    bg:          chromaRGB ? toHex(...chromaRGB) : (spec.bg || '#FF00FF'),
+    origin_x:    originX,
+    origin_y:    originY,
+    frame_w:     avgW,
+    frame_h:     avgH,
     col_widths:  colWidths,
     row_heights: rowHeights,
   };
