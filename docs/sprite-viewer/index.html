@@ -600,9 +600,9 @@ document.getElementById('btn-reset-strip').addEventListener('click', () => {
 });
 
 // ---- normalize export ----
-// For each frame: find bounding box of non-transparent pixels in ckImg,
-// scale content to fit within OUT_SIZE x OUT_SIZE preserving aspect ratio,
-// center it, and write into a new normalized sprite sheet PNG.
+// Pass 1: find bounding boxes for all frames, compute a GLOBAL scale
+// so the largest frame fits within OUT×OUT — all frames share the same scale.
+// Pass 2: draw each frame centered with that unified scale.
 document.getElementById('btn-normalize').addEventListener('click', () => {
   if (!ckImg) return;
   const OUT = 128;
@@ -611,10 +611,9 @@ document.getElementById('btn-normalize').addEventListener('click', () => {
   const cOff = colOffsets();
   const rOff = rowOffsets();
 
-  const out = document.createElement('canvas');
-  out.width  = OUT * COLS;
-  out.height = OUT * ROWS;
-  const oc = out.getContext('2d');
+  // pre-compute per-frame temp canvases and bounding boxes
+  const frames = [];
+  let globalMaxW = 0, globalMaxH = 0;
 
   for (let row = 0; row < ROWS; row++) {
     const sy = rOff[row];
@@ -623,7 +622,6 @@ document.getElementById('btn-normalize').addEventListener('click', () => {
       const sx = cOff[col];
       const sw = colWidths[col];
 
-      // sample frame pixels from ckImg
       const tmp = document.createElement('canvas');
       tmp.width = sw; tmp.height = sh;
       const tc = tmp.getContext('2d');
@@ -631,8 +629,7 @@ document.getElementById('btn-normalize').addEventListener('click', () => {
       const id = tc.getImageData(0, 0, sw, sh);
       const d  = id.data;
 
-      // find bounding box of non-transparent pixels
-      let minX = sw, minY = sh, maxX = 0, maxY = 0;
+      let minX = sw, minY = sh, maxX = -1, maxY = -1;
       for (let py = 0; py < sh; py++) {
         for (let px = 0; px < sw; px++) {
           if (d[(py * sw + px) * 4 + 3] > 10) {
@@ -644,23 +641,41 @@ document.getElementById('btn-normalize').addEventListener('click', () => {
         }
       }
 
-      const dstX = col * OUT;
-      const dstY = row * OUT;
-      oc.fillStyle = '#FF00FF';
-      oc.fillRect(dstX, dstY, OUT, OUT);
+      const bbox = maxX >= minX && maxY >= minY
+        ? { minX, minY, w: maxX - minX + 1, h: maxY - minY + 1 }
+        : null;
 
-      if (maxX >= minX && maxY >= minY) {
-        const cw = maxX - minX + 1;
-        const ch = maxY - minY + 1;
-        // scale preserving aspect ratio to fit OUT x OUT
-        const scale = Math.min(OUT / cw, OUT / ch);
-        const dw = Math.round(cw * scale);
-        const dh = Math.round(ch * scale);
-        const ox = dstX + Math.round((OUT - dw) / 2);
-        const oy = dstY + Math.round((OUT - dh) / 2);
-        oc.imageSmoothingEnabled = false;
-        oc.drawImage(tmp, minX, minY, cw, ch, ox, oy, dw, dh);
+      if (bbox) {
+        if (bbox.w > globalMaxW) globalMaxW = bbox.w;
+        if (bbox.h > globalMaxH) globalMaxH = bbox.h;
       }
+      frames.push({ tmp, bbox, row, col });
+    }
+  }
+
+  // global scale: largest bbox fits within OUT×OUT
+  const globalScale = (globalMaxW > 0 && globalMaxH > 0)
+    ? Math.min(OUT / globalMaxW, OUT / globalMaxH)
+    : 1;
+
+  const out = document.createElement('canvas');
+  out.width  = OUT * COLS;
+  out.height = OUT * ROWS;
+  const oc = out.getContext('2d');
+  oc.imageSmoothingEnabled = false;
+
+  for (const { tmp, bbox, row, col } of frames) {
+    const dstX = col * OUT;
+    const dstY = row * OUT;
+    oc.fillStyle = '#FF00FF';
+    oc.fillRect(dstX, dstY, OUT, OUT);
+
+    if (bbox) {
+      const dw = Math.round(bbox.w * globalScale);
+      const dh = Math.round(bbox.h * globalScale);
+      const ox = dstX + Math.round((OUT - dw) / 2);
+      const oy = dstY + Math.round((OUT - dh) / 2);
+      oc.drawImage(tmp, bbox.minX, bbox.minY, bbox.w, bbox.h, ox, oy, dw, dh);
     }
   }
 
