@@ -1846,6 +1846,10 @@
         // ── 投稿機能 ──────────────────────────────────────────────────────────
         let posts = JSON.parse(localStorage.getItem('arisa_quest_posts') || '[]');
         let postMarkers = [];
+        
+        // ── 領地機能 ──────────────────────────────────────────────────────────
+        let territoryMarkers = [];  // 領地マーカーの座標 [lat, lng] を記録
+        let territoryPolygon = null;  // 領地ポリゴン
 
         function savePostsToStorage() {
             localStorage.setItem('arisa_quest_posts', JSON.stringify(posts));
@@ -2986,6 +2990,66 @@
                     ⏰ ${timestamp}
                 </div>
             `);
+            
+            // 領地座標を記録
+            territoryMarkers.push([enemyInfo.lat, enemyInfo.lng]);
+            
+            // 3つ以上の領地がある場合はポリゴンを表示
+            updateTerritoryPolygon();
+        }
+        
+        function updateTerritoryPolygon() {
+            // 既存のポリゴンを削除
+            if (territoryPolygon) {
+                map.removeLayer(territoryPolygon);
+                territoryPolygon = null;
+            }
+            
+            // 3つ以上の領地がある場合のみポリゴン作成
+            if (territoryMarkers.length >= 3) {
+                // 凸包を計算してポリゴンを作成（簡易版：グラハムスキャン相当）
+                const hull = computeConvexHull(territoryMarkers);
+                
+                // ポリゴンを描画
+                territoryPolygon = L.polygon(hull, {
+                    color: '#8844ff',        // 紫色の枠線
+                    weight: 2,
+                    opacity: 0.7,
+                    fill: true,
+                    fillColor: '#8844ff',
+                    fillOpacity: 0.2       // 20%の透明度
+                }).addTo(map);
+            }
+        }
+        
+        function computeConvexHull(points) {
+            // 凸包計算（グラハムスキャン）
+            if (points.length < 3) return points;
+            
+            // Y座標でソート（同じなら X でソート）
+            const sorted = [...points].sort((a, b) => a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]);
+            
+            const cross = (o, a, b) => {
+                return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+            };
+            
+            const lower = [];
+            for (let i = 0; i < sorted.length; i++) {
+                while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], sorted[i]) <= 0) {
+                    lower.pop();
+                }
+                lower.push(sorted[i]);
+            }
+            
+            const upper = [];
+            for (let i = sorted.length - 1; i >= 0; i--) {
+                while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], sorted[i]) <= 0) {
+                    upper.pop();
+                }
+                upper.push(sorted[i]);
+            }
+            
+            return lower.concat(upper.slice(1, -1));
         }
 
         function triggerBattle(enemyInfo) {
