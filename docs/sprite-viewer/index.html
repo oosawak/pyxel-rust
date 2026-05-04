@@ -954,43 +954,62 @@ btnChroma.addEventListener('click', () => {
 });
 
 // ---- pick mode (eyedropper) ----
+const tolRange = document.getElementById('tol-range');
+const tolLabel = document.getElementById('tol-label');
+chromaTol = +tolRange.value;
+tolRange.addEventListener('input', () => {
+  chromaTol = +tolRange.value;
+  tolLabel.textContent = tolRange.value;
+  if (ckImg) { buildChroma(); buildSheetCanvas(); buildStrip(); drawFrameEditPreview(); }
+});
+
 const btnPick = document.getElementById('btn-pick');
 btnPick.addEventListener('click', () => {
   pickMode = !pickMode;
   btnPick.classList.toggle('active', pickMode);
   btnPick.textContent = pickMode ? '🎨 スポイト中…' : '🎨 スポイト';
   gridOvl.style.cursor = pickMode ? 'crosshair' : '';
+  frameEditCv.style.cursor = pickMode ? 'crosshair' : (eraserMode ? 'crosshair' : 'pointer');
 });
 
-gridOvl.addEventListener('click', e => {
-  if (!pickMode || !rawImg) return;
-  // map click position on overlay → source image pixel
-  const rect = gridOvl.getBoundingClientRect();
-  const cx   = e.clientX - rect.left;
-  const cy   = e.clientY - rect.top;
-  const sx   = Math.floor(cx / SCALE);
-  const sy_  = Math.floor(cy / SCALE);
-
-  // sample from the raw image using a temp canvas
+function pickColorAt(imgX, imgY) {
   const tmp  = document.createElement('canvas');
   tmp.width  = rawImg.width; tmp.height = rawImg.height;
   const tctx = tmp.getContext('2d');
   tctx.drawImage(rawImg, 0, 0);
-
-  // actual source pixel = preview is drawing (sx_frame_offset + sx)
-  const cOff = colOffsets();
-  const rOff = rowOffsets();
-  const imgX = cOff[frame] + sx;
-  const imgY = rOff[animIdx] + sy_;
   const px   = tctx.getImageData(imgX, imgY, 1, 1).data;
-
   chromaRGB = [px[0], px[1], px[2]];
   pickMode  = false;
   btnPick.classList.remove('active');
   btnPick.textContent = '🎨 スポイト';
   gridOvl.style.cursor = '';
+  frameEditCv.style.cursor = '';
+  buildChroma(); buildSheetCanvas(); buildStrip(); drawFrameEditPreview();
+}
 
-  buildChroma(); buildSheetCanvas(); buildStrip();
+gridOvl.addEventListener('click', e => {
+  if (!pickMode || !rawImg) return;
+  const rect = gridOvl.getBoundingClientRect();
+  const cx   = e.clientX - rect.left;
+  const cy   = e.clientY - rect.top;
+  const sx   = Math.floor(cx / SCALE);
+  const sy_  = Math.floor(cy / SCALE);
+  const cOff = colOffsets();
+  const rOff = rowOffsets();
+  pickColorAt(cOff[frame] + sx, rOff[animIdx] + sy_);
+});
+
+frameEditCv.addEventListener('click', e => {
+  if (!pickMode || !rawImg) return;
+  const rect = frameEditCv.getBoundingClientRect();
+  const mx   = e.clientX - rect.left;
+  const my   = e.clientY - rect.top;
+  const fw   = colWidths[editCol];
+  const fh   = rowHeights[animIdx];
+  const S    = frameEditCv.width / fw;
+  const cOff = colOffsets();
+  const rOff = rowOffsets();
+  pickColorAt(cOff[editCol] + Math.floor(mx / S), rOff[animIdx] + Math.floor(my / S));
 });
 
 // ---- origin x/y ----
