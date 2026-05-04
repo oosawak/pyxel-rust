@@ -1091,7 +1091,12 @@ function drawCapHoverPreview() {
     capPCtx.globalAlpha = 1;
   }
 
-  capPCtx.drawImage(useChroma ? ckImg : rawImg, sx, sy, cw, ch, 0, 0, pw, ph);
+  const src = useChroma ? ckImg : rawImg;
+  capPCtx.drawImage(src, sx, sy, cw, ch, 0, 0, pw, ph);
+
+  // ホバー中も余白距離を表示
+  const margins = calcFrameMargins(src, sx, sy, cw, ch);
+  drawMarginOverlay(capPCtx, pw, ph, cw, ch, margins, scale);
 }
 
 // フレーム内の非透明ピクセルの上下左右余白を計算（raw image coords）
@@ -1116,7 +1121,7 @@ function calcFrameMargins(src, sx, sy, fw, fh) {
   return { top, bottom: fh - 1 - bottom, left, right: fw - 1 - right };
 }
 
-// プレビューキャンバスに余白ガイド線と数値を描画
+// プレビューキャンバスに余白ガイド線と数値を描画（黒縁取り付きで視認性向上）
 function drawMarginOverlay(ctx, pw, ph, fw, fh, margins, scale) {
   if (!margins) return;
   const { top, bottom, left, right } = margins;
@@ -1126,33 +1131,35 @@ function drawMarginOverlay(ctx, pw, ph, fw, fh, margins, scale) {
   const rs = pw - right  * scale;
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,80,80,0.75)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 2]);
 
-  // 4辺のガイド線
+  // ガイド線: 明るいシアン、細め
+  ctx.strokeStyle = 'rgba(0,240,220,0.85)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.moveTo(0, ts);  ctx.lineTo(pw, ts);  ctx.stroke();
   ctx.beginPath(); ctx.moveTo(0, bs);  ctx.lineTo(pw, bs);  ctx.stroke();
   ctx.beginPath(); ctx.moveTo(ls, 0);  ctx.lineTo(ls, ph);  ctx.stroke();
   ctx.beginPath(); ctx.moveTo(rs, 0);  ctx.lineTo(rs, ph);  ctx.stroke();
-
   ctx.setLineDash([]);
-  ctx.font = 'bold 10px monospace';
-  ctx.fillStyle = 'rgba(255,80,80,0.95)';
+
+  // ラベル: 白文字 + 黒縁取りで背景に関係なく読めるように
+  ctx.font = 'bold 11px monospace';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
 
-  // 数値ラベル（中央付近）
-  if (top > 0)    ctx.fillText(`↑${top}`,    pw / 2, ts / 2);
-  if (bottom > 0) ctx.fillText(`↓${bottom}`, pw / 2, (bs + ph) / 2);
-  if (left > 0) {
-    ctx.save(); ctx.translate(ls / 2, ph / 2);
-    ctx.fillText(`←${left}`, 0, 0); ctx.restore();
+  function drawLabel(text, x, y) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.lineWidth = 3;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = '#00f0dc';
+    ctx.fillText(text, x, y);
   }
-  if (right > 0) {
-    ctx.save(); ctx.translate((rs + pw) / 2, ph / 2);
-    ctx.fillText(`→${right}`, 0, 0); ctx.restore();
-  }
+
+  if (top > 0)    drawLabel(`↑${top}`,    pw / 2, Math.max(8, ts / 2));
+  if (bottom > 0) drawLabel(`↓${bottom}`, pw / 2, Math.min(ph - 8, (bs + ph) / 2));
+  if (left > 0)   drawLabel(`←${left}`,   Math.max(14, ls / 2), ph / 2);
+  if (right > 0)  drawLabel(`→${right}`,  Math.min(pw - 14, (rs + pw) / 2), ph / 2);
+
   ctx.restore();
 }
 
