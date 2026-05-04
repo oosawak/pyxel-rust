@@ -38,7 +38,26 @@
   button.active { background: #1a6a4a; }
   button.warn  { background: #6a3a1a; }
 
-  /* ---- preview ---- */
+  /* ---- workflow guide ---- */
+  #workflow-guide { width: 100%; max-width: 860px; margin: 8px 0; }
+  #workflow-guide summary {
+    cursor: pointer; color: #7ec8e3; font-size: .85rem; padding: 6px 12px;
+    background: #1a1a30; border: 1px solid #334; border-radius: 6px;
+    list-style: none; user-select: none;
+  }
+  #workflow-guide summary::-webkit-details-marker { display: none; }
+  #workflow-guide summary::before { content: '▶ '; font-size: .7rem; }
+  #workflow-guide[open] summary::before { content: '▼ '; }
+  #workflow-guide .wf-body {
+    background: #16162a; border: 1px solid #334; border-top: none;
+    border-radius: 0 0 6px 6px; padding: 14px 18px; font-size: .82rem; color: #ccc;
+    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+  #workflow-guide .wf-col { flex: 1; min-width: 200px; }
+  #workflow-guide h3 { color: #7ec8e3; font-size: .82rem; margin: 0 0 6px; }
+  #workflow-guide ol, #workflow-guide ul { margin: 0; padding-left: 18px; line-height: 1.8; }
+  #workflow-guide code { background: #2a2a4a; border-radius: 3px; padding: 0 4px; font-size: .78rem; }
+  #workflow-guide .step-num { color: #7ec8e3; font-weight: bold; }
   .canvas-wrap { position: relative; display: inline-block; }
   #preview     { display: block; image-rendering: pixelated; border: 1px solid #333; border-radius: 4px; }
   #grid-overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
@@ -103,6 +122,49 @@
 <p class="subtitle">生成コマンド: <code>pyxel-rust sprite_prompt "description" --name mychar</code></p>
 
 <div id="dropzone">
+
+<details id="workflow-guide">
+  <summary>📖 ワークフロー（使い方を確認）</summary>
+  <div class="wf-body">
+    <div class="wf-col">
+      <h3>① 準備・ファイル読み込み</h3>
+      <ol>
+        <li>AIツール（<code>sprite_prompt</code>）でスプライトシートPNG＋<code>.sprite-spec.json</code>を生成</li>
+        <li>両ファイルをドロップゾーンにまとめてドロップ</li>
+        <li>検証情報（幅・高さ・フレーム数）を確認</li>
+      </ol>
+    </div>
+    <div class="wf-col">
+      <h3>② フレームキャプチャ（1枚目タブ）</h3>
+      <ol>
+        <li>シート上でマウスを動かしてフレーム枠をプレビュー確認</li>
+        <li>余白距離（↑↓←→）でフレーム内の位置をチェック</li>
+        <li>クリック or <code>Enter</code> でキャプチャ（複数可）</li>
+        <li>キーボード矢印キーで枠を移動（<code>Shift</code>で1px精密移動）</li>
+        <li>「📥 PNG エクスポート」で合成シートを出力（背景はオレンジ <code>#FF8000</code>）</li>
+      </ol>
+    </div>
+    <div class="wf-col">
+      <h3>③ 背景除去（2枚目タブ）</h3>
+      <ol>
+        <li>「🎨 クロマキー除去」でスポイト→背景色を選択</li>
+        <li>許容幅スライダーで除去範囲を調整（0〜255）</li>
+        <li>取れない塊は「🧹 消しゴム」でドラッグ消去</li>
+        <li>「✨ アルファ精密化」で半透明境界を滑らかに</li>
+        <li>「📐 正規化エクスポート」で最終PNG出力</li>
+      </ol>
+    </div>
+    <div class="wf-col">
+      <h3>④ ヒント</h3>
+      <ul>
+        <li>F0（最初のフレーム）の座標が基準として常時表示される</li>
+        <li>アニメ行は「＋ 行追加 / － 行削除」で管理</li>
+        <li>クロマキーは後工程なので、キャプチャ段階では除去不要</li>
+        <li>プレビューの市松模様 = 透明部分</li>
+      </ul>
+    </div>
+  </div>
+</details>
   <p>📂 PNG と .sprite-spec.json をここにドロップ</p>
   <small>または クリックして選択（複数可）</small>
   <input type="file" id="fileinput" multiple accept=".png,.json" style="display:none">
