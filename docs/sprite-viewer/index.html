@@ -238,8 +238,14 @@
     </div>
 
     <!-- 選択中アニメ行のフレームストリップ -->
-    <div id="strip-scroll">
-      <div id="strip"></div>
+    <div style="display:flex; gap:12px; align-items:flex-start;">
+      <div id="strip-scroll">
+        <div id="strip"></div>
+      </div>
+      <div id="frame-edit-wrap" style="display:none; flex-direction:column; gap:6px;">
+        <div style="color:#7ec8e3;font-size:.8rem;">🖊 編集プレビュー <span id="frame-edit-label">F0</span></div>
+        <canvas id="frame-edit-cv" style="image-rendering:pixelated;border:1px solid #334;cursor:crosshair;display:block;"></canvas>
+      </div>
     </div>
   </div>
 
@@ -559,7 +565,7 @@ function refineAlpha(iterations = 2) {
 
   ckImg = src;
   infobar.textContent = `✨ アルファ精密化 完了 (${iterations}回)`;
-  buildSheetCanvas(); buildStrip();
+  buildSheetCanvas(); buildStrip(); drawFrameEditPreview();
   if (document.getElementById('tab-capture').classList.contains('active')) buildCapSheet();
 }
 
@@ -586,49 +592,102 @@ eraserSizeInp.addEventListener('input', () => {
   eraserSizeLabel.textContent = eraserSizeInp.value;
 });
 
-function eraseAt(mx, my) {
-  if (!ckImg || !eraserMode) return;
-  const S   = sheetCv.width / rawImg.width;
-  const rx  = mx / S;  // raw image coords
-  const ry  = my / S;
-  const r   = (+eraserSizeInp.value) / S; // brush radius in raw coords
-
-  // edit ckImg pixels
+// shared helper: erase circle at raw image coords rx,ry with raw radius r_raw
+function eraseAtRaw(rx, ry, r_raw) {
+  if (!ckImg) return;
   const tmp = document.createElement('canvas');
   tmp.width = ckImg.width; tmp.height = ckImg.height;
   const tc  = tmp.getContext('2d');
   tc.drawImage(ckImg, 0, 0);
   const id  = tc.getImageData(0, 0, tmp.width, tmp.height);
   const d   = id.data;
-  const x0  = Math.max(0, Math.floor(rx - r));
-  const y0  = Math.max(0, Math.floor(ry - r));
-  const x1  = Math.min(tmp.width  - 1, Math.ceil(rx + r));
-  const y1  = Math.min(tmp.height - 1, Math.ceil(ry + r));
+  const x0  = Math.max(0, Math.floor(rx - r_raw));
+  const y0  = Math.max(0, Math.floor(ry - r_raw));
+  const x1  = Math.min(tmp.width  - 1, Math.ceil(rx + r_raw));
+  const y1  = Math.min(tmp.height - 1, Math.ceil(ry + r_raw));
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
-      if ((x - rx) ** 2 + (y - ry) ** 2 <= r * r) {
+      if ((x - rx) ** 2 + (y - ry) ** 2 <= r_raw * r_raw) {
         d[(y * tmp.width + x) * 4 + 3] = 0;
       }
     }
   }
   tc.putImageData(id, 0, 0);
   ckImg = tmp;
+}
+
+function eraseAt(mx, my) {
+  if (!ckImg || !eraserMode) return;
+  const S   = sheetCv.width / rawImg.width;
+  eraseAtRaw(mx / S, my / S, (+eraserSizeInp.value) / S);
+  buildSheetCanvas();
+  buildStrip();
+  drawFrameEditPreview();
+}
+
+// ---- frame edit preview ----
+let editCol       = 0;
+let frameEditActive = false;
+const frameEditCv   = document.getElementById('frame-edit-cv');
+const frameEditCtx  = frameEditCv.getContext('2d');
+const frameEditWrap = document.getElementById('frame-edit-wrap');
+const frameEditLbl  = document.getElementById('frame-edit-label');
+
+function drawFrameEditPreview() {
+  if (!ckImg) return;
+  const src  = useChroma ? ckImg : rawImg;
+  const cOff = colOffsets();
+  const rOff = rowOffsets();
+  const sx   = cOff[editCol];
+  const sy   = rOff[animIdx];
+  const fw   = colWidths[editCol];
+  const fh   = rowHeights[animIdx];
+  const EMAX = 256;
+  const S    = Math.min(EMAX / fw, EMAX / fh, 4);
+  frameEditCv.width  = Math.round(fw * S);
+  frameEditCv.height = Math.round(fh * S);
+  // checkerboard
+  const tileSize = 8;
+  for (let ty = 0; ty < frameEditCv.height; ty += tileSize) {
+    for (let tx = 0; tx < frameEditCv.width; tx += tileSize) {
+      frameEditCtx.fillStyle = ((tx / tileSize + ty / tileSize) % 2 === 0) ? '#444' : '#666';
+      frameEditCtx.fillRect(tx, ty, tileSize, tileSize);
+    }
+  }
+  frameEditCtx.imageSmoothingEnabled = false;
+  frameEditCtx.drawImage(src, sx, sy, fw, fh, 0, 0, frameEditCv.width, frameEditCv.height);
+  // eraser cursor hint
+  frameEditWrap.style.display = 'flex';
+  frameEditLbl.textContent = `F${editCol} (${animIdx}:${spec.anims[animIdx]})`;
+}
+
+function eraseOnFrameEdit(mx, my) {
+  if (!ckImg || !eraserMode) return;
+  const cOff = colOffsets();
+  const rOff = rowOffsets();
+  const fw   = colWidths[editCol];
+  const fh   = rowHeights[animIdx];
+  const S    = frameEditCv.width / fw;
+  const rx   = cOff[editCol] + mx / S;
+  const ry   = rOff[animIdx] + my / S;
+  eraseAtRaw(rx, ry, (+eraserSizeInp.value) / S);
+  drawFrameEditPreview();
   buildSheetCanvas();
   buildStrip();
 }
 
-sheetCv.addEventListener('mousedown', e => {
+frameEditCv.addEventListener('mousedown', e => {
   if (!eraserMode) return;
-  eraserActive = true;
-  const r = sheetCv.getBoundingClientRect();
-  eraseAt(e.clientX - r.left, e.clientY - r.top);
+  frameEditActive = true;
+  const r = frameEditCv.getBoundingClientRect();
+  eraseOnFrameEdit(e.clientX - r.left, e.clientY - r.top);
 });
-sheetCv.addEventListener('mousemove', e => {
-  if (!eraserMode || !eraserActive) return;
-  const r = sheetCv.getBoundingClientRect();
-  eraseAt(e.clientX - r.left, e.clientY - r.top);
+frameEditCv.addEventListener('mousemove', e => {
+  if (!eraserMode || !frameEditActive) return;
+  const r = frameEditCv.getBoundingClientRect();
+  eraseOnFrameEdit(e.clientX - r.left, e.clientY - r.top);
 });
-window.addEventListener('mouseup', () => { eraserActive = false; });
+window.addEventListener('mouseup', () => { eraserActive = false; frameEditActive = false; });
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -709,6 +768,11 @@ function buildStrip() {
     ctx.fillRect(0, 0, dw, dh);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(src, sx, sy, fw, fh, 0, 0, dw, dh);
+    cv.style.cursor = 'pointer';
+    cv.addEventListener('click', () => {
+      editCol = c;
+      drawFrameEditPreview();
+    });
     cell.appendChild(cv);
 
     // width input
@@ -761,6 +825,7 @@ function initViewer() {
   if (rafId) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(tick);
   buildStrip();
+  drawFrameEditPreview();
 }
 
 function rebuildAnimSelect() {
