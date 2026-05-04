@@ -1094,6 +1094,68 @@ function drawCapHoverPreview() {
   capPCtx.drawImage(useChroma ? ckImg : rawImg, sx, sy, cw, ch, 0, 0, pw, ph);
 }
 
+// フレーム内の非透明ピクセルの上下左右余白を計算（raw image coords）
+function calcFrameMargins(src, sx, sy, fw, fh) {
+  const cv = document.createElement('canvas');
+  cv.width = fw; cv.height = fh;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(src, sx, sy, fw, fh, 0, 0, fw, fh);
+  const d = ctx.getImageData(0, 0, fw, fh).data;
+  let top = fh, bottom = -1, left = fw, right = -1;
+  for (let y = 0; y < fh; y++) {
+    for (let x = 0; x < fw; x++) {
+      if (d[(y * fw + x) * 4 + 3] > 4) { // alpha > 4 = visible
+        if (y < top)    top    = y;
+        if (y > bottom) bottom = y;
+        if (x < left)   left   = x;
+        if (x > right)  right  = x;
+      }
+    }
+  }
+  if (bottom < 0) return null; // all transparent
+  return { top, bottom: fh - 1 - bottom, left, right: fw - 1 - right };
+}
+
+// プレビューキャンバスに余白ガイド線と数値を描画
+function drawMarginOverlay(ctx, pw, ph, fw, fh, margins, scale) {
+  if (!margins) return;
+  const { top, bottom, left, right } = margins;
+  const ts = top    * scale;
+  const bs = ph - bottom * scale;
+  const ls = left   * scale;
+  const rs = pw - right  * scale;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,80,80,0.75)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 2]);
+
+  // 4辺のガイド線
+  ctx.beginPath(); ctx.moveTo(0, ts);  ctx.lineTo(pw, ts);  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, bs);  ctx.lineTo(pw, bs);  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ls, 0);  ctx.lineTo(ls, ph);  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rs, 0);  ctx.lineTo(rs, ph);  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.font = 'bold 10px monospace';
+  ctx.fillStyle = 'rgba(255,80,80,0.95)';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+
+  // 数値ラベル（中央付近）
+  if (top > 0)    ctx.fillText(`↑${top}`,    pw / 2, ts / 2);
+  if (bottom > 0) ctx.fillText(`↓${bottom}`, pw / 2, (bs + ph) / 2);
+  if (left > 0) {
+    ctx.save(); ctx.translate(ls / 2, ph / 2);
+    ctx.fillText(`←${left}`, 0, 0); ctx.restore();
+  }
+  if (right > 0) {
+    ctx.save(); ctx.translate((rs + pw) / 2, ph / 2);
+    ctx.fillText(`→${right}`, 0, 0); ctx.restore();
+  }
+  ctx.restore();
+}
+
 function drawCapPreview() {
   if (capSelectedIdx < 0) return;
   const f    = capturedFrames[capSelectedIdx];
@@ -1120,7 +1182,12 @@ function drawCapPreview() {
   }
 
   // current frame (full opacity, transparent pixels show checkerboard)
-  capPCtx.drawImage(useChroma ? ckImg : rawImg, f.sx, f.sy, f.w, f.h, 0, 0, pw, ph);
+  const src = useChroma ? ckImg : rawImg;
+  capPCtx.drawImage(src, f.sx, f.sy, f.w, f.h, 0, 0, pw, ph);
+
+  // margin guide lines
+  const margins = calcFrameMargins(src, f.sx, f.sy, f.w, f.h);
+  drawMarginOverlay(capPCtx, pw, ph, f.w, f.h, margins, scale);
 }
 
 function applyCapDetail() {
