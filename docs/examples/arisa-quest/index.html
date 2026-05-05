@@ -2701,6 +2701,7 @@
             let recInstance = null;
             let currentTranscript = '';
             let holdStartTime = 0;
+            let attackPending = false;
 
             function startVoiceHold(e) {
                 if (!isRunning || isListening) return;
@@ -2744,6 +2745,20 @@
                     recInstance = null;
                     enemyArea.classList.remove('listening');
                     if (tapHint) tapHint.textContent = '🎤 タップして攻撃';
+                    // onresult(最終)が来た後にここに到達するので確実にtextが取れる
+                    if (attackPending) {
+                        attackPending = false;
+                        const text = currentTranscript.trim();
+                        const durationMs = Date.now() - holdStartTime;
+                        dkLog('🗣️ 発射: "' + text + '" (' + durationMs + 'ms)');
+                        if (text.length > 0) {
+                            const power = calcVoicePower(text, durationMs, false);
+                            spawnPlayerAttack(text, power);
+                        } else if (durationMs > 300) {
+                            spawnPlayerAttack('ムム…', 5);
+                            voiceStat.textContent = '（声なし）';
+                        }
+                    }
                 };
                 rec.start();
             }
@@ -2751,17 +2766,11 @@
             function releaseVoiceAttack(e) {
                 if (!isListening) return;
                 e.preventDefault();
-                const text = currentTranscript.trim();
-                const durationMs = Date.now() - holdStartTime;
-                dkLog('🗣️ リリース: "' + text + '" (' + durationMs + 'ms)');
-                if (recInstance) { try { recInstance.stop(); } catch(_) {} recInstance = null; }
-                if (text.length > 0) {
-                    const power = calcVoicePower(text, durationMs, false);
-                    spawnPlayerAttack(text, power);
-                } else if (durationMs > 300) {
-                    spawnPlayerAttack('💬', 8);
-                    voiceStat.textContent = '（声なし）';
-                }
+                // rec.stop() → onresult(最終) → onend の順で発火するため
+                // attackPendingフラグを立てて onend 側で攻撃を発動させる
+                attackPending = true;
+                if (recInstance) { try { recInstance.stop(); } catch(_) {} }
+                dkLog('🗣️ リリース待機... (' + (Date.now() - holdStartTime) + 'ms)');
             }
 
             enemyArea.addEventListener('pointerdown',  startVoiceHold);
