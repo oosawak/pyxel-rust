@@ -3784,7 +3784,9 @@
         // Track if battle UI is loaded
         let battleUILoaded = false;
 
-        debugLog('🔍 Battle UI Loader Starting...');
+        debugLog('🔍 [index.html] Battle UI Loader Starting...');
+        debugLog('📝 battle-ui.html は外部ファイルから読み込まれます');
+        
         
         // Load battle-ui.html and inject into battle-ui-container
         async function loadBattleUI() {
