@@ -789,22 +789,12 @@
         #debug-panel {
             position: fixed; bottom: 10px; right: 10px; z-index: 99999;
             background: rgba(0, 0, 0, 0.85); border: 2px solid #00ff00;
-            border-radius: 8px; padding: 8px 12px 12px; max-width: 400px;
+            border-radius: 8px; padding: 12px; max-width: 400px;
+            max-height: 300px; overflow-y: auto;
             font-family: 'Courier New', monospace; font-size: 0.7rem;
             color: #00ff00; line-height: 1.4;
         }
         #debug-panel.hidden { display: none; }
-        #debug-panel.minimized { max-height: 28px; overflow: hidden; padding-bottom: 6px; }
-        #debug-panel-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 4px; cursor: pointer; user-select: none;
-        }
-        #debug-panel-header span { font-size: 0.65rem; opacity: 0.7; }
-        #debug-panel-toggle {
-            background: none; border: 1px solid #00ff00; color: #00ff00;
-            font-size: 0.65rem; padding: 1px 6px; border-radius: 3px; cursor: pointer;
-        }
-        #debug-panel-body { max-height: 260px; overflow-y: auto; }
         .debug-log-entry {
             margin-bottom: 4px; padding: 2px 0;
             border-bottom: 1px solid rgba(0, 255, 0, 0.2);
@@ -813,13 +803,7 @@
 </head>
 <body>
     <!-- Debug Panel -->
-    <div id="debug-panel" class="hidden">
-        <div id="debug-panel-header">
-            <span>🖥 DEBUG</span>
-            <button id="debug-panel-toggle">－</button>
-        </div>
-        <div id="debug-panel-body"></div>
-    </div>
+    <div id="debug-panel" class="hidden"></div>
 
     <!-- Status bar -->
     <div id="status-bar">
@@ -3836,34 +3820,18 @@
             
             try {
                 const panel = document.getElementById('debug-panel');
-                const body  = document.getElementById('debug-panel-body');
-                if (panel && body) {
+                if (panel) {
                     panel.classList.remove('hidden');
                     const entry = document.createElement('div');
                     entry.className = 'debug-log-entry';
                     entry.textContent = msg;
-                    body.appendChild(entry);
-                    body.scrollTop = body.scrollHeight;
+                    panel.appendChild(entry);
+                    panel.scrollTop = panel.scrollHeight;
                 }
             } catch (e) {
                 console.log('debugLog panel error:', e);
             }
         }
-
-        // 最小化トグル
-        (function() {
-            const panel  = document.getElementById('debug-panel');
-            const toggle = document.getElementById('debug-panel-toggle');
-            const header = document.getElementById('debug-panel-header');
-            function toggleMin() {
-                const min = panel.classList.toggle('minimized');
-                toggle.textContent = min ? '＋' : '－';
-            }
-            toggle.addEventListener('click', toggleMin);
-            header.addEventListener('click', function(e) {
-                if (e.target !== toggle) toggleMin();
-            });
-        })();
 
         debugLog('✅ Arisa Quest v20260505 #ac60a30 - Three.js 3D大観音バトル + ログバージョン表示');
     </script>
