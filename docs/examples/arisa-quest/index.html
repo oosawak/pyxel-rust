@@ -1924,6 +1924,12 @@
                     </span>
                 </div>
             `);
+            
+            // マーカークリックはマップクリックを伝播させない
+            marker.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+            });
+            
             postMarkers.push({ marker, postId: post.id });
         }
 
