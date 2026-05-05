@@ -96,11 +96,23 @@ impl Ninja {
     fn update(&mut self, platforms: &[Platform], cfg: &DiffConfig) {
         self.anim += 1;
 
-        if btn(KEY_LEFT)  || btn(KEY_A) { self.vx = -1.8; self.face_r = false; }
-        else if btn(KEY_RIGHT) || btn(KEY_D) { self.vx = 1.8;  self.face_r = true;  }
+        // タッチ/マウス 3ゾーン判定
+        // 上1/3 = ジャンプ、左下 = 左移動、右下 = 右移動
+        let touch = btn(MOUSE_BUTTON_LEFT);
+        let mx = mouse_x() as f32;
+        let my = mouse_y() as f32;
+        let touch_jump  = touch && my < HF / 3.0;
+        let touch_left  = touch && !touch_jump && mx < WF / 2.0;
+        let touch_right = touch && !touch_jump && mx >= WF / 2.0;
+
+        if btn(KEY_LEFT)  || btn(KEY_A) || touch_left  { self.vx = -1.8; self.face_r = false; }
+        else if btn(KEY_RIGHT) || btn(KEY_D) || touch_right { self.vx = 1.8; self.face_r = true; }
         else { self.vx *= 0.75; }
 
-        if (btnp(KEY_SPACE) || btnp(KEY_Z) || btnp(KEY_UP) || btnp(KEY_W)) && self.grounded {
+        let jump_key = btnp(KEY_SPACE) || btnp(KEY_Z) || btnp(KEY_UP) || btnp(KEY_W);
+        // タッチジャンプ: 上ゾーンに入った瞬間(エッジ検出は btn で代用 — 連続入力で連打防止)
+        let touch_jump_edge = touch_jump && my < HF / 3.0;
+        if (jump_key || touch_jump_edge) && self.grounded {
             self.vy = cfg.jump_vel;
             self.grounded = false;
         }
@@ -238,14 +250,29 @@ impl Game {
 
         match self.phase {
             Phase::Title => {
-                // 難易度選択: 左右キー
+                // 難易度選択: 左右キー or 左右タップ
                 if btnp(KEY_LEFT) || btnp(KEY_A) {
                     if self.diff_sel > 0 { self.diff_sel -= 1; }
                 }
                 if btnp(KEY_RIGHT) || btnp(KEY_D) {
                     if self.diff_sel < 2 { self.diff_sel += 1; }
                 }
-                if btnp(KEY_SPACE) || btnp(KEY_Z) || btnp(KEY_UP) || btnp(MOUSE_BUTTON_LEFT) {
+                // タッチ: 上ゾーン=開始、左下=難易度↓、右下=難易度↑
+                if btnp(MOUSE_BUTTON_LEFT) {
+                    let mx = mouse_x() as f32;
+                    let my = mouse_y() as f32;
+                    if my < HF / 3.0 {
+                        // 上タップ → 開始
+                        let chosen = DIFFS[self.diff_sel];
+                        self.reset_with_diff(chosen);
+                        self.phase = Phase::Play;
+                    } else if mx < WF / 2.0 {
+                        if self.diff_sel > 0 { self.diff_sel -= 1; }
+                    } else {
+                        if self.diff_sel < 2 { self.diff_sel += 1; }
+                    }
+                }
+                if btnp(KEY_SPACE) || btnp(KEY_Z) || btnp(KEY_UP) || btnp(KEY_W) {
                     let chosen = DIFFS[self.diff_sel];
                     self.reset_with_diff(chosen);
                     self.phase = Phase::Play;
@@ -354,9 +381,16 @@ impl Game {
 
         text(28.0, 120.0, "PRESS JUMP!", LIGHT_GREEN);
 
-        // 操作説明
-        text(2.0, HF - 18.0, "L/R: difficulty", DARK_GRAY);
-        text(2.0, HF - 10.0, "UP/Z/SPC: start", DARK_GRAY);
+        // タッチゾーンガイド (タイトルの下1/3)
+        line(0.0, HF * 2.0 / 3.0, WF, HF * 2.0 / 3.0, DARK_GRAY);
+        line(WF / 2.0, HF * 2.0 / 3.0, WF / 2.0, HF, DARK_GRAY);
+        text(4.0, HF * 2.0 / 3.0 + 3.0, "< EASIER", DARK_GRAY);
+        text(WF / 2.0 + 2.0, HF * 2.0 / 3.0 + 3.0, "HARDER >", DARK_GRAY);
+        // 上ゾーン
+        text(WF / 2.0 - 14.0, HF * 2.0 / 3.0 - 8.0, "TAP:START", DARK_GRAY);
+
+        // キーボード操作説明
+        text(2.0, HF - 10.0, "L/R:diff  UP/Z:start", DARK_GRAY);
     }
 
     // ── プレイ ────────────────────────────────────────────────────────────────
@@ -438,6 +472,20 @@ impl Game {
         text(2.0, 2.0, diff_lbl, diff_col);
         let msg = format!("{}%", pct);
         text(WF - 4.0 * (msg.len() as f32 + 1.0), 2.0, &msg, YELLOW);
+
+        // タッチガイド: 最初の180フレーム(3秒)だけ表示
+        if self.frame < 180 {
+            let alpha = if self.frame > 140 { 255 - (self.frame - 140) * 5 } else { 80 };
+            let col = if alpha > 40 { DARK_GRAY } else { BLACK };
+            // 分割ライン (上1/3)
+            line(0.0, HF / 3.0, WF - 8.0, HF / 3.0, col);
+            // 縦ライン (左右)
+            line(WF / 2.0, HF / 3.0, WF / 2.0, HF, col);
+            // ラベル
+            text(WF / 2.0 - 14.0, HF / 3.0 + 2.0, "JUMP", col);
+            text(4.0, HF / 2.0 + 20.0, "LEFT", col);
+            text(WF / 2.0 + 4.0, HF / 2.0 + 20.0, "RIGHT", col);
+        }
     }
 
     fn draw_wall(&self, cam: f32) {
