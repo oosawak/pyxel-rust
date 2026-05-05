@@ -3521,9 +3521,18 @@
             
             debugLog('  → currentEnemyInfo設定');
             currentEnemyInfo = enemyInfo;
+            debugLog('  ✓ currentEnemyInfo設定OK');
             
-            debugLog('  → window.currentEnemyInfo設定');
-            window.currentEnemyInfo = enemyInfo;
+            debugLog('  → window.currentEnemyInfo設定前');
+            try {
+                window.currentEnemyInfo = enemyInfo;
+                debugLog('  ✓ window.currentEnemyInfo設定OK');
+            } catch (e) {
+                debugLog('  ❌ window.currentEnemyInfo設定ERROR: ' + e.message);
+                inBattle = false;
+                return;
+            }
+            
             debugLog('✓ 状態設定完了、start_battle呼び出し準備...');
             
             debugLog('🔧 start_battle_from_js を呼び出し');
