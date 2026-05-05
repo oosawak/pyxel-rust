@@ -1787,7 +1787,6 @@
         let currentTileLayer = L.tileLayer(TILE_STYLES[0].url, TILE_STYLES[0].opts).addTo(map);
 
         const btnTileSwitch = document.getElementById('btn-tile-switch');
-        btnTileSwitch.classList.add('visible'); // 初期表示
         btnTileSwitch.addEventListener('click', () => {
             currentTileIdx = (currentTileIdx + 1) % TILE_STYLES.length;
             const style = TILE_STYLES[currentTileIdx];
@@ -1853,7 +1852,6 @@
         }
 
         const btnToggle3d = document.getElementById('btn-3d-toggle');
-        btnToggle3d.classList.add('visible');
         btnToggle3d.addEventListener('click', () => {
             is3dMode = !is3dMode;
             if (is3dMode) {
