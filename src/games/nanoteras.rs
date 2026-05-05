@@ -215,11 +215,30 @@ impl NanoTeras {
     }
 
     fn draw_play_ui(&self) {
+        // 左上タイトル
         text(2.0, 2.0, "NanoTerras", LIGHT_BLUE);
-        let label = format!("{}/{}", self.total_spins as u32, TARGET_SPINS as u32);
-        text(2.0,  H as f32 - 20.0, "SPIN:", DARK_GRAY);
-        text(28.0, H as f32 - 20.0, &label, YELLOW);
 
+        // ── 上部中央: 回転数カウンターボックス ──
+        let spins  = self.total_spins as u32;
+        let target = TARGET_SPINS as u32;
+        // ボックス: 幅56px, 高さ18px, 上部中央
+        let bx = self.cx - 28.0;
+        let by = 1.0f32;
+        rectfill(bx, by, 56.0, 18.0, DARK_BLUE);
+        rect(bx, by, 56.0, 18.0, TEAL);
+        // "SPIN" ラベル (小)
+        text(bx + 2.0, by + 2.0, "SPIN", DARK_GRAY);
+        // 数字: 現在値を大きく表示 (4ピクセル文字を2倍に見せるため2行ずらして重ねる)
+        let num = format!("{}", spins);
+        let sep = format!("/{}", target);
+        // 現在値 (白 + ずらしで太く見せる)
+        text(bx + 2.0,  by + 9.0, &num, DARK_BLUE);  // 影
+        text(bx + 2.0,  by + 8.0, &num, WHITE);       // 本体
+        // 目標値 (小さく右寄り)
+        let sep_x = bx + 2.0 + (num.len() as f32 * 4.0) + 1.0;
+        text(sep_x, by + 10.0, &sep, TEAL);
+
+        // ── 下部: プログレスバー ──
         let bar_x = 2.0f32;
         let bar_y = H as f32 - 10.0;
         let bar_w = W as f32 - 4.0;
@@ -229,6 +248,8 @@ impl NanoTeras {
             let col = if self.spin_velocity > 0.1 { YELLOW } else { TEAL };
             rectfill(bar_x + 1.0, bar_y + 1.0, fill, 4.0, col);
         }
+
+        // ガイド
         if self.spin_velocity < 0.02 {
             text(40.0, self.cy + 20.0, "SWIPE to SPIN!", DARK_GRAY);
         }
