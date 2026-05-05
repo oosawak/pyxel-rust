@@ -3638,37 +3638,45 @@
     <!-- ── Load battle UI from external file ──────────────────────────────── -->
     <script>
         // Load battle-ui.html and inject into battle-ui-container
-        // This must run before other scripts that reference battle-overlay
         async function loadBattleUI() {
-            return new Promise((resolve, reject) => {
-                try {
-                    const response = fetch('games/arisa-battle/battle-ui.html');
-                    response.then(r => {
-                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                        return r.text();
-                    }).then(html => {
-                        const container = document.getElementById('battle-ui-container');
-                        if (container) {
-                            container.innerHTML = html;
-                            console.log('Battle UI loaded successfully');
-                            resolve();
-                        } else {
-                            reject(new Error('battle-ui-container not found'));
-                        }
-                    }).catch(err => {
-                        console.error('Failed to load battle UI:', err);
-                        reject(err);
-                    });
-                } catch (err) {
-                    console.error('Failed to load battle UI:', err);
-                    reject(err);
+            const container = document.getElementById('battle-ui-container');
+            console.log('📌 loadBattleUI called, container:', container ? 'found' : 'NOT FOUND');
+            
+            if (!container) {
+                console.error('❌ battle-ui-container not found in DOM');
+                return;
+            }
+            
+            try {
+                console.log('📡 Fetching games/arisa-battle/battle-ui.html...');
+                const response = await fetch('games/arisa-battle/battle-ui.html');
+                console.log('📡 Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-            });
+                
+                const html = await response.text();
+                console.log('✓ HTML loaded, size:', html.length, 'bytes');
+                
+                container.innerHTML = html;
+                console.log('✓ Battle UI injected into DOM successfully');
+                console.log('✓ battle-overlay element:', document.getElementById('battle-overlay') ? 'found' : 'NOT FOUND');
+                
+            } catch (err) {
+                console.error('❌ Failed to load battle UI:', err);
+            }
         }
-        // Load battle UI immediately when script loads
+        
+        // Load battle UI when DOM is ready
+        console.log('📌 Script loading, document.readyState:', document.readyState);
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', loadBattleUI);
+            document.addEventListener('DOMContentLoaded', () => {
+                console.log('📌 DOMContentLoaded fired');
+                loadBattleUI();
+            });
         } else {
+            console.log('📌 DOM already loaded, loading battle UI now');
             loadBattleUI();
         }
     </script>
