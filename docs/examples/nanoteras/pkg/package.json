@@ -1,0 +1,30 @@
+{
+  "name": "pyxel-rust",
+  "type": "module",
+  "collaborators": [
+    "Copilot"
+  ],
+  "description": "Rust implementation of Pyxel game engine",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oosawak/pyxel-rust"
+  },
+  "files": [
+    "pyxel_rust_bg.wasm",
+    "pyxel_rust.js",
+    "pyxel_rust.d.ts"
+  ],
+  "main": "pyxel_rust.js",
+  "types": "pyxel_rust.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "game",
+    "graphics",
+    "retro",
+    "2d"
+  ]
+}
