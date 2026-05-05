@@ -269,13 +269,23 @@
             bottom: calc(var(--tab-h) + 56px);
             z-index: 10;
             display: none; flex-direction: column;
+            justify-content: center; align-items: center;
             background: rgba(0, 0, 18, 0.62);
             border-radius: 12px;
             transition: opacity 1.2s ease, filter 1.2s ease;
+            overflow: hidden;
         }
         #battle-overlay.active { display: flex; }
         #battle-overlay.ending {
             opacity: 0;
+        }
+        
+        /* Canvas 要素を最前面に */
+        #battle-overlay canvas {
+            position: relative;
+            z-index: 100;
+            display: block;
+            margin: 0 auto;
             filter: blur(6px) brightness(0.3);
         }
         #debug-overlay {
@@ -2416,32 +2426,493 @@
             }, 40);
         }
 
-        // ── 仙台大観音ミニゲーム（新規ゲーム） ──────────────────────────────────
-        function startSendaiDaikannonGame() {
-            console.log('🗿 仙台大観音ゲーム開始');
+        // ── 仙台大観音ミニゲーム（Rust WASM実装） ──────────────────────
+        async function startSendaiDaikannonGame() {
+            console.log('🗿 仙台大観音ゲーム開始 (WASM)');
             
-            // ゲーム状態
-            let miniGameActive = true;
-            let miniGameScore = 0;
+            // sendai_daikannon WASM をインポート
+            let wasmGame;
+            try {
+                const wasmModule = await import('./sendai_daikannon_wasm/sendai_daikannon_lib.js');
+                wasmGame = wasmModule;
+                console.log('✓ WASM モジュール読み込み完了');
+            } catch (e) {
+                console.error('✗ WASM 読み込みエラー:', e);
+                return;
+            }
             
-            // ゲームオーバーレイを表示（バトルオーバーレイを流用、または新規作成）
-            battleOverlay.classList.add('active');
-            battleUI.classList.remove('active');
+            // WASM API をラップするゲームクラス
+            class SendaiGame {
+                constructor(playerHP) {
+                    // WASM 初期化
+                    wasmGame.sendai_daikannon_init(playerHP);
+                    this._wasmModule = wasmGame;
+                    
+                    // JavaScript 側での描画用状態
+                    this.playerAttacks = [];
+                    this.enemyAttacks = [];
+                    this.frame = 0;
+                }
+                
+                get playerHP() {
+                    return this._wasmModule.sendai_daikannon_get_player_hp();
+                }
+                
+                get enemyHP() {
+                    return this._wasmModule.sendai_daikannon_get_enemy_hp();
+                }
+                
+                get state() {
+                    const stateCode = this._wasmModule.sendai_daikannon_get_state();
+                    // 0: running, 1: victory, 2: defeat
+                    if (stateCode === 1) return 'victory';
+                    if (stateCode === 2) return 'defeat';
+                    return 'running';
+                }
+                
+                update() {
+                    // WASM 側で状態を更新
+                    this._wasmModule.sendai_daikannon_update();
+                    
+                    // JavaScript 側での描画用フレーム管理
+                    this.frame++;
+                    
+                    // プレイヤー攻撃の落下処理
+                    const fallSpeed = 4;
+                    for (let i = this.playerAttacks.length - 1; i >= 0; i--) {
+                        const attack = this.playerAttacks[i];
+                        attack.y += fallSpeed;
+                        if (attack.y > 800) {
+                            this.playerAttacks.splice(i, 1);
+                        }
+                    }
+                    
+                    // 敵の攻撃の落下処理
+                    const enemyFallSpeed = 2.5;
+                    for (let i = this.enemyAttacks.length - 1; i >= 0; i--) {
+                        const attack = this.enemyAttacks[i];
+                        attack.y += enemyFallSpeed;
+                        if (attack.y > 800) {
+                            this.enemyAttacks.splice(i, 1);
+                        }
+                    }
+                    
+                    // 敵AI：攻撃タイミング制御（WASM側と同期して2～4秒間隔）
+                    const enemyAttackInterval = 120 + (this.frame % 120);
+                    if (this.frame > 0 && this.frame % enemyAttackInterval === 0) {
+                        this.spawnEnemyAttack();
+                    }
+                }
+                
+                addPlayerAttack(power) {
+                    // WASM に攻撃を追加
+                    this._wasmModule.sendai_daikannon_add_attack(Math.min(power, 100));
+                    
+                    // 描画用に JavaScript 側でも記録（フェーズアウト可能）
+                    this.playerAttacks.push({
+                        y: 0,
+                        power: Math.min(power, 100),
+                        hit: false
+                    });
+                }
+                
+                tryDodge(dodgeY) {
+                    // TODO: WASM 側に回避判定メソッドがあれば呼び出し
+                    // 現在は JavaScript 側で処理
+                    if (this.enemyAttacks.length === 0) return false;
+                    
+                    const attack = this.enemyAttacks[this.enemyAttacks.length - 1];
+                    const success = dodgeY >= attack.dodgeZoneMin && dodgeY <= attack.dodgeZoneMax;
+                    attack.dodged = true;
+                    
+                    return success;
+                }
+                
+                // 描画用ヘルパー：敵攻撃を追加（JavaScript側で管理）
+                spawnEnemyAttack() {
+                    const dodgeZoneSize = 100;
+                    const randomY = (this.frame * 7) % 600;
+                    
+                    this.enemyAttacks.push({
+                        y: 0,
+                        dodgeZoneMin: randomY,
+                        dodgeZoneMax: randomY + dodgeZoneSize,
+                        dodged: false,
+                        damageApplied: false
+                    });
+                }
+            }
             
-            // TODO: ここにミニゲームのゲームロジックを実装（WASM）
-            // 例：canvas-sceneを使用してゲームをレンダリング
+            // 描画クラス
+            class SendaiRenderer {
+                constructor(canvas, width, height) {
+                    this.canvas = canvas;
+                    this.ctx = canvas.getContext('2d');
+                    this.width = width;
+                    this.height = height;
+                    this.enemyFrame = 0;
+                    console.log('✓ SendaiRenderer初期化:', { width, height, ctx: !!this.ctx });
+                }
+                
+                update() {
+                    this.enemyFrame++;
+                }
+                
+                render(game) {
+                    if (!this.ctx) {
+                        console.error('❌ Canvas Context が null です');
+                        return;
+                    }
+                    
+                    // 背景クリア
+                    this.ctx.fillStyle = '#000';
+                    this.ctx.fillRect(0, 0, this.width, this.height);
+                    
+                    // 敵キャラクター（中央）
+                    this.drawEnemy(game);
+                    
+                    // 左バー：プレイヤー攻撃
+                    this.drawLeftBar(game);
+                    
+                    // 右バー：敵攻撃＋回避枠
+                    this.drawRightBar(game);
+                    
+                    // HP表示
+                    this.drawHPBars(game);
+                    
+                    // ゲーム終了画面
+                    if (game.state !== 'running') {
+                        this.drawEndScreen(game);
+                    }
+                }
+                
+                drawEnemy(game) {
+                    const cx = this.width / 2 - 100;
+                    const cy = this.height / 2 - 150;
+                    const w = 200, h = 300;
+                    
+                    // 敵がダメージ状態で点滅
+                    const isDamaged = (this.enemyFrame / 5) % 2 === 0 && game.enemyHP < 80;
+                    
+                    if (isDamaged) {
+                        this.ctx.fillStyle = '#ff8888'; // 明るい赤
+                    } else {
+                        this.ctx.fillStyle = '#8888ff'; // 明るい青
+                    }
+                    
+                    this.ctx.fillRect(cx, cy, w, h);
+                    
+                    // 目（簡易版）
+                    this.ctx.fillStyle = '#ffff00';
+                    this.ctx.fillRect(cx + 50, cy + 80, 20, 20);
+                    this.ctx.fillRect(cx + 130, cy + 80, 20, 20);
+                    
+                    // HP表示（敵キャラの上）
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.font = 'bold 20px monospace';
+                    this.ctx.fillText('敵 HP: ' + Math.ceil(game.enemyHP), cx, cy - 10);
+                }
+                
+                drawLeftBar(game) {
+                    const barX = 0, barWidth = 60;
+                    
+                    // バーの背景
+                    this.ctx.fillStyle = '#004488'; // より明るい青
+                    this.ctx.fillRect(barX, 0, barWidth, this.height);
+                    
+                    // バーの枠線
+                    this.ctx.strokeStyle = '#00ffff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(barX, 0, barWidth, this.height);
+                    
+                    // プレイヤーの攻撃アイコン
+                    for (const attack of game.playerAttacks) {
+                        // 攻撃アイコン（円）
+                        this.ctx.fillStyle = '#ffff00';
+                        this.ctx.beginPath();
+                        this.ctx.arc(barX + barWidth / 2, attack.y, 10, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                }
+                
+                drawRightBar(game) {
+                    const barX = this.width - 60, barWidth = 60;
+                    
+                    // バーの背景
+                    this.ctx.fillStyle = '#884400'; // より明るい赤茶色
+                    this.ctx.fillRect(barX, 0, barWidth, this.height);
+                    
+                    // バーの枠線
+                    this.ctx.strokeStyle = '#ffff00';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(barX, 0, barWidth, this.height);
+                    
+                    // 敵の攻撃カード＋回避枠
+                    for (const attack of game.enemyAttacks) {
+                        // 攻撃カード（赤い矩形）
+                        this.ctx.fillStyle = '#ff6666';
+                        this.ctx.fillRect(barX + 5, attack.y, barWidth - 10, 40);
+                        
+                        // 回避枠（緑の枠線）
+                        this.ctx.strokeStyle = '#00ff00';
+                        this.ctx.lineWidth = 3;
+                        this.ctx.strokeRect(
+                            barX + 5,
+                            attack.dodgeZoneMin,
+                            barWidth - 10,
+                            attack.dodgeZoneMax - attack.dodgeZoneMin
+                        );
+                    }
+                }
+                
+                drawHPBars(game) {
+                    const barHeight = 30;
+                    const barWidth = 150;
+                    
+                    // 敵HP（左上）
+                    this.ctx.fillStyle = '#444';
+                    this.ctx.fillRect(100, 20, barWidth, barHeight);
+                    this.ctx.fillStyle = '#ff6464';
+                    const enemyFilledWidth = (game.enemyHP / 100) * barWidth;
+                    this.ctx.fillRect(100, 20, enemyFilledWidth, barHeight);
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(100, 20, barWidth, barHeight);
+                    
+                    // プレイヤーHP（右上）
+                    this.ctx.fillStyle = '#444';
+                    this.ctx.fillRect(this.width - 250, 20, barWidth, barHeight);
+                    this.ctx.fillStyle = '#64ff64';
+                    const playerHPPercent = Math.max(0, game.playerHP / 100);
+                    const playerFilledWidth = playerHPPercent * barWidth;
+                    this.ctx.fillRect(this.width - 250, 20, playerFilledWidth, barHeight);
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(this.width - 250, 20, barWidth, barHeight);
+                    
+                    // HP数値表示
+                    this.ctx.fillStyle = '#ffff00';
+                    this.ctx.font = 'bold 16px monospace';
+                    this.ctx.fillText(`敵 HP: ${Math.ceil(game.enemyHP)}`, 110, 40);
+                    this.ctx.fillText(`プレイヤー HP: ${Math.ceil(game.playerHP)}`, this.width - 240, 40);
+                }
+                
+                drawEndScreen(game) {
+                    // 半透明の黒い覆い
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.fillRect(0, 0, this.width, this.height);
+                    
+                    // テキスト
+                    this.ctx.fillStyle = game.state === 'victory' ? '#00ff00' : '#ff0000';
+                    this.ctx.font = 'bold 48px monospace';
+                    this.ctx.textAlign = 'center';
+                    const text = game.state === 'victory' ? '🎉 勝利！' : '💔 敗北...';
+                    this.ctx.fillText(text, this.width / 2, this.height / 2);
+                    
+                    this.ctx.font = '16px monospace';
+                    this.ctx.fillText('タップしてマップに戻る', this.width / 2, this.height / 2 + 50);
+                }
+            }
             
-            // ゲーム終了（テスト用：5秒後に自動終了）
+            // ゲーム状態初期化
+            const playerHP = 100; // WASM ゲーム開始時のプレイヤー HP
+            const game = new SendaiGame(playerHP);
+            
+            // キャンバス準備：Pyxel の canvas-scene と game-wrapper を完全に隠す
+            const canvasScene = document.getElementById('canvas-scene');
+            canvasScene.style.display = 'none';
+            canvasScene.style.visibility = 'hidden';
+            canvasScene.style.pointerEvents = 'none';
+            
+            const gameWrapper = document.getElementById('game-wrapper');
+            if (gameWrapper) {
+                gameWrapper.style.display = 'none';
+                gameWrapper.style.visibility = 'hidden';
+                gameWrapper.style.pointerEvents = 'none';
+            }
+            
+            let gameCanvas = document.getElementById('sendai-game-canvas');
+            if (gameCanvas) {
+                gameCanvas.remove();
+            }
+            
+            // Canvas を battle-overlay に直接追加
+            gameCanvas = document.createElement('canvas');
+            gameCanvas.id = 'sendai-game-canvas';
+            gameCanvas.width = 800;
+            gameCanvas.height = 800;
+            gameCanvas.style.cssText = `
+                display: block;
+                background: #000000;
+                border: 3px solid #ffff00;
+                margin: 0 auto;
+                z-index: 100;
+                position: relative;
+            `;
+            
+            // battleOverlay に直接追加（canvas-scene の代わりに）
+            const existingCanvas = battleOverlay.querySelector('canvas');
+            if (existingCanvas) existingCanvas.remove();
+            
+            battleOverlay.appendChild(gameCanvas);
+            
+            console.log('✓ Canvas作成:', { width: gameCanvas.width, height: gameCanvas.height });
+            console.log('✓ Canvas を battleOverlay に直接追加');
+            
+            const renderer = new SendaiRenderer(gameCanvas, 800, 800);
+            console.log('✓ Renderer初期化:', { canvas: { w: gameCanvas.width, h: gameCanvas.height }, renderer: { w: renderer.width, h: renderer.height } });
+            
+            // テスト描画：背景と文字
+            const ctx = gameCanvas.getContext('2d');
+            if (ctx) {
+                // 背景
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, 800, 800);
+                
+                // 敵キャラの簡易版
+                ctx.fillStyle = '#0088ff';
+                ctx.fillRect(300, 250, 200, 300);
+                
+                // 左バー
+                ctx.fillStyle = '#004488';
+                ctx.fillRect(0, 0, 60, 800);
+                
+                // 右バー
+                ctx.fillStyle = '#884400';
+                ctx.fillRect(740, 0, 60, 800);
+                
+                // テキスト
+                ctx.fillStyle = '#ffff00';
+                ctx.font = 'bold 32px monospace';
+                ctx.fillText('Canvas Ready', 250, 100);
+                
+                // HP表示
+                ctx.font = 'bold 20px monospace';
+                ctx.fillText('Enemy HP: 100', 100, 50);
+                ctx.fillText('Player HP: 100', 450, 50);
+                
+                console.log('✓ テスト描画成功');
+            } else {
+                console.error('❌ Canvas Context 取得失敗');
+            }
+            
+            // 音声認識セットアップ
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition = null;
+            
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.lang = 'ja-JP';
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                
+                recognition.onresult = (event) => {
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        if (event.results[i].isFinal) {
+                            const transcript = event.results[i][0].transcript;
+                            console.log('🎤 音声:', transcript);
+                            
+                            // 攻撃力計算（文字数で簡易実装）
+                            const power = Math.min(transcript.length * 3, 100);
+                            game.addPlayerAttack(power);
+                        }
+                    }
+                };
+                
+                try {
+                    recognition.start();
+                    console.log('🎤 音声認識開始');
+                } catch (e) {
+                    console.warn('🎤 音声認識エラー:', e);
+                }
+            }
+            
+            // タッチ/スワイプイベント
+            let touchStartY = 0;
+            gameCanvas.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+            
+            gameCanvas.addEventListener('touchend', (e) => {
+                const touchEndY = e.changedTouches[0].clientY;
+                const deltaY = touchStartY - touchEndY;
+                
+                if (Math.abs(deltaY) > 50) {
+                    console.log('↕️ スワイプ:', deltaY > 0 ? '下' : '上');
+                    const dodgeSuccess = game.tryDodge(touchStartY);
+                    console.log('回避:', dodgeSuccess ? '成功 ✓' : '失敗 ✗');
+                }
+            }, { passive: true });
+            
+            // ゲーム終了時のクリックで戻る
+            gameCanvas.addEventListener('click', () => {
+                if (game.state !== 'running') {
+                    endGame();
+                }
+            });
+            
+            // ゲーム終了処理
             const endGame = () => {
-                console.log('🗿 ゲーム終了', miniGameScore);
-                miniGameActive = false;
+                console.log('🗿 ゲーム終了:', game.state);
+                
+                // 音声認識停止
+                if (recognition) {
+                    try {
+                        recognition.stop();
+                    } catch (e) { }
+                }
+                
+                // キャンバス削除
+                gameCanvas.remove();
+                
+                // バトルオーバーレイ非表示
                 battleOverlay.classList.remove('active');
+                
                 // マップに戻る
                 setActiveTab('tab-map');
             };
             
-            // テスト：自動終了
-            setTimeout(endGame, 5000);
+            // メインループ
+            let animationFrameId = null;
+            let frameCount = 0;
+            const gameLoop = () => {
+                frameCount++;
+                if (frameCount === 1) {
+                    console.log('🎮 ゲームループ開始:', { gameState: game.state, canvas: gameCanvas });
+                }
+                
+                if (game.state === 'running') {
+                    game.update();
+                    renderer.update();
+                    renderer.render(game);
+                    
+                    if (frameCount % 60 === 0) {
+                        console.log('🎮 フレーム', frameCount, '敵HP:', game.enemyHP, 'プレイヤーHP:', game.playerHP);
+                    }
+                    
+                    animationFrameId = requestAnimationFrame(gameLoop);
+                } else {
+                    // ゲーム終了画面を表示
+                    console.log('🎮 ゲーム終了画面表示:', game.state);
+                    renderer.render(game);
+                    // 5秒後に自動でマップに戻る
+                    setTimeout(endGame, 5000);
+                }
+            };
+            
+            // ゲーム開始
+            battleOverlay.classList.add('active');
+            battleUI.classList.remove('active');
+            console.log('🎮 ゲーム画面表示');
+            
+            // 初期描画を確実に実行
+            setTimeout(() => {
+                console.log('🎮 初期フレーム強制描画');
+                game.update();
+                renderer.update();
+                renderer.render(game);
+                gameLoop();
+            }, 100);
         }
 
 
