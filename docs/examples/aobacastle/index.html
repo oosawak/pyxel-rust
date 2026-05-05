@@ -13,11 +13,9 @@
   canvas {
     display: block;
     image-rendering: pixelated;
-    /* アスペクト比を保ちながら画面いっぱいに拡大 */
-    max-width: 100vw;
-    max-height: 100svh;
-    width: auto;
-    height: 100svh;
+    /* 400:640 (5:8) アスペクト比を保ちながら画面中央に最大表示 */
+    width:  min(100vw, calc(100svh * 400 / 640));
+    height: min(100svh, calc(100vw * 640 / 400));
   }
 
   /* タッチゾーンオーバーレイ */
