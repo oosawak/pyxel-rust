@@ -2641,12 +2641,28 @@
             };
             
             // ゲーム開始
-            getBattleOverlay().classList.add('active');
-            getBattleUI().classList.remove('active');
+            debugLog('🎮 ゲーム開始: battle-overlayを表示中...');
+            const overlay = getBattleOverlay();
+            if (overlay) {
+                overlay.classList.add('active');
+                debugLog('✓ battle-overlay.active クラス追加成功');
+            } else {
+                debugLog('❌ battle-overlay がnull - 表示失敗！');
+            }
+            
+            const ui = getBattleUI();
+            if (ui) {
+                ui.classList.remove('active');
+                debugLog('✓ battle-ui.active クラス削除');
+            } else {
+                debugLog('❌ battle-ui がnull');
+            }
+            
             console.log('🎮 ゲーム画面表示');
             
             // 初期描画を確実に実行
             setTimeout(() => {
+                debugLog('🎮 初期フレーム強制描画実行');
                 console.log('🎮 初期フレーム強制描画');
                 game.update();
                 renderer.update();
@@ -2657,8 +2673,20 @@
 
 
         // Get battle UI elements (loaded dynamically)
-        function getBattleOverlay() { return document.getElementById('battle-overlay'); }
-        function getBattleUI() { return document.getElementById('battle-ui'); }
+        function getBattleOverlay() {
+            const el = document.getElementById('battle-overlay');
+            if (!el) {
+                debugLog('❌ ERROR: battle-overlay not found!');
+            }
+            return el;
+        }
+        function getBattleUI() {
+            const el = document.getElementById('battle-ui');
+            if (!el) {
+                debugLog('❌ ERROR: battle-ui not found!');
+            }
+            return el;
+        }
         let inBattle = false, watchInterval = null;
 
         // ── 落下コマンドタイムライン ─────────────────────────────────────────
