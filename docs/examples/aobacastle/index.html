@@ -2,20 +2,45 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>青葉城 忍者登り</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0a0a1a; display: flex; flex-direction: column;
          align-items: center; justify-content: center;
-         min-height: 100vh; color: #ccc; font-family: monospace; }
+         min-height: 100vh; color: #ccc; font-family: monospace;
+         touch-action: none; overflow: hidden; }
   canvas { display: block; image-rendering: pixelated; }
-  #info { margin-top: 12px; font-size: 12px; color: #556; }
+
+  /* タッチゾーンオーバーレイ */
+  #touch-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    display: grid;
+    grid-template-rows: 2fr 3fr;
+    grid-template-columns: 1fr 1fr;
+    pointer-events: none; /* JS で必要な時だけ有効化 */
+    z-index: 10;
+  }
+  .tz {
+    pointer-events: all;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  #tz-top    { grid-column: 1 / 3; grid-row: 1; }
+  #tz-left   { grid-column: 1;     grid-row: 2; }
+  #tz-right  { grid-column: 2;     grid-row: 2; }
 </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
-<div id="info">← → 難易度選択 &nbsp;|&nbsp; ↑ / Z / SPACE ジャンプ</div>
+
+<!-- タッチゾーン (canvas の上に重ねる) -->
+<div id="touch-overlay">
+  <div class="tz" id="tz-top"></div>
+  <div class="tz" id="tz-left"></div>
+  <div class="tz" id="tz-right"></div>
+</div>
+
 <script type="module">
   import init, { main_aobacastle } from './pkg/pyxel_rust.js';
   async function run() {
@@ -23,6 +48,42 @@
     main_aobacastle();
   }
   run().catch(console.error);
+</script>
+
+<script>
+  // タッチ → キーイベント変換
+  function fireKey(type, code, key) {
+    window.dispatchEvent(new KeyboardEvent(type, {
+      code, key, keyCode: 0, bubbles: true, cancelable: true
+    }));
+  }
+
+  function bindZone(id, code, key) {
+    const el = document.getElementById(id);
+    let active = false;
+
+    el.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (!active) { active = true; fireKey('keydown', code, key); }
+    }, { passive: false });
+
+    el.addEventListener('touchend', e => {
+      e.preventDefault();
+      if (active) { active = false; fireKey('keyup', code, key); }
+    }, { passive: false });
+
+    el.addEventListener('touchcancel', e => {
+      e.preventDefault();
+      if (active) { active = false; fireKey('keyup', code, key); }
+    }, { passive: false });
+  }
+
+  // 上ゾーン = Space (ジャンプ / スタート)
+  bindZone('tz-top',   'Space',       ' ');
+  // 左下ゾーン = ArrowLeft (左移動 / 難易度↓)
+  bindZone('tz-left',  'ArrowLeft',   'ArrowLeft');
+  // 右下ゾーン = ArrowRight (右移動 / 難易度↑)
+  bindZone('tz-right', 'ArrowRight',  'ArrowRight');
 </script>
 </body>
 </html>
