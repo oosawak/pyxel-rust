@@ -2,20 +2,20 @@
 /// 石垣の足場を踏み台に天守閣を目指す縦スクロールゲーム
 use crate::prelude::*;
 
-const W: u32 = 160;
-const H: u32 = 200;
+const W: u32 = 200;
+const H: u32 = 320;
 const WF: f32 = W as f32;
 const HF: f32 = H as f32;
 
 // 忍者サイズ
-const NW: f32 = 8.0;
-const NH: f32 = 10.0;
+const NW: f32 = 10.0;
+const NH: f32 = 12.0;
 
 // 足場
-const PLAT_H: f32 = 4.0;
+const PLAT_H: f32 = 5.0;
 
 // 世界の高さ
-const WORLD_H: f32 = 1400.0;
+const WORLD_H: f32 = 2000.0;
 
 // パレット
 const BLACK:       u8 = 0;
@@ -49,15 +49,15 @@ struct DiffConfig {
 impl DiffConfig {
     fn get(d: Diff) -> Self {
         match d {
-            Diff::Easy   => DiffConfig { steps: 34, step_scale: 0.75, plat_w_mul: 1.4,
-                                         gravity: 0.35, jump_vel: -6.5,
-                                         moon_size: 8.0, moon_col: LIGHT_GRAY },
-            Diff::Normal => DiffConfig { steps: 28, step_scale: 1.00, plat_w_mul: 1.0,
-                                         gravity: 0.40, jump_vel: -6.5,
-                                         moon_size: 7.0, moon_col: LIGHT_GRAY },
-            Diff::Hard   => DiffConfig { steps: 22, step_scale: 1.30, plat_w_mul: 0.65,
-                                         gravity: 0.48, jump_vel: -6.2,
-                                         moon_size: 6.0, moon_col: YELLOW },
+            Diff::Easy   => DiffConfig { steps: 34, step_scale: 0.75, plat_w_mul: 1.5,
+                                         gravity: 0.38, jump_vel: -9.0,
+                                         moon_size: 10.0, moon_col: LIGHT_GRAY },
+            Diff::Normal => DiffConfig { steps: 28, step_scale: 1.00, plat_w_mul: 1.1,
+                                         gravity: 0.42, jump_vel: -8.2,
+                                         moon_size: 9.0, moon_col: LIGHT_GRAY },
+            Diff::Hard   => DiffConfig { steps: 22, step_scale: 1.25, plat_w_mul: 0.70,
+                                         gravity: 0.48, jump_vel: -8.0,
+                                         moon_size: 8.0, moon_col: YELLOW },
         }
     }
     fn label(d: Diff) -> &'static str {
@@ -201,23 +201,24 @@ impl Game {
         v.push(Platform { x: 0.0, y: WORLD_H - 20.0, w: WF });
 
         let step_h = (WORLD_H - 80.0) / cfg.steps as f32 * cfg.step_scale;
-        let xs: [f32; 8] = [8.0, 30.0, 52.0, 75.0, 95.0, 115.0, 10.0, 65.0];
-        let base_ws: [f32; 8] = [28.0, 24.0, 20.0, 26.0, 22.0, 18.0, 30.0, 22.0];
+        // WF=200 に合わせた足場 x 座標
+        let xs: [f32; 8] = [10.0, 38.0, 68.0, 98.0, 125.0, 150.0, 15.0, 82.0];
+        let base_ws: [f32; 8] = [34.0, 30.0, 26.0, 32.0, 28.0, 24.0, 38.0, 28.0];
 
         for i in 0..cfg.steps {
             let idx = (i * 3 + i / 2) as usize % xs.len();
             let y = WORLD_H - 40.0 - step_h * (i + 1) as f32;
             if y < 20.0 { break; }
-            let w = (base_ws[idx] * cfg.plat_w_mul).max(10.0);
+            let w = (base_ws[idx] * cfg.plat_w_mul).max(12.0);
             v.push(Platform { x: xs[idx], y, w });
             if i % 3 == 1 {
                 let idx2 = (idx + 4) % xs.len();
-                let w2 = (base_ws[idx2] * cfg.plat_w_mul - 4.0).max(8.0);
-                v.push(Platform { x: xs[idx2], y: y - 6.0, w: w2 });
+                let w2 = (base_ws[idx2] * cfg.plat_w_mul - 4.0).max(10.0);
+                v.push(Platform { x: xs[idx2], y: y - 8.0, w: w2 });
             }
         }
         // 天守閣直前
-        v.push(Platform { x: 20.0, y: 30.0, w: WF - 40.0 });
+        v.push(Platform { x: 25.0, y: 35.0, w: WF - 50.0 });
         v
     }
 
