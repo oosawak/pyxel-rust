@@ -392,12 +392,13 @@
             display: none; flex-direction: column; flex-shrink: 0;
             background: #08041a; border-top: 2px solid #2a1045;
             width: 100%; max-width: 480px; margin: 0 auto;
+            z-index: 40;
         }
         #battle-ui.active { display: flex; }
 
         /* ── 落下コマンドタイムライン ── */
         #battle-timeline {
-            position: absolute; inset: 0; z-index: 10;
+            position: absolute; inset: 0; z-index: 30;
             pointer-events: none; display: none;
         }
         #battle-timeline.active { display: block; }
