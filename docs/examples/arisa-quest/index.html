@@ -2398,7 +2398,8 @@
 
             // ── Three.js 3Dシーン（敵キャラ） ──────────────────────────────────
             const enemyArea = document.getElementById('daikannon-enemy-area');
-            canvas.style.cssText = 'display:block;width:100%;height:160px;';
+            // インラインスタイルをクリア（CSSの position:absolute;width:100%;height:100% を有効にする）
+            canvas.style.cssText = '';
 
             const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
             renderer.setPixelRatio(window.devicePixelRatio);
@@ -2412,9 +2413,9 @@
             camera.lookAt(0, 3, 0);
 
             function resizeThree() {
-                const w = enemyArea.clientWidth;
-                const h = enemyArea.clientHeight || window.innerHeight * 0.65;
-                renderer.setSize(w, h, false);
+                const w = enemyArea.clientWidth  || 375;
+                const h = enemyArea.clientHeight || window.innerHeight * 0.70;
+                renderer.setSize(w, h, false); // false = CSSスタイルを書き換えない
                 camera.aspect = w / h;
                 camera.updateProjectionMatrix();
             }
