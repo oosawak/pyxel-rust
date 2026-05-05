@@ -323,106 +323,145 @@
             padding: 4px 10px; cursor: pointer;
         }
         #daikannon-logpanel {
-            display: none; max-height: 120px; overflow-y: auto;
+            display: none; max-height: 100px; overflow-y: auto;
             background: rgba(0,0,0,0.9); border-bottom: 1px solid #00ff00;
             padding: 6px 10px; font-family: monospace; font-size: 0.65rem;
             color: #00ff00; flex-shrink: 0;
         }
         #daikannon-logpanel.show { display: block; }
         #daikannon-logpanel div { margin: 1px 0; }
-        #daikannon-canvas-wrap {
-            flex: 1; display: flex; align-items: center; justify-content: center;
-            overflow: hidden; min-height: 0;
+
+        /* 敵キャラエリア（上部・大きく表示） */
+        #daikannon-enemy-area {
+            flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+            background: linear-gradient(180deg, #001133, #000814);
+            padding: 6px 12px 4px;
         }
+        #daikannon-canvas {
+            display: block; width: 100%; max-height: 160px;
+            object-fit: contain;
+        }
+        #daikannon-enemy-hp-row {
+            display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 0;
+        }
+        #daikannon-enemy-hp-label {
+            font-family: 'DotGothic16', monospace; font-size: 0.7rem;
+            color: #ff8844; width: 56px; flex-shrink: 0;
+        }
+        #daikannon-enemy-hp-bg {
+            flex: 1; height: 14px; background: #333;
+            border: 1px solid #aa4400; border-radius: 3px; overflow: hidden;
+        }
+        #daikannon-enemy-hp-fill {
+            height: 100%; width: 100%;
+            background: linear-gradient(to right, #ff2200, #ff8844);
+            transition: width 0.4s;
+        }
+        #daikannon-enemy-hp-val {
+            font-family: monospace; font-size: 0.7rem; color: #ff8844; width: 28px; text-align: right;
+        }
+
+        /* 左右バーエリア（下部） */
         #daikannon-arena {
             flex: 1; display: flex; flex-direction: row; overflow: hidden; min-height: 0;
         }
         .dk-tl-lane {
-            width: 50px; flex-shrink: 0; position: relative; overflow: hidden;
-            background: rgba(0,0,0,0.6);
-            border-right: 1px solid rgba(0,200,255,0.2);
+            width: 54px; flex-shrink: 0; position: relative; overflow: hidden;
+            background: rgba(0,0,0,0.7);
         }
-        #dk-tl-right { border-right: none; border-left: 1px solid rgba(0,200,255,0.2); }
+        #dk-tl-left  { border-right: 1px solid rgba(0,180,255,0.3); }
+        #dk-tl-right { border-left:  1px solid rgba(255,80,80,0.3); }
         .dk-tl-header {
-            text-align: center; font-size: 1.3rem; padding: 5px 0; background: rgba(0,0,0,0.5);
+            text-align: center; font-size: 1.2rem; line-height: 1.2;
+            padding: 6px 0 4px; background: rgba(0,0,0,0.6);
         }
         .dk-tl-execute-line {
             position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
         }
-        #dk-tl-left  .dk-tl-execute-line { background: #44aaff; box-shadow: 0 0 6px #44aaff; }
-        #dk-tl-right .dk-tl-execute-line { background: #ff4444; box-shadow: 0 0 6px #ff4444; }
+        #dk-tl-left  .dk-tl-execute-line { background: #44aaff; box-shadow: 0 0 8px #44aaff; }
+        #dk-tl-right .dk-tl-execute-line { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
         .dk-tl-card {
             position: absolute; left: 50%; transform: translateX(-50%);
-            border-radius: 8px; padding: 4px 4px; font-size: 1.2rem; text-align: center;
-            width: 36px; line-height: 1; border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px; padding: 4px; font-size: 1.3rem; text-align: center;
+            width: 38px; line-height: 1; border: 1px solid rgba(255,255,255,0.4);
             background: rgba(0,100,220,0.85);
         }
-        .dk-tl-card.dk-enemy { background: rgba(200,50,50,0.85); border-color: #ff8844; }
-        .dk-tl-card.dk-flash { animation: dk-card-flash 0.3s ease-out; }
+        .dk-tl-card.dk-enemy { background: rgba(200,40,40,0.85); border-color: #ff6644; }
         @keyframes dk-card-flash {
-            0%   { filter: brightness(3); }
+            0%   { filter: brightness(4) saturate(2); }
             100% { filter: brightness(1); }
         }
-        #daikannon-btn-voice { background: rgba(20,80,20,0.7) !important; border-color: #44ff88 !important; flex: 0 0 auto !important; padding: 10px 12px !important; }
-        #daikannon-btn-voice.listening { background: rgba(180,20,20,0.8) !important; border-color: #ff4466 !important; animation: pulse 0.8s infinite; }
 
-        #daikannon-canvas {
-            display: block; background: #000;
-            max-width: 100%; max-height: 100%;
+        /* センター：アリサHP＋音声ボタン */
+        #daikannon-center {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 10px; padding: 10px 8px;
         }
-        #daikannon-hparea {
-            flex-shrink: 0; padding: 8px 12px;
-            background: rgba(0,0,0,0.7); display: flex; flex-direction: column; gap: 4px;
+        #daikannon-player-hp-row {
+            display: flex; align-items: center; gap: 8px; width: 100%;
         }
-        #daikannon-enemy-hp-row, #daikannon-player-hp-row {
-            display: flex; align-items: center; gap: 8px;
-        }
-        #daikannon-enemy-hp-label, #daikannon-player-hp-label {
+        #daikannon-player-hp-label {
             font-family: 'DotGothic16', monospace; font-size: 0.7rem;
-            color: #ccc; width: 56px; flex-shrink: 0;
+            color: #88ffaa; width: 56px; flex-shrink: 0;
         }
-        #daikannon-enemy-hp-bg, #daikannon-player-hp-bg {
+        #daikannon-player-hp-bg {
             flex: 1; height: 14px; background: #333;
-            border: 1px solid #666; border-radius: 3px; overflow: hidden;
-        }
-        #daikannon-enemy-hp-fill {
-            height: 100%; width: 100%;
-            background: linear-gradient(to right, #ff4444, #ff8844);
-            transition: width 0.3s;
+            border: 1px solid #226644; border-radius: 3px; overflow: hidden;
         }
         #daikannon-player-hp-fill {
             height: 100%; width: 100%;
-            background: linear-gradient(to right, #44ff44, #44ff88);
-            transition: width 0.3s;
+            background: linear-gradient(to right, #22cc44, #44ffaa);
+            transition: width 0.4s;
         }
-        #daikannon-enemy-hp-val, #daikannon-player-hp-val {
-            font-family: monospace; font-size: 0.7rem; color: #fff; width: 28px; text-align: right;
+        #daikannon-player-hp-val {
+            font-family: monospace; font-size: 0.7rem; color: #88ffaa; width: 28px; text-align: right;
         }
-        #daikannon-btnrow {
-            flex-shrink: 0; display: flex; gap: 6px; padding: 8px 12px;
-            background: rgba(0,0,0,0.7);
+        #daikannon-btn-voice {
+            width: 90%; padding: 14px 0;
+            background: linear-gradient(135deg, #0a3a1a, #144d28);
+            border: 2px solid #44ff88; border-radius: 12px;
+            color: #44ff88; font-family: 'DotGothic16', monospace;
+            font-size: 1rem; cursor: pointer; letter-spacing: 2px;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.15s;
         }
-        #daikannon-btnrow button {
-            flex: 1; padding: 10px 0; background: rgba(0,80,180,0.7);
-            border: 2px solid #4488ff; border-radius: 8px; color: #fff;
+        #daikannon-btn-voice:active { transform: scale(0.96); }
+        #daikannon-btn-voice.listening {
+            background: linear-gradient(135deg, #3a0a0a, #5a1010) !important;
+            border-color: #ff4466 !important; color: #ff8899 !important;
+            animation: pulse 0.7s infinite;
+        }
+        #daikannon-voice-status {
+            font-family: 'DotGothic16', monospace; font-size: 0.75rem;
+            color: #aaa; min-height: 1.2em; text-align: center;
+        }
+        #daikannon-btn-auto, #daikannon-btn-back {
+            padding: 8px 16px;
+            border-radius: 8px; color: #fff;
             font-family: 'DotGothic16', monospace; font-size: 0.75rem; cursor: pointer;
             -webkit-tap-highlight-color: transparent;
         }
-        #daikannon-btnrow button:active { transform: scale(0.95); }
-        #daikannon-btn-back { background: rgba(80,20,120,0.7) !important; border-color: #aa66ff !important; }
+        #daikannon-btn-auto {
+            background: rgba(60,40,140,0.7); border: 1px solid #8866ff;
+        }
+        #daikannon-btn-back {
+            background: rgba(60,20,80,0.7); border: 1px solid #aa66ff;
+        }
+
+        /* 結果画面 */
         #daikannon-result {
             display: none; position: absolute; inset: 0;
-            background: rgba(0,0,0,0.85); z-index: 10;
-            flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+            background: rgba(0,0,0,0.88); z-index: 10;
+            flex-direction: column; align-items: center; justify-content: center; gap: 18px;
         }
         #daikannon-result.show { display: flex; }
         #daikannon-result-title {
-            font-family: 'DotGothic16', monospace; font-size: 2rem; letter-spacing: 4px;
-            text-shadow: 0 0 18px currentColor; color: #ffee44;
+            font-family: 'DotGothic16', monospace; font-size: 2.2rem; letter-spacing: 4px;
+            text-shadow: 0 0 20px currentColor; color: #ffee44;
         }
         #daikannon-result-title.lose { color: #ff4466; }
         #daikannon-result-msg {
-            font-family: 'DotGothic16', monospace; font-size: 0.85rem;
+            font-family: 'DotGothic16', monospace; font-size: 0.9rem;
             color: #aa99cc; text-align: center; line-height: 1.8;
         }
         #daikannon-result-back {
@@ -433,6 +472,7 @@
             font-size: 1rem; cursor: pointer;
         }
         #daikannon-result-back:active { transform: scale(0.96); }
+
 
         /* ── タブバー ─────────────────────────────────────────────── */
         #tab-bar {
@@ -991,37 +1031,36 @@
                 <button id="daikannon-log-toggle">📋 ログ</button>
             </div>
             <div id="daikannon-logpanel"></div>
-            <div id="daikannon-arena">
-                <div class="dk-tl-lane" id="dk-tl-left">
-                    <div class="dk-tl-header">🧝</div>
-                    <div class="dk-tl-execute-line"></div>
-                </div>
-                <div id="daikannon-canvas-wrap">
-                    <canvas id="daikannon-canvas"></canvas>
-                </div>
-                <div class="dk-tl-lane" id="dk-tl-right">
-                    <div class="dk-tl-header">🗿</div>
-                    <div class="dk-tl-execute-line"></div>
-                </div>
-            </div>
-            <div id="daikannon-hparea">
+            <!-- 敵キャラ表示エリア -->
+            <div id="daikannon-enemy-area">
+                <canvas id="daikannon-canvas"></canvas>
                 <div id="daikannon-enemy-hp-row">
-                    <span id="daikannon-enemy-hp-label">敵 HP</span>
+                    <span id="daikannon-enemy-hp-label">大観音 HP</span>
                     <div id="daikannon-enemy-hp-bg"><div id="daikannon-enemy-hp-fill"></div></div>
                     <span id="daikannon-enemy-hp-val">100</span>
                 </div>
-                <div id="daikannon-player-hp-row">
-                    <span id="daikannon-player-hp-label">アリサ HP</span>
-                    <div id="daikannon-player-hp-bg"><div id="daikannon-player-hp-fill"></div></div>
-                    <span id="daikannon-player-hp-val">100</span>
-                </div>
             </div>
-            <div id="daikannon-btnrow">
-                <button id="daikannon-btn-attack">⚔️ 攻撃</button>
-                <button id="daikannon-btn-dodge">💨 回避</button>
-                <button id="daikannon-btn-auto">🤖 オート</button>
-                <button id="daikannon-btn-voice">🎤</button>
-                <button id="daikannon-btn-back">🗺️ 戻る</button>
+            <!-- 左右バー ＋ 音声入力ボタン -->
+            <div id="daikannon-arena">
+                <div class="dk-tl-lane" id="dk-tl-left">
+                    <div class="dk-tl-header">🧝<br><span style="font-size:0.55rem">攻撃</span></div>
+                    <div class="dk-tl-execute-line"></div>
+                </div>
+                <div id="daikannon-center">
+                    <div id="daikannon-player-hp-row">
+                        <span id="daikannon-player-hp-label">アリサ HP</span>
+                        <div id="daikannon-player-hp-bg"><div id="daikannon-player-hp-fill"></div></div>
+                        <span id="daikannon-player-hp-val">100</span>
+                    </div>
+                    <button id="daikannon-btn-voice">🎤 声で攻撃！</button>
+                    <div id="daikannon-voice-status"></div>
+                    <button id="daikannon-btn-auto">🤖 オート</button>
+                    <button id="daikannon-btn-back">🗺️ 戻る</button>
+                </div>
+                <div class="dk-tl-lane" id="dk-tl-right">
+                    <div class="dk-tl-header">🗿<br><span style="font-size:0.55rem">敵撃</span></div>
+                    <div class="dk-tl-execute-line"></div>
+                </div>
             </div>
             <div id="daikannon-result">
                 <div id="daikannon-result-title">勝利！</div>
@@ -1125,6 +1164,7 @@
     </div><!-- #main -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script>
         // ── Gamepad input ─────────────────────────────────────────────────────
@@ -2253,16 +2293,20 @@
             }, 40);
         }
 
-        // ── 仙台大観音バトル（#battle-overlayと完全分離） ────────────────────
+        // ── 仙台大観音バトル（JavaScript実装・WASM不使用） ────────────────────
         async function startSendaiDaikannonGame() {
             debugLog('🗿 大観音バトル: 起動開始');
 
-            const overlay  = document.getElementById('daikannon-overlay');
-            const logPanel = document.getElementById('daikannon-logpanel');
-            const logToggle = document.getElementById('daikannon-log-toggle');
-            const laneLeft  = document.getElementById('dk-tl-left');
-            const laneRight = document.getElementById('dk-tl-right');
+            const overlay    = document.getElementById('daikannon-overlay');
+            const logPanel   = document.getElementById('daikannon-logpanel');
+            const logToggle  = document.getElementById('daikannon-log-toggle');
+            const laneLeft   = document.getElementById('dk-tl-left');
+            const laneRight  = document.getElementById('dk-tl-right');
+            const canvas     = document.getElementById('daikannon-canvas');
+            const voiceBtn   = document.getElementById('daikannon-btn-voice');
+            const voiceStat  = document.getElementById('daikannon-voice-status');
 
+            // ── ログ ──────────────────────────────────────────────────────────
             function dkLog(msg) {
                 debugLog(msg);
                 const d = document.createElement('div');
@@ -2270,189 +2314,313 @@
                 logPanel.appendChild(d);
                 logPanel.scrollTop = logPanel.scrollHeight;
             }
-
             logToggle.onclick = () => logPanel.classList.toggle('show');
             overlay.classList.add('active');
             dkLog('✅ オーバーレイ表示');
 
-            // WASM ロード
-            dkLog('⚙️ WASM読み込み開始...');
-            let wasmGame;
-            try {
-                const wasmModule = await import('./sendai_daikannon_wasm/sendai_daikannon_lib.js');
-                await wasmModule.default({ module_or_path: './sendai_daikannon_wasm/sendai_daikannon_lib_bg.wasm' });
-                wasmGame = wasmModule;
-                dkLog('✅ WASM読み込み完了');
-            } catch (e) {
-                dkLog('❌ WASM読み込みエラー: ' + e.message);
-                overlay.classList.remove('active');
-                return;
-            }
-
+            // ── ゲームステート ─────────────────────────────────────────────────
+            const ENEMY_MAX_HP  = 100;
             const PLAYER_MAX_HP = 100;
-            wasmGame.sendai_daikannon_init(PLAYER_MAX_HP);
-            dkLog('🎮 ゲーム初期化完了');
-
-            // キャンバス設定
-            const canvas = document.getElementById('daikannon-canvas');
-            const wrap   = document.getElementById('daikannon-canvas-wrap');
-            function resizeCanvas() {
-                canvas.width  = wrap.clientWidth;
-                canvas.height = wrap.clientHeight;
-            }
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-            dkLog('🖼️ キャンバスサイズ: ' + canvas.width + 'x' + canvas.height);
-
-            const ctx = canvas.getContext('2d');
-            let frame = 0;
+            let enemyHP   = ENEMY_MAX_HP;
+            let playerHP  = PLAYER_MAX_HP;
             let isRunning = true;
-            let autoMode = false;
-            let autoAttackTimer = 0;
+            let autoMode  = false;
+            let autoTimer = 0;
             const dkTimers = [];
 
-            // ── エッジバー：落下カード ──────────────────────────────────────
-            // side: 'player'（左レーン）or 'enemy'（右レーン）
-            function spawnDkCard(side, icon, fallMs, onArrive) {
-                const lane = side === 'player' ? laneLeft : laneRight;
-                const headerH = lane.querySelector('.dk-tl-header')?.offsetHeight ?? 32;
-                const laneH   = lane.clientHeight || 200;
-                const cardH   = 38;
+            // 生きているカードのリスト
+            const playerCards = []; // { el, cancelFn }
+            const enemyCards  = []; // { el, cancelFn, dmg }
+
+            const CLASH_ZONE = 40; // px: Y差がこの範囲内なら相殺
+
+            // ── Three.js 3Dシーン（敵キャラ） ──────────────────────────────────
+            const enemyArea = document.getElementById('daikannon-enemy-area');
+            canvas.style.cssText = 'display:block;width:100%;height:160px;';
+
+            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.setClearColor(0x000d1f);
+
+            const scene  = new THREE.Scene();
+            scene.fog    = new THREE.Fog(0x000d1f, 18, 40);
+            const camera = new THREE.PerspectiveCamera(45, 2, 0.1, 100);
+            camera.position.set(0, 3, 9);
+            camera.lookAt(0, 2, 0);
+
+            function resizeThree() {
+                const w = enemyArea.clientWidth;
+                const h = 160;
+                renderer.setSize(w, h, false);
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+            }
+            resizeThree();
+            window.addEventListener('resize', resizeThree);
+
+            // 空（背景）
+            scene.background = new THREE.Color(0x000d1f);
+
+            // 環境光
+            scene.add(new THREE.AmbientLight(0x334466, 1.2));
+
+            // 月光（方向光）
+            const moonLight = new THREE.DirectionalLight(0xaabbff, 1.5);
+            moonLight.position.set(4, 10, 4);
+            moonLight.castShadow = true;
+            scene.add(moonLight);
+
+            // 地面
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(30, 30),
+                new THREE.MeshLambertMaterial({ color: 0x111122 })
+            );
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 台座
+            const pedestal = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2, 0.6, 2.2),
+                new THREE.MeshLambertMaterial({ color: 0x5a4a30 })
+            );
+            pedestal.position.set(0, 0.3, 0);
+            pedestal.castShadow = true;
+            scene.add(pedestal);
+
+            // 大観音像グループ
+            const statueGroup = new THREE.Group();
+            const statMat = new THREE.MeshPhongMaterial({ color: 0xf0ece0, shininess: 60 });
+
+            // 胴体
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.2, 0.5), statMat);
+            body.position.set(0, 1.7, 0);
+            body.castShadow = true;
+            statueGroup.add(body);
+
+            // 頭
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), statMat);
+            head.position.set(0, 3.1, 0);
+            head.castShadow = true;
+            statueGroup.add(head);
+
+            // 宝冠
+            const crownMat = new THREE.MeshPhongMaterial({ color: 0xddcc77, shininess: 100 });
+            for (let i = -1; i <= 1; i++) {
+                const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.5 + Math.abs(i)*0.2, 6), crownMat);
+                pin.position.set(i * 0.22, 3.6 + Math.abs(i)*0.1, 0);
+                statueGroup.add(pin);
+            }
+
+            // 左腕
+            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.25, 0.3), statMat);
+            armL.position.set(-0.9, 2.3, 0);
+            armL.rotation.z = 0.3;
+            armL.castShadow = true;
+            statueGroup.add(armL);
+
+            // 右腕
+            const armR = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.25, 0.3), statMat);
+            armR.position.set(0.9, 2.3, 0);
+            armR.rotation.z = -0.3;
+            armR.castShadow = true;
+            statueGroup.add(armR);
+
+            // 光輪
+            const haloGeo = new THREE.TorusGeometry(0.7, 0.04, 8, 40);
+            const haloMat = new THREE.MeshBasicMaterial({ color: 0xffdd66, transparent: true, opacity: 0.6 });
+            const halo    = new THREE.Mesh(haloGeo, haloMat);
+            halo.position.set(0, 3.1, -0.1);
+            statueGroup.add(halo);
+
+            // 台座の上に配置
+            statueGroup.position.set(0, 0.6, 0);
+            scene.add(statueGroup);
+
+            // ダメージフラッシュ用マテリアル
+            const flashMat = new THREE.MeshPhongMaterial({ color: 0xff4444, shininess: 80 });
+
+            // 月（スプライト）
+            const moonGeo  = new THREE.SphereGeometry(0.5, 12, 12);
+            const moonMesh = new THREE.Mesh(moonGeo, new THREE.MeshBasicMaterial({ color: 0xfffbe0 }));
+            moonMesh.position.set(5, 8, -8);
+            scene.add(moonMesh);
+
+            let frame = 0;
+
+            function drawEnemy() {
+                frame++;
+                const t = frame * 0.02;
+
+                // 像がゆっくり浮遊
+                statueGroup.position.y = 0.6 + Math.sin(t) * 0.08;
+                // 光輪が回転
+                halo.rotation.z = t * 0.5;
+                // カメラが微妙に揺れる
+                camera.position.x = Math.sin(t * 0.3) * 0.3;
+
+                // ダメージフラッシュ
+                if (enemyHP < 40 && frame % 16 < 8) {
+                    body.material = flashMat;
+                    head.material = flashMat;
+                } else {
+                    body.material = statMat;
+                    head.material = statMat;
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            // ── HP 更新 ────────────────────────────────────────────────────────
+            function updateHPBars() {
+                const ep = Math.max(0, enemyHP)  / ENEMY_MAX_HP  * 100;
+                const pp = Math.max(0, playerHP) / PLAYER_MAX_HP * 100;
+                document.getElementById('daikannon-enemy-hp-fill').style.width  = ep + '%';
+                document.getElementById('daikannon-player-hp-fill').style.width = pp + '%';
+                document.getElementById('daikannon-enemy-hp-val').textContent   = Math.ceil(Math.max(0, enemyHP));
+                document.getElementById('daikannon-player-hp-val').textContent  = Math.ceil(Math.max(0, playerHP));
+            }
+
+            // ── 相殺チェック（毎フレーム） ────────────────────────────────────
+            function checkClash() {
+                for (const pc of [...playerCards]) {
+                    const pRect = pc.el.getBoundingClientRect();
+                    for (const ec of [...enemyCards]) {
+                        const eRect = ec.el.getBoundingClientRect();
+                        const dy = Math.abs(pRect.top - eRect.top);
+                        if (dy < CLASH_ZONE) {
+                            // 相殺！
+                            pc.cancelFn();
+                            ec.cancelFn();
+                            playerCards.splice(playerCards.indexOf(pc), 1);
+                            enemyCards.splice(enemyCards.indexOf(ec), 1);
+                            dkLog('⚡ 相殺！');
+                            showClashBanner();
+                        }
+                    }
+                }
+            }
+
+            // 相殺バナー
+            const clashBanner = document.createElement('div');
+            clashBanner.id = 'dk-clash-banner';
+            clashBanner.textContent = '⚡ 相殺！';
+            clashBanner.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+                'font-family:DotGothic16,monospace;font-size:1.4rem;color:#ffee44;' +
+                'text-shadow:0 0 16px #ffee44;pointer-events:none;display:none;z-index:50;';
+            overlay.appendChild(clashBanner);
+            function showClashBanner() {
+                clashBanner.style.display = 'block';
+                setTimeout(() => { clashBanner.style.display = 'none'; }, 700);
+            }
+
+            // ── カード生成（汎用） ─────────────────────────────────────────────
+            function spawnCard(lane, icon, fallMs, cssExtra, onArrive, registry) {
+                const headerH  = lane.querySelector('.dk-tl-header')?.offsetHeight ?? 40;
+                const laneH    = lane.clientHeight || 220;
+                const cardH    = 40;
                 const travelPx = Math.max(10, laneH - headerH - cardH - 3);
 
                 const card = document.createElement('div');
-                card.className = 'dk-tl-card' + (side === 'enemy' ? ' dk-enemy' : '');
+                card.className = 'dk-tl-card' + (cssExtra ? ' ' + cssExtra : '');
                 card.textContent = icon;
                 card.style.top = headerH + 'px';
                 lane.appendChild(card);
 
-                card.animate(
+                const anim = card.animate(
                     [{ transform: 'translateY(0px)' }, { transform: `translateY(${travelPx}px)` }],
                     { duration: fallMs, easing: 'linear', fill: 'forwards' }
                 );
 
+                let fired = false;
                 const t = setTimeout(() => {
+                    if (!fired) { fired = true; if (onArrive) onArrive(); }
                     card.classList.add('dk-flash');
-                    if (onArrive) onArrive();
-                    setTimeout(() => card.remove(), 400);
+                    setTimeout(() => card.remove(), 500);
+                    if (registry) {
+                        const i = registry.findIndex(r => r.el === card);
+                        if (i >= 0) registry.splice(i, 1);
+                    }
                 }, fallMs);
                 dkTimers.push(t);
+
+                const entry = {
+                    el: card,
+                    cancelFn: () => {
+                        fired = true;
+                        clearTimeout(t);
+                        card.animate([{ opacity: '1', transform: card.getAnimations()[0]?.effect?.getComputedTiming().progress
+                            ? `translateY(${travelPx * card.getAnimations()[0].effect.getComputedTiming().progress}px)` : 'translateY(0)'
+                        }, { opacity: '0', transform: 'scale(2)' }], { duration: 400, fill: 'forwards' });
+                        setTimeout(() => card.remove(), 450);
+                    }
+                };
+                if (registry) registry.push(entry);
+                return entry;
             }
 
-            // 敵の攻撃カードを定期的にスポーン（3秒ごと）
-            function scheduleEnemyCard() {
+            // ── プレイヤー攻撃カード ───────────────────────────────────────────
+            function spawnPlayerAttack(icon, power) {
+                dkLog('⚔️ 攻撃: ' + icon + ' 威力' + power);
+                const entry = spawnCard(laneLeft, icon, 900, '', () => {
+                    enemyHP -= power;
+                    dkLog('💥 敵ヒット -' + power + ' (残' + Math.ceil(Math.max(0,enemyHP)) + ')');
+                }, playerCards);
+            }
+
+            // ── 敵の攻撃カード（広い当たり範囲あり） ─────────────────────────
+            const ENEMY_ATTACKS = [
+                { icon: '👁️', dmg: 12, label: '神眼' },
+                { icon: '⚡', dmg: 16, label: '天雷' },
+                { icon: '💢', dmg: 10, label: '怒波' },
+                { icon: '🌀', dmg: 14, label: '渦動' },
+                { icon: '🔥', dmg: 18, label: '業火' },
+            ];
+            function spawnEnemyAttack() {
                 if (!isRunning) return;
-                const ICONS = ['👁️','⚡','💢','🌀','🔥'];
-                const icon = ICONS[Math.floor(Math.random() * ICONS.length)];
-                spawnDkCard('enemy', icon, 2200, null);
-                const t = setTimeout(scheduleEnemyCard, 2800 + Math.random() * 1200);
+                const atk = ENEMY_ATTACKS[Math.floor(Math.random() * ENEMY_ATTACKS.length)];
+                const entry = spawnCard(laneRight, atk.icon, 2400, 'dk-enemy', () => {
+                    playerHP -= atk.dmg;
+                    dkLog('😤 大観音の' + atk.label + '！ -' + atk.dmg + ' (残' + Math.ceil(Math.max(0,playerHP)) + ')');
+                }, enemyCards);
+                // 広い当たり範囲をビジュアルで示す
+                entry.el.style.boxShadow = '0 0 12px 8px rgba(255,80,50,0.45)';
+                const t = setTimeout(spawnEnemyAttack, 2600 + Math.random() * 1400);
                 dkTimers.push(t);
             }
-            scheduleEnemyCard();
+            spawnEnemyAttack();
 
-            // ── HP更新 ──────────────────────────────────────────────────────
-            function updateHPBars() {
-                const pHP = wasmGame.sendai_daikannon_get_player_hp();
-                const eHP = wasmGame.sendai_daikannon_get_enemy_hp();
-                document.getElementById('daikannon-enemy-hp-fill').style.width  = Math.max(0, eHP) + '%';
-                document.getElementById('daikannon-player-hp-fill').style.width = Math.max(0, pHP) + '%';
-                document.getElementById('daikannon-enemy-hp-val').textContent   = Math.ceil(eHP);
-                document.getElementById('daikannon-player-hp-val').textContent  = Math.ceil(pHP);
+            // ── 音声攻撃力計算 ────────────────────────────────────────────────
+            const POWER_KEYWORDS = ['大観音', '仙台', '必殺', '攻撃', 'せんだい', 'だいかんのん'];
+            function calcVoicePower(text, durationMs, hasAudio) {
+                let power = 10;
+                // 長さボーナス（最大+20）
+                power += Math.min(20, Math.floor(durationMs / 500) * 4);
+                // キーワードボーナス
+                for (const kw of POWER_KEYWORDS) {
+                    if (text.includes(kw)) { power += 15; break; }
+                }
+                // 文字数ボーナス
+                power += Math.min(10, Math.floor(text.length / 3));
+                dkLog('📊 音声威力: ' + power + ' (長さ:' + durationMs + 'ms 文字:' + text.length + ')');
+                return Math.min(50, power);
             }
 
-            // ── 描画 ───────────────────────────────────────────────────────
-            function render() {
-                const w = canvas.width, h = canvas.height;
-                const pHP = wasmGame.sendai_daikannon_get_player_hp();
-                const eHP = wasmGame.sendai_daikannon_get_enemy_hp();
-
-                ctx.fillStyle = '#001122';
-                ctx.fillRect(0, 0, w, h);
-                ctx.fillStyle = '#003366';
-                ctx.fillRect(0, 0, w, h * 0.6);
-                ctx.fillStyle = '#224422';
-                ctx.fillRect(0, h * 0.75, w, h * 0.25);
-
-                const cx = w / 2;
-                const scale  = Math.min(w, h) / 400;
-                const baseY  = h * 0.78;
-                const flash  = (eHP < 60 && frame % 20 < 10);
-                const statueColor = flash ? 'rgba(255,200,200,0.9)' : '#f5f5e8';
-
-                // 台座
-                ctx.fillStyle = '#8b7355';
-                ctx.fillRect(cx - 50 * scale, baseY - 20 * scale, 100 * scale, 20 * scale);
-                // 体
-                ctx.fillStyle = statueColor;
-                ctx.fillRect(cx - 25 * scale, baseY - 130 * scale, 50 * scale, 110 * scale);
-                // 頭
-                ctx.fillStyle = statueColor;
-                ctx.beginPath();
-                ctx.arc(cx, baseY - 155 * scale, 30 * scale, 0, Math.PI * 2);
-                ctx.fill();
-
-                // フレームカウンタ
-                ctx.fillStyle = 'rgba(0,255,0,0.4)';
-                ctx.font = '10px monospace';
-                ctx.textAlign = 'right';
-                ctx.fillText('f:' + frame, w - 4, h - 4);
+            // 声に対応するアイコン
+            function voiceIcon(text) {
+                if (/必殺|ひっさつ/.test(text)) return '��';
+                if (/炎|ファイア|fire/.test(text)) return '🔥';
+                if (/雷|かみなり/.test(text)) return '⚡';
+                if (/光|ひかり/.test(text)) return '✨';
+                return '💬';
             }
 
-            // ── 結果表示 ───────────────────────────────────────────────────
-            function showResult(won) {
-                dkLog(won ? '🎉 勝利！' : '💔 敗北...');
-                dkTimers.forEach(t => clearTimeout(t));
-                const resultEl = document.getElementById('daikannon-result');
-                document.getElementById('daikannon-result-title').textContent = won ? '勝利！' : '敗北...';
-                document.getElementById('daikannon-result-title').className   = won ? '' : 'lose';
-                document.getElementById('daikannon-result-msg').textContent   = won ? '仙台大観音を打ち破った！' : 'アリサは力尽きた...';
-                resultEl.classList.add('show');
-            }
-
-            // ── マップに戻る ───────────────────────────────────────────────
-            function returnToMap() {
-                dkLog('🗺️ マップに戻る');
-                window.removeEventListener('resize', resizeCanvas);
-                dkTimers.forEach(t => clearTimeout(t));
-                isRunning = false;
-                overlay.classList.remove('active');
-                document.getElementById('daikannon-result').classList.remove('show');
-                logPanel.classList.remove('show');
-                logPanel.innerHTML = '';
-                setActiveTab('tab-map');
-            }
-
-            // ── 攻撃アクション ─────────────────────────────────────────────
-            function doAttack(power, label) {
+            // ── 音声入力 ──────────────────────────────────────────────────────
+            voiceBtn.onclick = () => {
                 if (!isRunning) return;
-                dkLog('⚔️ ' + label);
-                spawnDkCard('player', '⚔️', 800, () => {
-                    wasmGame.sendai_daikannon_add_attack(power);
-                });
-            }
-
-            function doDodge() {
-                if (!isRunning) return;
-                dkLog('💨 回避！');
-                spawnDkCard('player', '💨', 600, null);
-            }
-
-            // ── ボタン設定 ─────────────────────────────────────────────────
-            document.getElementById('daikannon-btn-attack').onclick = () => doAttack(30, '攻撃！');
-            document.getElementById('daikannon-btn-dodge').onclick  = doDodge;
-            document.getElementById('daikannon-btn-auto').onclick   = () => {
-                autoMode = !autoMode;
-                dkLog('🤖 オートモード: ' + (autoMode ? 'ON' : 'OFF'));
-                document.getElementById('daikannon-btn-auto').textContent = autoMode ? '🤖 オートON' : '🤖 オート';
-            };
-            document.getElementById('daikannon-btn-back').onclick        = returnToMap;
-            document.getElementById('daikannon-result-back').onclick     = returnToMap;
-
-            // ── 音声入力 ───────────────────────────────────────────────────
-            const btnVoice = document.getElementById('daikannon-btn-voice');
-            btnVoice.onclick = () => {
                 if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                    dkLog('⚠️ 音声入力非対応');
+                    dkLog('⚠️ 音声入力非対応ブラウザ');
                     return;
                 }
                 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2460,52 +2628,85 @@
                 rec.lang = 'ja-JP';
                 rec.interimResults = false;
                 rec.maxAlternatives = 3;
-                btnVoice.classList.add('listening');
-                dkLog('🎤 音声入力待機中...');
+
+                const startTime = Date.now();
+                voiceBtn.classList.add('listening');
+                voiceStat.textContent = '🎤 聞いています...';
+                dkLog('🎤 音声入力開始');
                 rec.start();
+
                 rec.onresult = (e) => {
-                    const words = Array.from(e.results[0]).map(r => r.transcript).join(' ');
-                    dkLog('🗣️ 認識: ' + words);
-                    btnVoice.classList.remove('listening');
-                    if (/攻撃|アタック|たたく/i.test(words))      doAttack(30, '攻撃（音声）！');
-                    else if (/回避|よける|かわす|にげる/i.test(words)) doDodge();
-                    else if (/オート|自動/i.test(words)) {
-                        document.getElementById('daikannon-btn-auto').click();
-                    } else {
-                        dkLog('❓ コマンド不明: ' + words);
-                    }
+                    const durationMs = Date.now() - startTime;
+                    const text = Array.from(e.results[0]).map(r => r.transcript).join('');
+                    dkLog('🗣️ 認識: "' + text + '"');
+                    voiceStat.textContent = '"' + text.slice(0, 12) + (text.length > 12 ? '…' : '') + '"';
+                    voiceBtn.classList.remove('listening');
+                    const power = calcVoicePower(text, durationMs, false);
+                    spawnPlayerAttack(voiceIcon(text), power);
                 };
                 rec.onerror = (e) => {
-                    dkLog('🎤 音声エラー: ' + e.error);
-                    btnVoice.classList.remove('listening');
+                    dkLog('�� エラー: ' + e.error);
+                    voiceStat.textContent = '❌ ' + e.error;
+                    voiceBtn.classList.remove('listening');
                 };
-                rec.onend = () => btnVoice.classList.remove('listening');
+                rec.onend = () => voiceBtn.classList.remove('listening');
             };
 
-            // ── メインループ ───────────────────────────────────────────────
+            // ── ボタン ────────────────────────────────────────────────────────
+            document.getElementById('daikannon-btn-auto').onclick = () => {
+                autoMode = !autoMode;
+                dkLog('🤖 オート: ' + (autoMode ? 'ON' : 'OFF'));
+                document.getElementById('daikannon-btn-auto').textContent = autoMode ? '🤖 オートON' : '🤖 オート';
+            };
+
+            function returnToMap() {
+                dkLog('🗺️ マップに戻る');
+                window.removeEventListener('resize', resizeThree);
+                dkTimers.forEach(clearTimeout);
+                isRunning = false;
+                renderer.dispose();
+                overlay.classList.remove('active');
+                document.getElementById('daikannon-result').classList.remove('show');
+                logPanel.classList.remove('show');
+                logPanel.innerHTML = '';
+                clashBanner.remove();
+                setActiveTab('tab-map');
+            }
+            document.getElementById('daikannon-btn-back').onclick    = returnToMap;
+            document.getElementById('daikannon-result-back').onclick = returnToMap;
+
+            // ── 結果表示 ───────────────────────────────────────────────────────
+            function showResult(won) {
+                isRunning = false;
+                dkTimers.forEach(clearTimeout);
+                dkLog(won ? '🎉 勝利！' : '💔 敗北...');
+                document.getElementById('daikannon-result-title').textContent = won ? '勝利！' : '敗北...';
+                document.getElementById('daikannon-result-title').className   = won ? '' : 'lose';
+                document.getElementById('daikannon-result-msg').textContent   =
+                    won ? '仙台大観音を打ち破った！' : 'アリサは力尽きた...';
+                document.getElementById('daikannon-result').classList.add('show');
+            }
+
+            // ── メインループ ───────────────────────────────────────────────────
             function gameLoop() {
                 if (!isRunning) return;
-
                 frame++;
-                wasmGame.sendai_daikannon_update();
 
+                // 相殺チェック
+                checkClash();
+
+                // オートモード（60フレームごとに音声攻撃の代わりに自動攻撃）
                 if (autoMode) {
-                    autoAttackTimer++;
-                    if (autoAttackTimer % 90 === 0) doAttack(20, 'オート攻撃');
+                    autoTimer++;
+                    if (autoTimer % 90 === 0) spawnPlayerAttack('🤖', 15);
                 }
 
+                drawEnemy();
                 updateHPBars();
-                render();
 
-                if (frame % 180 === 0) {
-                    const pHP = wasmGame.sendai_daikannon_get_player_hp();
-                    const eHP = wasmGame.sendai_daikannon_get_enemy_hp();
-                    dkLog('📊 f:' + frame + ' 敵:' + Math.ceil(eHP) + ' アリサ:' + Math.ceil(pHP));
-                }
-
-                const state = wasmGame.sendai_daikannon_get_state();
-                if (state === 1)      { isRunning = false; showResult(true);  return; }
-                else if (state === 2) { isRunning = false; showResult(false); return; }
+                // 勝敗判定
+                if (enemyHP <= 0)  { showResult(true);  return; }
+                if (playerHP <= 0) { showResult(false); return; }
 
                 requestAnimationFrame(gameLoop);
             }
@@ -2513,6 +2714,7 @@
             dkLog('▶️ ゲームループ開始');
             requestAnimationFrame(gameLoop);
         }
+
 
 
         // Get battle UI elements (loaded dynamically)
