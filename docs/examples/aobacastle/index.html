@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>青葉城 忍者登り</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a1a; display: flex; flex-direction: column;
+         align-items: center; justify-content: center;
+         min-height: 100vh; color: #ccc; font-family: monospace; }
+  canvas { display: block; image-rendering: pixelated; }
+  #info { margin-top: 12px; font-size: 12px; color: #556; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="info">← → 難易度選択 &nbsp;|&nbsp; ↑ / Z / SPACE ジャンプ</div>
+<script type="module">
+  import init, { main_aobacastle } from './pkg/pyxel_rust.js';
+  async function run() {
+    await init('./pkg/pyxel_rust_bg.wasm');
+    main_aobacastle();
+  }
+  run().catch(console.error);
+</script>
+</body>
+</html>
