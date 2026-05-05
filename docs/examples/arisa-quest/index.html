@@ -387,8 +387,8 @@
             overflow: hidden; background: rgba(0,0,0,0.45);
             pointer-events: none;
         }
-        #dk-tl-left  { left: 0;  border-right: 1px solid rgba(0,180,255,0.3); }
-        #dk-tl-right { right: 0; border-left:  1px solid rgba(255,80,80,0.3); }
+        #dk-tl-left  { left: 0;  display: none; } /* 3D攻撃に置き換えのため非表示 */
+        #dk-tl-right { right: 0; border-left: 1px solid rgba(255,80,80,0.3); }
         .dk-tl-header {
             text-align: center; font-size: 1.2rem; line-height: 1.2;
             padding: 4px 0 2px;
@@ -2461,6 +2461,9 @@
 
             let frame = 0;
 
+            // ── ダメージフラッシュ管理 ────────────────────────────────────────
+            let hitFlashFrames = 0;
+
             function drawEnemy() {
                 frame++;
                 const t = frame * 0.02;
@@ -2472,8 +2475,12 @@
                 // カメラが微妙に揺れる
                 camera.position.x = Math.sin(t * 0.3) * 0.3;
 
-                // ダメージフラッシュ
-                if (enemyHP < 40 && frame % 16 < 8) {
+                // ダメージフラッシュ（ヒット時 or 瀕死時）
+                if (hitFlashFrames > 0) {
+                    body.material = flashMat;
+                    head.material = flashMat;
+                    hitFlashFrames--;
+                } else if (enemyHP < 40 && frame % 16 < 8) {
                     body.material = flashMat;
                     head.material = flashMat;
                 } else {
@@ -2575,13 +2582,72 @@
                 return entry;
             }
 
-            // ── プレイヤー攻撃カード ───────────────────────────────────────────
-            function spawnPlayerAttack(icon, power) {
-                dkLog('⚔️ 攻撃: ' + icon + ' 威力' + power);
-                const entry = spawnCard(laneLeft, icon, 900, '', () => {
-                    enemyHP -= power;
-                    dkLog('💥 敵ヒット -' + power + ' (残' + Math.ceil(Math.max(0,enemyHP)) + ')');
-                }, playerCards);
+            // ── プレイヤー攻撃：3Dテキストスプライトを大観音に飛ばす ──────────
+            function spawnPlayerAttack(text, power) {
+                dkLog('⚔️ 攻撃: "' + text + '" 威力' + power);
+
+                // Canvas に攻撃テキストを描画してテクスチャ化
+                const cvs = document.createElement('canvas');
+                cvs.width = 512; cvs.height = 160;
+                const ctx2d = cvs.getContext('2d');
+                const displayText = (text.length > 0 ? text : '💬').slice(0, 10);
+
+                // 背景グロー
+                ctx2d.clearRect(0, 0, 512, 160);
+                ctx2d.shadowColor = '#44ffaa';
+                ctx2d.shadowBlur = 28;
+                ctx2d.fillStyle = 'rgba(0,255,160,0.15)';
+                ctx2d.roundRect(20, 20, 472, 120, 18);
+                ctx2d.fill();
+
+                // テキスト
+                ctx2d.shadowBlur = 20;
+                ctx2d.shadowColor = '#00ffaa';
+                ctx2d.fillStyle = '#ffffff';
+                ctx2d.font = 'bold 56px sans-serif';
+                ctx2d.textAlign = 'center';
+                ctx2d.textBaseline = 'middle';
+                ctx2d.fillText(displayText, 256, 80);
+
+                const tex = new THREE.CanvasTexture(cvs);
+                const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+                const sprite = new THREE.Sprite(mat);
+
+                // 画面手前（プレイヤー側）から出発
+                sprite.position.set((Math.random() - 0.5) * 1.5, 1.5, 7.5);
+                sprite.scale.set(5, 1.6, 1);
+                scene.add(sprite);
+
+                // 大観音に向かって飛ぶアニメーション
+                const startPos = sprite.position.clone();
+                const endPos   = new THREE.Vector3(0, 3.5, 0.5);
+                const startMs  = Date.now();
+                const duration = 650;
+
+                function animFly() {
+                    if (!isRunning) { scene.remove(sprite); tex.dispose(); mat.dispose(); return; }
+                    const p = Math.min((Date.now() - startMs) / duration, 1);
+                    // easeIn でぶつかる感
+                    const ep = p * p;
+                    sprite.position.lerpVectors(startPos, endPos, ep);
+                    // 近づくにつれ拡大→衝撃感
+                    const sc = 5 - ep * 3.5;
+                    sprite.scale.set(Math.max(sc, 0.5), Math.max(sc * 0.32, 0.16), 1);
+                    sprite.material.opacity = p < 0.9 ? 1 : (1 - p) * 10;
+
+                    if (p < 1) {
+                        requestAnimationFrame(animFly);
+                    } else {
+                        // ヒット！
+                        scene.remove(sprite);
+                        tex.dispose();
+                        mat.dispose();
+                        enemyHP -= power;
+                        hitFlashFrames = 18;
+                        dkLog('💥 ヒット -' + power + ' (残' + Math.ceil(Math.max(0, enemyHP)) + ')');
+                    }
+                }
+                requestAnimationFrame(animFly);
             }
 
             // ── 敵の攻撃カード（広い当たり範囲あり） ─────────────────────────
@@ -2691,7 +2757,7 @@
                 if (recInstance) { try { recInstance.stop(); } catch(_) {} recInstance = null; }
                 if (text.length > 0) {
                     const power = calcVoicePower(text, durationMs, false);
-                    spawnPlayerAttack(voiceIcon(text), power);
+                    spawnPlayerAttack(text, power);
                 } else if (durationMs > 300) {
                     spawnPlayerAttack('💬', 8);
                     voiceStat.textContent = '（声なし）';
