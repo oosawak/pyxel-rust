@@ -605,9 +605,27 @@
         .post-list-item-name { font-size: 0.75rem; color: #88ccff; margin-bottom: 2px; }
         .post-list-item-text { font-size: 0.8rem; color: #ddd; margin-bottom: 4px; }
         .post-list-item-meta { font-size: 0.7rem; color: #8866aa; }
+
+        /* ── Debug Panel ────────────────────────────────────────── */
+        #debug-panel {
+            position: fixed; bottom: 10px; right: 10px; z-index: 99999;
+            background: rgba(0, 0, 0, 0.85); border: 2px solid #00ff00;
+            border-radius: 8px; padding: 12px; max-width: 400px;
+            max-height: 300px; overflow-y: auto;
+            font-family: 'Courier New', monospace; font-size: 0.7rem;
+            color: #00ff00; line-height: 1.4;
+        }
+        #debug-panel.hidden { display: none; }
+        .debug-log-entry {
+            margin-bottom: 4px; padding: 2px 0;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+        }
     </style>
 </head>
 <body>
+    <!-- Debug Panel -->
+    <div id="debug-panel" class="hidden"></div>
+
     <!-- Status bar -->
     <div id="status-bar">
         <div class="portrait-wrap">
@@ -3635,48 +3653,75 @@
         }
     </script>
 
-    <!-- ── Load battle UI from external file ──────────────────────────────── -->
+    <!-- ── Debug helper and battle UI loader ──────────────────────────────── -->
     <script>
+        // Debug panel output function
+        function debugLog(msg) {
+            console.log(msg);
+            const panel = document.getElementById('debug-panel');
+            if (panel) {
+                panel.classList.remove('hidden');
+                const entry = document.createElement('div');
+                entry.className = 'debug-log-entry';
+                entry.textContent = msg;
+                panel.appendChild(entry);
+                panel.scrollTop = panel.scrollHeight;
+            }
+        }
+
+        debugLog('🔍 Battle UI Loader Starting...');
+        
         // Load battle-ui.html and inject into battle-ui-container
         async function loadBattleUI() {
+            debugLog('📌 loadBattleUI() called');
+            
             const container = document.getElementById('battle-ui-container');
-            console.log('📌 loadBattleUI called, container:', container ? 'found' : 'NOT FOUND');
+            debugLog('📌 battle-ui-container: ' + (container ? '✓ FOUND' : '❌ NOT FOUND'));
             
             if (!container) {
-                console.error('❌ battle-ui-container not found in DOM');
+                debugLog('❌ Cannot proceed without battle-ui-container');
                 return;
             }
             
             try {
-                console.log('📡 Fetching games/arisa-battle/battle-ui.html...');
+                debugLog('📡 Fetching games/arisa-battle/battle-ui.html...');
                 const response = await fetch('games/arisa-battle/battle-ui.html');
-                console.log('📡 Response status:', response.status);
+                debugLog('📡 Response status: ' + response.status);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
                 const html = await response.text();
-                console.log('✓ HTML loaded, size:', html.length, 'bytes');
+                debugLog('✓ HTML loaded: ' + html.length + ' bytes');
                 
                 container.innerHTML = html;
-                console.log('✓ Battle UI injected into DOM successfully');
-                console.log('✓ battle-overlay element:', document.getElementById('battle-overlay') ? 'found' : 'NOT FOUND');
+                debugLog('✓ Battle UI injected into DOM');
+                
+                const battleOverlay = document.getElementById('battle-overlay');
+                debugLog('✓ battle-overlay after injection: ' + (battleOverlay ? '✓ FOUND' : '❌ NOT FOUND'));
+                
+                const battleUI = document.getElementById('battle-ui');
+                debugLog('✓ battle-ui after injection: ' + (battleUI ? '✓ FOUND' : '❌ NOT FOUND'));
+                
+                debugLog('✅ Battle UI Loading Complete!');
                 
             } catch (err) {
-                console.error('❌ Failed to load battle UI:', err);
+                debugLog('❌ Failed to load battle UI: ' + err.message);
             }
         }
         
         // Load battle UI when DOM is ready
-        console.log('📌 Script loading, document.readyState:', document.readyState);
+        debugLog('📌 Script init, document.readyState: ' + document.readyState);
+        
         if (document.readyState === 'loading') {
+            debugLog('📌 DOM still loading, waiting for DOMContentLoaded...');
             document.addEventListener('DOMContentLoaded', () => {
-                console.log('📌 DOMContentLoaded fired');
+                debugLog('📌 DOMContentLoaded fired, starting loadBattleUI()');
                 loadBattleUI();
             });
         } else {
-            console.log('📌 DOM already loaded, loading battle UI now');
+            debugLog('📌 DOM already loaded, starting loadBattleUI() now');
             loadBattleUI();
         }
     </script>
