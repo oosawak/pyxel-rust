@@ -788,6 +788,7 @@
             padding: 6px 10px; font-family: 'DotGothic16', monospace;
             box-shadow: 0 0 8px rgba(136,68,255,0.4), inset 0 0 6px rgba(255,255,255,0.08);
             min-width: 110px; text-align: center;
+            display: none;
         }
         #territory-points-display .points-label {
             font-size: 0.55rem; color: #ddbbff; letter-spacing: 0.08em;
@@ -2965,11 +2966,13 @@
             document.getElementById('battle-result').classList.remove('active');
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.remove('active');
+            document.getElementById('territory-points-display').style.display = '';
         });
         document.getElementById('tab-battle').addEventListener('click', () => {
             setActiveTab('tab-battle');
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.remove('active');
+            document.getElementById('territory-points-display').style.display = 'none';
             if (inBattle) {
                 battleOverlay.classList.add('active');
                 battleUI.classList.add('active');
@@ -3010,6 +3013,7 @@
             document.getElementById('battle-result').classList.remove('active');
             document.getElementById('panel-territory').classList.remove('active');
             document.getElementById('panel-tsubuyaku').classList.add('active');
+            document.getElementById('territory-points-display').style.display = 'none';
         });
         document.getElementById('tab-territory').addEventListener('click', () => {
             setActiveTab('tab-territory');
@@ -3018,6 +3022,7 @@
             document.getElementById('battle-result').classList.remove('active');
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.add('active');
+            document.getElementById('territory-points-display').style.display = 'none';
         });
 
         // つぶやく投稿
