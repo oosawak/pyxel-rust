@@ -1814,11 +1814,6 @@
                     const info   = { marker, eIdx, lat: eLat, lng: eLng };
                     marker.on('click', () => {
                         debugLog('🗺️ マーカークリック detected！敵INDEX: ' + info.eIdx);
-                        debugLog('⏳ battleUILoaded: ' + battleUILoaded);
-                        if (!battleUILoaded) {
-                            debugLog('❌ Battle UI がまだロード中...');
-                            return;
-                        }
                         triggerBattle(info);
                     });
                     enemyMarkers.push(info);
@@ -3853,71 +3848,7 @@
             }
         }
 
-        // Track if battle UI is loaded
-        let battleUILoaded = false;
-
-        debugLog('🔍 [index.html] Battle UI Loader Starting...');
-        debugLog('📝 battle-ui.html は外部ファイルから読み込まれます');
-        
-        
-        // Load battle-ui.html and inject into battle-ui-container
-        async function loadBattleUI() {
-            debugLog('📌 loadBattleUI() called');
-            
-            const container = document.getElementById('battle-ui-container');
-            debugLog('📌 battle-ui-container: ' + (container ? '✓ FOUND' : '❌ NOT FOUND'));
-            
-            if (!container) {
-                debugLog('❌ Cannot proceed without battle-ui-container');
-                return;
-            }
-            
-            try {
-                debugLog('📡 Fetching games/arisa-battle/battle-ui.html...');
-                const response = await fetch('games/arisa-battle/battle-ui.html');
-                debugLog('📡 Response status: ' + response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const html = await response.text();
-                debugLog('✓ HTML loaded: ' + html.length + ' bytes');
-                
-                container.innerHTML = html;
-                debugLog('✓ Battle UI injected into DOM');
-                
-                const battleOverlay = document.getElementById('battle-overlay');
-                debugLog('✓ battle-overlay after injection: ' + (battleOverlay ? '✓ FOUND' : '❌ NOT FOUND'));
-                
-                const battleUI = document.getElementById('battle-ui');
-                debugLog('✓ battle-ui after injection: ' + (battleUI ? '✓ FOUND' : '❌ NOT FOUND'));
-                
-                if (battleOverlay && battleUI) {
-                    battleUILoaded = true;
-                    debugLog('✅ Battle UI Loading Complete! (battleUILoaded = true)');
-                } else {
-                    debugLog('⚠️ Battle UI elements not found after injection!');
-                }
-                
-            } catch (err) {
-                debugLog('❌ Failed to load battle UI: ' + err.message);
-            }
-        }
-        
-        // Load battle UI when DOM is ready
-        debugLog('📌 Script init, document.readyState: ' + document.readyState);
-        
-        if (document.readyState === 'loading') {
-            debugLog('📌 DOM still loading, waiting for DOMContentLoaded...');
-            document.addEventListener('DOMContentLoaded', () => {
-                debugLog('📌 DOMContentLoaded fired, starting loadBattleUI()');
-                loadBattleUI();
-            });
-        } else {
-            debugLog('📌 DOM already loaded, starting loadBattleUI() now');
-            loadBattleUI();
-        }
+        debugLog('✅ Arisa Quest インライン化完了 - battle-overlay は HTML に直接埋め込まれています');
     </script>
 </body>
 </html>
