@@ -12,78 +12,111 @@
          touch-action: none; overflow: hidden; }
   canvas { display: block; image-rendering: pixelated; }
 
-  /* タッチゾーンオーバーレイ */
   #touch-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     display: grid;
     grid-template-rows: 2fr 3fr;
     grid-template-columns: 1fr 1fr;
-    pointer-events: none; /* JS で必要な時だけ有効化 */
     z-index: 10;
   }
   .tz {
     pointer-events: all;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+    /* デバッグ: ゾーンを薄く色付け */
+    border: 1px solid rgba(255,255,0,0.15);
   }
-  #tz-top    { grid-column: 1 / 3; grid-row: 1; }
-  #tz-left   { grid-column: 1;     grid-row: 2; }
-  #tz-right  { grid-column: 2;     grid-row: 2; }
+  #tz-top   { grid-column: 1/3; grid-row: 1; background: rgba(0,200,255,0.05); }
+  #tz-left  { grid-column: 1;   grid-row: 2; background: rgba(0,255,100,0.05); }
+  #tz-right { grid-column: 2;   grid-row: 2; background: rgba(255,100,0,0.05); }
+
+  /* デバッグログパネル */
+  #dbg {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.85);
+    color: #0f0; font-size: 10px; font-family: monospace;
+    padding: 4px 6px; z-index: 100;
+    max-height: 90px; overflow-y: auto;
+    line-height: 1.4;
+  }
 </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
 
-<!-- タッチゾーン (canvas の上に重ねる) -->
 <div id="touch-overlay">
-  <div class="tz" id="tz-top"></div>
-  <div class="tz" id="tz-left"></div>
-  <div class="tz" id="tz-right"></div>
+  <div class="tz" id="tz-top">　　　　　↑ TAP = JUMP/START</div>
+  <div class="tz" id="tz-left">← LEFT</div>
+  <div class="tz" id="tz-right">RIGHT →</div>
 </div>
+
+<div id="dbg">touch debug: waiting...</div>
 
 <script type="module">
   import init, { main_aobacastle } from './pkg/pyxel_rust.js';
   async function run() {
+    log('WASM init...');
     await init('./pkg/pyxel_rust_bg.wasm');
+    log('WASM ready, starting game');
     main_aobacastle();
   }
-  run().catch(console.error);
+  run().catch(e => log('ERROR: ' + e));
 </script>
 
 <script>
-  // タッチ → キーイベント変換
+  const dbg = document.getElementById('dbg');
+  const lines = [];
+  function log(msg) {
+    const t = new Date().toISOString().substr(14,8);
+    lines.push('['+t+'] '+msg);
+    if (lines.length > 8) lines.shift();
+    dbg.textContent = lines.join('\n');
+  }
+
+  // window のキーイベントを監視
+  window.addEventListener('keydown', e => log('keydown: ' + e.code));
+  window.addEventListener('keyup',   e => log('keyup:   ' + e.code));
+
   function fireKey(type, code, key) {
+    log('fire ' + type + ' ' + code);
     window.dispatchEvent(new KeyboardEvent(type, {
-      code, key, keyCode: 0, bubbles: true, cancelable: true
+      code, key, bubbles: true, cancelable: true
     }));
   }
 
-  function bindZone(id, code, key) {
+  function bindZone(id, code, key, label) {
     const el = document.getElementById(id);
     let active = false;
 
     el.addEventListener('touchstart', e => {
       e.preventDefault();
+      log('touchstart: ' + label + ' touches=' + e.touches.length);
       if (!active) { active = true; fireKey('keydown', code, key); }
     }, { passive: false });
 
     el.addEventListener('touchend', e => {
       e.preventDefault();
+      log('touchend: ' + label);
       if (active) { active = false; fireKey('keyup', code, key); }
     }, { passive: false });
 
-    el.addEventListener('touchcancel', e => {
-      e.preventDefault();
+    el.addEventListener('touchcancel', () => {
       if (active) { active = false; fireKey('keyup', code, key); }
-    }, { passive: false });
+    });
+
+    // クリックでも動作するようマウスも受け付ける
+    el.addEventListener('mousedown', e => {
+      log('mousedown: ' + label);
+      if (!active) { active = true; fireKey('keydown', code, key); }
+    });
+    el.addEventListener('mouseup', () => {
+      if (active) { active = false; fireKey('keyup', code, key); }
+    });
   }
 
-  // 上ゾーン = Space (ジャンプ / スタート)
-  bindZone('tz-top',   'Space',       ' ');
-  // 左下ゾーン = ArrowLeft (左移動 / 難易度↓)
-  bindZone('tz-left',  'ArrowLeft',   'ArrowLeft');
-  // 右下ゾーン = ArrowRight (右移動 / 難易度↑)
-  bindZone('tz-right', 'ArrowRight',  'ArrowRight');
+  bindZone('tz-top',   'Space',      ' ',          'TOP');
+  bindZone('tz-left',  'ArrowLeft',  'ArrowLeft',  'LEFT');
+  bindZone('tz-right', 'ArrowRight', 'ArrowRight', 'RIGHT');
 </script>
 </body>
 </html>
