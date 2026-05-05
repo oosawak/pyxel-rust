@@ -362,6 +362,7 @@
             display: flex; align-items: center; gap: 8px; padding: 4px 8px;
             background: rgba(0,0,0,0.7);
             border-bottom: 1px solid rgba(255,136,68,0.3);
+            pointer-events: none; /* タップをcanvasに通す */
         }
         #daikannon-enemy-hp-label {
             font-family: 'DotGothic16', monospace; font-size: 0.7rem;
@@ -415,7 +416,9 @@
             flex-shrink: 0; display: flex; flex-direction: column;
             align-items: center; gap: 6px; padding: 8px 12px;
             background: rgba(0,0,0,0.8);
+            pointer-events: none; /* タップをcanvasに通して音声入力を邪魔しない */
         }
+        #daikannon-btn-back { pointer-events: auto; } /* 戻るボタンだけ有効 */
         #daikannon-player-hp-row {
             display: flex; align-items: center; gap: 8px; width: 100%;
         }
