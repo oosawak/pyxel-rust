@@ -420,6 +420,28 @@
             100% { filter: brightness(1); }
         }
 
+        /* 戦闘ログ（大観音バトル専用・アリサバトルに影響しない） */
+        #dk-battle-log {
+            position: absolute; bottom: 90px; left: 42px; right: 42px;
+            z-index: 6; pointer-events: none;
+            display: flex; flex-direction: column; gap: 3px;
+            align-items: flex-start;
+        }
+        .dk-bml-item {
+            font-family: 'DotGothic16', monospace; font-size: 0.72rem;
+            padding: 3px 8px; border-radius: 4px; line-height: 1.4;
+            animation: dk-bml-in 0.2s ease-out;
+            max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        @keyframes dk-bml-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .dk-bml-attack  { background: rgba(0,180,80,0.85);  color: #eeffee; }
+        .dk-bml-damage  { background: rgba(220,40,40,0.85); color: #ffe8e8; }
+        .dk-bml-clash   { background: rgba(255,220,0,0.85); color: #333;    }
+        .dk-bml-system  { background: rgba(0,150,220,0.80); color: #e8f8ff; }
+
         /* センター：アリサHP＋戻るボタン */
         #daikannon-center {
             flex-shrink: 0; display: flex; flex-direction: column;
@@ -1068,6 +1090,8 @@
                     <div id="daikannon-enemy-hp-bg"><div id="daikannon-enemy-hp-fill"></div></div>
                     <span id="daikannon-enemy-hp-val">100</span>
                 </div>
+                <!-- 戦闘ログ（3Dエリア下部オーバーレイ） -->
+                <div id="dk-battle-log"></div>
                 <!-- 下部コントロール（エリアに重ねてオーバーレイ） -->
                 <div id="daikannon-center">
                     <div id="daikannon-voice-status"></div>
@@ -2333,6 +2357,20 @@
                 logPanel.appendChild(d);
                 logPanel.scrollTop = logPanel.scrollHeight;
             }
+
+            // 戦闘ログ（下部フローティング表示）
+            const dkBattleLog = document.getElementById('dk-battle-log');
+            const DK_BML_MAX = 3;
+            function pushDkBattleMsg(text, type = 'system') {
+                const el = document.createElement('div');
+                el.className = 'dk-bml-item dk-bml-' + type;
+                el.textContent = text;
+                dkBattleLog.appendChild(el);
+                while (dkBattleLog.children.length > DK_BML_MAX) {
+                    dkBattleLog.removeChild(dkBattleLog.firstChild);
+                }
+                setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
+            }
             // バージョン行（先頭に固定表示）
             const verDiv = document.createElement('div');
             verDiv.id = 'daikannon-log-version';
@@ -2527,6 +2565,7 @@
                             playerCards.splice(playerCards.indexOf(pc), 1);
                             enemyCards.splice(enemyCards.indexOf(ec), 1);
                             dkLog('⚡ 相殺！');
+                            pushDkBattleMsg('⚡ 相殺！', 'clash');
                             showClashBanner();
                         }
                     }
@@ -2666,6 +2705,7 @@
                         mat.dispose();
                         enemyHP -= power;
                         hitFlashFrames = 18;
+                        pushDkBattleMsg('⚔ "' + text.slice(0,8) + '" -' + power, 'attack');
                         dkLog('💥 ヒット -' + power + ' (残' + Math.ceil(Math.max(0, enemyHP)) + ')');
                     }
                 }
@@ -2686,6 +2726,7 @@
                 const entry = spawnCard(laneRight, atk.icon, 3500, 'dk-enemy', () => {
                     playerHP -= atk.dmg;
                     dkLog('😤 大観音の' + atk.label + '！ -' + atk.dmg + ' (残' + Math.ceil(Math.max(0,playerHP)) + ')');
+                    pushDkBattleMsg(atk.icon + ' 大観音の' + atk.label + '！ -' + atk.dmg, 'damage');
                 }, enemyCards);
                 // 広い当たり範囲をビジュアルで示す
                 entry.el.style.boxShadow = '0 0 12px 8px rgba(255,80,50,0.45)';
