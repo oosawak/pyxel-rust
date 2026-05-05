@@ -2591,13 +2591,13 @@
             function spawnEnemyAttack() {
                 if (!isRunning) return;
                 const atk = ENEMY_ATTACKS[Math.floor(Math.random() * ENEMY_ATTACKS.length)];
-                const entry = spawnCard(laneRight, atk.icon, 2400, 'dk-enemy', () => {
+                const entry = spawnCard(laneRight, atk.icon, 3500, 'dk-enemy', () => {
                     playerHP -= atk.dmg;
                     dkLog('😤 大観音の' + atk.label + '！ -' + atk.dmg + ' (残' + Math.ceil(Math.max(0,playerHP)) + ')');
                 }, enemyCards);
                 // 広い当たり範囲をビジュアルで示す
                 entry.el.style.boxShadow = '0 0 12px 8px rgba(255,80,50,0.45)';
-                const t = setTimeout(spawnEnemyAttack, 2600 + Math.random() * 1400);
+                const t = setTimeout(spawnEnemyAttack, 5000 + Math.random() * 2000);
                 dkTimers.push(t);
             }
             spawnEnemyAttack();
