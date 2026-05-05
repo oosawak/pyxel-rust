@@ -3515,25 +3515,25 @@
                 return;
             }
             
-            debugLog('🔄 バトル状態を設定中...');
-            debugLog('  → inBattle = true');
+            console.log('🔄 バトル状態を設定中...');
+            console.log('  → inBattle = true');
             inBattle = true;
             
-            debugLog('  → currentEnemyInfo設定');
+            console.log('  → currentEnemyInfo設定');
             currentEnemyInfo = enemyInfo;
-            debugLog('  ✓ currentEnemyInfo設定OK');
+            console.log('  ✓ currentEnemyInfo設定OK');
             
-            debugLog('  → window.currentEnemyInfo設定前');
+            console.log('  → window.currentEnemyInfo設定前');
             try {
                 window.currentEnemyInfo = enemyInfo;
-                debugLog('  ✓ window.currentEnemyInfo設定OK');
+                console.log('  ✓ window.currentEnemyInfo設定OK');
             } catch (e) {
-                debugLog('  ❌ window.currentEnemyInfo設定ERROR: ' + e.message);
+                console.log('  ❌ window.currentEnemyInfo設定ERROR: ' + e.message);
                 inBattle = false;
                 return;
             }
             
-            debugLog('✓ 状態設定完了、start_battle呼び出し準備...');
+            console.log('✓ 状態設定完了、start_battle呼び出し準備...');
             
             debugLog('🔧 start_battle_from_js を呼び出し');
             try {
