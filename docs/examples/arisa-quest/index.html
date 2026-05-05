@@ -335,18 +335,32 @@
             padding-bottom: 2px; margin-bottom: 3px; letter-spacing: 0.05em;
         }
 
-        /* 敵キャラエリア（上部・大きく表示） */
+        /* 敵キャラエリア（大部分を占める・全体タップで音声攻撃） */
         #daikannon-enemy-area {
-            flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+            flex: 1; position: relative; display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-end;
             background: linear-gradient(180deg, #001133, #000814);
-            padding: 6px 12px 4px;
+            overflow: hidden; cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 0;
+        }
+        #daikannon-enemy-area.listening {
+            box-shadow: inset 0 0 40px rgba(255, 80, 80, 0.25);
         }
         #daikannon-canvas {
-            display: block; width: 100%; max-height: 160px;
-            object-fit: contain;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: block;
+        }
+        #daikannon-tap-hint {
+            position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%);
+            color: rgba(255,255,255,0.5); font-family: 'DotGothic16', monospace;
+            font-size: 0.75rem; letter-spacing: 1px; pointer-events: none;
+            white-space: nowrap;
         }
         #daikannon-enemy-hp-row {
-            display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 0;
+            position: relative; z-index: 2;
+            display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 8px;
+            background: rgba(0,0,0,0.6);
         }
         #daikannon-enemy-hp-label {
             font-family: 'DotGothic16', monospace; font-size: 0.7rem;
@@ -365,16 +379,15 @@
             font-family: monospace; font-size: 0.7rem; color: #ff8844; width: 28px; text-align: right;
         }
 
-        /* 左右バーエリア（下部） */
-        #daikannon-arena {
-            flex: 1; display: flex; flex-direction: row; overflow: hidden; min-height: 0;
-        }
+        /* 左右バーエリア（敵エリアに重ねて絶対配置） */
+        #daikannon-arena { display: none; } /* 廃止 */
         .dk-tl-lane {
-            width: 54px; flex-shrink: 0; position: relative; overflow: hidden;
-            background: rgba(0,0,0,0.7);
+            position: absolute; top: 0; bottom: 36px; width: 54px; z-index: 3;
+            overflow: hidden; background: rgba(0,0,0,0.45);
+            pointer-events: none;
         }
-        #dk-tl-left  { border-right: 1px solid rgba(0,180,255,0.3); }
-        #dk-tl-right { border-left:  1px solid rgba(255,80,80,0.3); }
+        #dk-tl-left  { left: 0;  border-right: 1px solid rgba(0,180,255,0.3); }
+        #dk-tl-right { right: 0; border-left:  1px solid rgba(255,80,80,0.3); }
         .dk-tl-header {
             text-align: center; font-size: 1.2rem; line-height: 1.2;
             padding: 6px 0 4px; background: rgba(0,0,0,0.6);
@@ -396,10 +409,11 @@
             100% { filter: brightness(1); }
         }
 
-        /* センター：アリサHP＋音声ボタン */
+        /* センター：アリサHP＋戻るボタン */
         #daikannon-center {
-            flex: 1; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 10px; padding: 10px 8px;
+            flex-shrink: 0; display: flex; flex-direction: column;
+            align-items: center; gap: 6px; padding: 8px 12px;
+            background: rgba(0,0,0,0.8);
         }
         #daikannon-player-hp-row {
             display: flex; align-items: center; gap: 8px; width: 100%;
@@ -420,36 +434,16 @@
         #daikannon-player-hp-val {
             font-family: monospace; font-size: 0.7rem; color: #88ffaa; width: 28px; text-align: right;
         }
-        #daikannon-btn-voice {
-            width: 90%; padding: 14px 0;
-            background: linear-gradient(135deg, #0a3a1a, #144d28);
-            border: 2px solid #44ff88; border-radius: 12px;
-            color: #44ff88; font-family: 'DotGothic16', monospace;
-            font-size: 1rem; cursor: pointer; letter-spacing: 2px;
-            -webkit-tap-highlight-color: transparent;
-            transition: all 0.15s;
-        }
-        #daikannon-btn-voice:active { transform: scale(0.96); }
-        #daikannon-btn-voice.listening {
-            background: linear-gradient(135deg, #3a0a0a, #5a1010) !important;
-            border-color: #ff4466 !important; color: #ff8899 !important;
-            animation: pulse 0.7s infinite;
-        }
         #daikannon-voice-status {
             font-family: 'DotGothic16', monospace; font-size: 0.75rem;
             color: #aaa; min-height: 1.2em; text-align: center;
         }
-        #daikannon-btn-auto, #daikannon-btn-back {
-            padding: 8px 16px;
+        #daikannon-btn-back {
+            padding: 8px 24px;
             border-radius: 8px; color: #fff;
             font-family: 'DotGothic16', monospace; font-size: 0.75rem; cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-        }
-        #daikannon-btn-auto {
-            background: rgba(60,40,140,0.7); border: 1px solid #8866ff;
-        }
-        #daikannon-btn-back {
             background: rgba(60,20,80,0.7); border: 1px solid #aa66ff;
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* 結果画面 */
@@ -1044,36 +1038,33 @@
                 <button id="daikannon-log-toggle">📋 ログ</button>
             </div>
             <div id="daikannon-logpanel"></div>
-            <!-- 敵キャラ表示エリア -->
+            <!-- 敵キャラ表示エリア（カードレーン重ね表示） -->
             <div id="daikannon-enemy-area">
                 <canvas id="daikannon-canvas"></canvas>
+                <div class="dk-tl-lane" id="dk-tl-left">
+                    <div class="dk-tl-header">🧝<br><span style="font-size:0.55rem">攻撃</span></div>
+                    <div class="dk-tl-execute-line"></div>
+                </div>
+                <div class="dk-tl-lane" id="dk-tl-right">
+                    <div class="dk-tl-header">🗿<br><span style="font-size:0.55rem">敵撃</span></div>
+                    <div class="dk-tl-execute-line"></div>
+                </div>
+                <div id="daikannon-tap-hint">🎤 タップして攻撃</div>
                 <div id="daikannon-enemy-hp-row">
                     <span id="daikannon-enemy-hp-label">大観音 HP</span>
                     <div id="daikannon-enemy-hp-bg"><div id="daikannon-enemy-hp-fill"></div></div>
                     <span id="daikannon-enemy-hp-val">100</span>
                 </div>
             </div>
-            <!-- 左右バー ＋ 音声入力ボタン -->
-            <div id="daikannon-arena">
-                <div class="dk-tl-lane" id="dk-tl-left">
-                    <div class="dk-tl-header">🧝<br><span style="font-size:0.55rem">攻撃</span></div>
-                    <div class="dk-tl-execute-line"></div>
+            <!-- 下部コントロール（アリサHP + 戻るボタンのみ） -->
+            <div id="daikannon-center">
+                <div id="daikannon-player-hp-row">
+                    <span id="daikannon-player-hp-label">アリサ HP</span>
+                    <div id="daikannon-player-hp-bg"><div id="daikannon-player-hp-fill"></div></div>
+                    <span id="daikannon-player-hp-val">100</span>
                 </div>
-                <div id="daikannon-center">
-                    <div id="daikannon-player-hp-row">
-                        <span id="daikannon-player-hp-label">アリサ HP</span>
-                        <div id="daikannon-player-hp-bg"><div id="daikannon-player-hp-fill"></div></div>
-                        <span id="daikannon-player-hp-val">100</span>
-                    </div>
-                    <button id="daikannon-btn-voice">🎤 声で攻撃！</button>
-                    <div id="daikannon-voice-status"></div>
-                    <button id="daikannon-btn-auto">🤖 オート</button>
-                    <button id="daikannon-btn-back">🗺️ 戻る</button>
-                </div>
-                <div class="dk-tl-lane" id="dk-tl-right">
-                    <div class="dk-tl-header">🗿<br><span style="font-size:0.55rem">敵撃</span></div>
-                    <div class="dk-tl-execute-line"></div>
-                </div>
+                <div id="daikannon-voice-status"></div>
+                <button id="daikannon-btn-back">🗺️ 戻る</button>
             </div>
             <div id="daikannon-result">
                 <div id="daikannon-result-title">勝利！</div>
@@ -2316,8 +2307,8 @@
             const laneLeft   = document.getElementById('dk-tl-left');
             const laneRight  = document.getElementById('dk-tl-right');
             const canvas     = document.getElementById('daikannon-canvas');
-            const voiceBtn   = document.getElementById('daikannon-btn-voice');
             const voiceStat  = document.getElementById('daikannon-voice-status');
+            const tapHint    = document.getElementById('daikannon-tap-hint');
 
             // ── ログ ──────────────────────────────────────────────────────────
             const DK_VERSION = 'v20260505 #a2c6908 Three.js 3D battle';
@@ -2345,8 +2336,7 @@
             let enemyHP   = ENEMY_MAX_HP;
             let playerHP  = PLAYER_MAX_HP;
             let isRunning = true;
-            let autoMode  = false;
-            let autoTimer = 0;
+            let isListening = false;
             const dkTimers = [];
 
             // 生きているカードのリスト
@@ -2372,7 +2362,7 @@
 
             function resizeThree() {
                 const w = enemyArea.clientWidth;
-                const h = 160;
+                const h = enemyArea.clientHeight || window.innerHeight * 0.65;
                 renderer.setSize(w, h, false);
                 camera.aspect = w / h;
                 camera.updateProjectionMatrix();
@@ -2637,9 +2627,9 @@
                 return '💬';
             }
 
-            // ── 音声入力 ──────────────────────────────────────────────────────
-            voiceBtn.onclick = () => {
-                if (!isRunning) return;
+            // ── 音声入力（ゲームエリア全体タップで起動） ─────────────────────
+            enemyArea.addEventListener('click', () => {
+                if (!isRunning || isListening) return;
                 if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
                     dkLog('⚠️ 音声入力非対応ブラウザ');
                     return;
@@ -2651,7 +2641,9 @@
                 rec.maxAlternatives = 3;
 
                 const startTime = Date.now();
-                voiceBtn.classList.add('listening');
+                isListening = true;
+                enemyArea.classList.add('listening');
+                if (tapHint) tapHint.textContent = '🎤 聞いています...';
                 voiceStat.textContent = '🎤 聞いています...';
                 dkLog('🎤 音声入力開始');
                 rec.start();
@@ -2660,25 +2652,20 @@
                     const durationMs = Date.now() - startTime;
                     const text = Array.from(e.results[0]).map(r => r.transcript).join('');
                     dkLog('🗣️ 認識: "' + text + '"');
-                    voiceStat.textContent = '"' + text.slice(0, 12) + (text.length > 12 ? '…' : '') + '"';
-                    voiceBtn.classList.remove('listening');
+                    voiceStat.textContent = '"' + text.slice(0, 14) + (text.length > 14 ? '…' : '') + '"';
                     const power = calcVoicePower(text, durationMs, false);
                     spawnPlayerAttack(voiceIcon(text), power);
                 };
                 rec.onerror = (e) => {
-                    dkLog('�� エラー: ' + e.error);
+                    dkLog('❌ エラー: ' + e.error);
                     voiceStat.textContent = '❌ ' + e.error;
-                    voiceBtn.classList.remove('listening');
                 };
-                rec.onend = () => voiceBtn.classList.remove('listening');
-            };
-
-            // ── ボタン ────────────────────────────────────────────────────────
-            document.getElementById('daikannon-btn-auto').onclick = () => {
-                autoMode = !autoMode;
-                dkLog('🤖 オート: ' + (autoMode ? 'ON' : 'OFF'));
-                document.getElementById('daikannon-btn-auto').textContent = autoMode ? '🤖 オートON' : '🤖 オート';
-            };
+                rec.onend = () => {
+                    isListening = false;
+                    enemyArea.classList.remove('listening');
+                    if (tapHint) tapHint.textContent = '🎤 タップして攻撃';
+                };
+            });
 
             function returnToMap() {
                 dkLog('🗺️ マップに戻る');
@@ -2715,12 +2702,6 @@
 
                 // 相殺チェック
                 checkClash();
-
-                // オートモード（60フレームごとに音声攻撃の代わりに自動攻撃）
-                if (autoMode) {
-                    autoTimer++;
-                    if (autoTimer % 90 === 0) spawnPlayerAttack('🤖', 15);
-                }
 
                 drawEnemy();
                 updateHPBars();
