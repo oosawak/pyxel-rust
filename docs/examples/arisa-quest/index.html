@@ -792,6 +792,7 @@
             min-width: 110px; text-align: center;
             display: none;
         }
+        #territory-points-display.visible { display: block; }
         #territory-points-display .points-label {
             font-size: 0.55rem; color: #ddbbff; letter-spacing: 0.08em;
             display: block; margin-bottom: 2px;
@@ -1718,7 +1719,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('terr-battles').textContent = arisaSave.battles;
             // マップタブが最初からアクティブなので、領地ポイント表示を表示
-            document.getElementById('territory-points-display').style.display = '';
+            document.getElementById('territory-points-display').classList.add('visible');
         });
 
         let toastTimer = null;
@@ -2968,7 +2969,7 @@
             document.getElementById('battle-result').classList.remove('active');
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.remove('active');
-            document.getElementById('territory-points-display').style.display = '';
+            document.getElementById('territory-points-display').classList.add('visible');
             document.getElementById('btn-tile-switch').classList.add('visible');
             document.getElementById('btn-3d-toggle').classList.add('visible');
             document.getElementById('btn-toggle-post-list').classList.add('visible');
@@ -2977,7 +2978,7 @@
             setActiveTab('tab-battle');
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.remove('active');
-            document.getElementById('territory-points-display').style.display = 'none';
+            document.getElementById('territory-points-display').classList.remove('visible');
             document.getElementById('btn-tile-switch').classList.remove('visible');
             document.getElementById('btn-3d-toggle').classList.remove('visible');
             document.getElementById('btn-toggle-post-list').classList.remove('visible');
@@ -3021,7 +3022,7 @@
             document.getElementById('battle-result').classList.remove('active');
             document.getElementById('panel-territory').classList.remove('active');
             document.getElementById('panel-tsubuyaku').classList.add('active');
-            document.getElementById('territory-points-display').style.display = 'none';
+            document.getElementById('territory-points-display').classList.remove('visible');
             document.getElementById('btn-tile-switch').classList.remove('visible');
             document.getElementById('btn-3d-toggle').classList.remove('visible');
             document.getElementById('btn-toggle-post-list').classList.remove('visible');
@@ -3033,7 +3034,7 @@
             document.getElementById('battle-result').classList.remove('active');
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.add('active');
-            document.getElementById('territory-points-display').style.display = 'none';
+            document.getElementById('territory-points-display').classList.remove('visible');
             document.getElementById('btn-tile-switch').classList.remove('visible');
             document.getElementById('btn-3d-toggle').classList.remove('visible');
             document.getElementById('btn-toggle-post-list').classList.remove('visible');
