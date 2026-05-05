@@ -382,7 +382,7 @@
         /* 左右バーエリア（敵エリアに重ねて絶対配置） */
         #daikannon-arena { display: none; } /* 廃止 */
         .dk-tl-lane {
-            position: absolute; top: 0; bottom: 36px; width: 54px; z-index: 3;
+            position: absolute; top: 0; bottom: 36px; width: 38px; z-index: 3;
             overflow: hidden; background: rgba(0,0,0,0.45);
             pointer-events: none;
         }
@@ -390,7 +390,7 @@
         #dk-tl-right { right: 0; border-left:  1px solid rgba(255,80,80,0.3); }
         .dk-tl-header {
             text-align: center; font-size: 1.2rem; line-height: 1.2;
-            padding: 6px 0 4px; background: rgba(0,0,0,0.6);
+            padding: 4px 0 2px;
         }
         .dk-tl-execute-line {
             position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
@@ -399,8 +399,8 @@
         #dk-tl-right .dk-tl-execute-line { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
         .dk-tl-card {
             position: absolute; left: 50%; transform: translateX(-50%);
-            border-radius: 8px; padding: 4px; font-size: 1.3rem; text-align: center;
-            width: 38px; line-height: 1; border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 6px; padding: 2px; font-size: 1.4rem; text-align: center;
+            width: 34px; line-height: 1; border: 1px solid rgba(255,255,255,0.4);
             background: rgba(0,100,220,0.85);
         }
         .dk-tl-card.dk-enemy { background: rgba(200,40,40,0.85); border-color: #ff6644; }
@@ -1049,22 +1049,22 @@
                     <div class="dk-tl-header">🗿<br><span style="font-size:0.55rem">敵撃</span></div>
                     <div class="dk-tl-execute-line"></div>
                 </div>
-                <div id="daikannon-tap-hint">🎤 タップして攻撃</div>
+                <div id="daikannon-tap-hint">🎤 押して話す→離して攻撃</div>
                 <div id="daikannon-enemy-hp-row">
                     <span id="daikannon-enemy-hp-label">大観音 HP</span>
                     <div id="daikannon-enemy-hp-bg"><div id="daikannon-enemy-hp-fill"></div></div>
                     <span id="daikannon-enemy-hp-val">100</span>
                 </div>
-            </div>
-            <!-- 下部コントロール（アリサHP + 戻るボタンのみ） -->
-            <div id="daikannon-center">
-                <div id="daikannon-player-hp-row">
-                    <span id="daikannon-player-hp-label">アリサ HP</span>
-                    <div id="daikannon-player-hp-bg"><div id="daikannon-player-hp-fill"></div></div>
-                    <span id="daikannon-player-hp-val">100</span>
+                <!-- 下部コントロール（エリアに重ねてオーバーレイ） -->
+                <div id="daikannon-center">
+                    <div id="daikannon-player-hp-row">
+                        <span id="daikannon-player-hp-label">アリサ HP</span>
+                        <div id="daikannon-player-hp-bg"><div id="daikannon-player-hp-fill"></div></div>
+                        <span id="daikannon-player-hp-val">100</span>
+                    </div>
+                    <div id="daikannon-voice-status"></div>
+                    <button id="daikannon-btn-back">🗺️ 戻る</button>
                 </div>
-                <div id="daikannon-voice-status"></div>
-                <button id="daikannon-btn-back">🗺️ 戻る</button>
             </div>
             <div id="daikannon-result">
                 <div id="daikannon-result-title">勝利！</div>
@@ -2627,45 +2627,76 @@
                 return '💬';
             }
 
-            // ── 音声入力（ゲームエリア全体タップで起動） ─────────────────────
-            enemyArea.addEventListener('click', () => {
+            // ── 音声入力（プッシュトゥトーク：押している間録音、離したら攻撃） ───
+            let recInstance = null;
+            let currentTranscript = '';
+            let holdStartTime = 0;
+
+            function startVoiceHold(e) {
                 if (!isRunning || isListening) return;
                 if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
                     dkLog('⚠️ 音声入力非対応ブラウザ');
                     return;
                 }
+                e.preventDefault();
                 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
                 const rec = new SR();
                 rec.lang = 'ja-JP';
-                rec.interimResults = false;
-                rec.maxAlternatives = 3;
+                rec.continuous = true;
+                rec.interimResults = true;
+                rec.maxAlternatives = 1;
 
-                const startTime = Date.now();
+                currentTranscript = '';
+                holdStartTime = Date.now();
+                recInstance = rec;
                 isListening = true;
                 enemyArea.classList.add('listening');
-                if (tapHint) tapHint.textContent = '🎤 聞いています...';
-                voiceStat.textContent = '🎤 聞いています...';
-                dkLog('🎤 音声入力開始');
-                rec.start();
+                if (tapHint) tapHint.textContent = '🎤 話してください...';
+                voiceStat.textContent = '🎤 話してください...';
+                dkLog('🎤 録音開始（ホールド中）');
 
                 rec.onresult = (e) => {
-                    const durationMs = Date.now() - startTime;
-                    const text = Array.from(e.results[0]).map(r => r.transcript).join('');
-                    dkLog('🗣️ 認識: "' + text + '"');
-                    voiceStat.textContent = '"' + text.slice(0, 14) + (text.length > 14 ? '…' : '') + '"';
-                    const power = calcVoicePower(text, durationMs, false);
-                    spawnPlayerAttack(voiceIcon(text), power);
+                    let t = '';
+                    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+                    currentTranscript = t;
+                    voiceStat.textContent = '"' + t.slice(0, 14) + (t.length > 14 ? '…' : '') + '"';
                 };
                 rec.onerror = (e) => {
                     dkLog('❌ エラー: ' + e.error);
                     voiceStat.textContent = '❌ ' + e.error;
-                };
-                rec.onend = () => {
                     isListening = false;
+                    recInstance = null;
                     enemyArea.classList.remove('listening');
                     if (tapHint) tapHint.textContent = '🎤 タップして攻撃';
                 };
-            });
+                rec.onend = () => {
+                    isListening = false;
+                    recInstance = null;
+                    enemyArea.classList.remove('listening');
+                    if (tapHint) tapHint.textContent = '🎤 タップして攻撃';
+                };
+                rec.start();
+            }
+
+            function releaseVoiceAttack(e) {
+                if (!isListening) return;
+                e.preventDefault();
+                const text = currentTranscript.trim();
+                const durationMs = Date.now() - holdStartTime;
+                dkLog('🗣️ リリース: "' + text + '" (' + durationMs + 'ms)');
+                if (recInstance) { try { recInstance.stop(); } catch(_) {} recInstance = null; }
+                if (text.length > 0) {
+                    const power = calcVoicePower(text, durationMs, false);
+                    spawnPlayerAttack(voiceIcon(text), power);
+                } else if (durationMs > 300) {
+                    spawnPlayerAttack('💬', 8);
+                    voiceStat.textContent = '（声なし）';
+                }
+            }
+
+            enemyArea.addEventListener('pointerdown',  startVoiceHold);
+            enemyArea.addEventListener('pointerup',    releaseVoiceAttack);
+            enemyArea.addEventListener('pointercancel', releaseVoiceAttack);
 
             function returnToMap() {
                 dkLog('🗺️ マップに戻る');
