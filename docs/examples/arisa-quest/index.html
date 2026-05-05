@@ -330,6 +330,10 @@
         }
         #daikannon-logpanel.show { display: block; }
         #daikannon-logpanel div { margin: 1px 0; }
+        #daikannon-log-version {
+            color: #ffdd44; font-weight: bold; border-bottom: 1px solid #444;
+            padding-bottom: 2px; margin-bottom: 3px; letter-spacing: 0.05em;
+        }
 
         /* 敵キャラエリア（上部・大きく表示） */
         #daikannon-enemy-area {
@@ -2307,6 +2311,8 @@
             const voiceStat  = document.getElementById('daikannon-voice-status');
 
             // ── ログ ──────────────────────────────────────────────────────────
+            const DK_VERSION = 'v20260505 #a2c6908 Three.js 3D battle';
+
             function dkLog(msg) {
                 debugLog(msg);
                 const d = document.createElement('div');
@@ -2314,6 +2320,12 @@
                 logPanel.appendChild(d);
                 logPanel.scrollTop = logPanel.scrollHeight;
             }
+            // バージョン行（先頭に固定表示）
+            const verDiv = document.createElement('div');
+            verDiv.id = 'daikannon-log-version';
+            verDiv.textContent = '🏯 大観音バトル ' + DK_VERSION;
+            logPanel.insertBefore(verDiv, logPanel.firstChild);
+
             logToggle.onclick = () => logPanel.classList.toggle('show');
             overlay.classList.add('active');
             dkLog('✅ オーバーレイ表示');
