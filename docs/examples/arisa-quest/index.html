@@ -3515,25 +3515,25 @@
                 return;
             }
             
-            console.log('🔄 バトル状態を設定中...');
-            console.log('  → inBattle = true');
+            debugLog('🔄 バトル状態を設定中...');
+            debugLog('  → inBattle = true');
             inBattle = true;
             
-            console.log('  → currentEnemyInfo設定');
+            debugLog('  → currentEnemyInfo設定');
             currentEnemyInfo = enemyInfo;
-            console.log('  ✓ currentEnemyInfo設定OK');
+            debugLog('  ✓ currentEnemyInfo設定OK');
             
-            console.log('  → window.currentEnemyInfo設定前');
+            debugLog('  → window.currentEnemyInfo設定前');
             try {
                 window.currentEnemyInfo = enemyInfo;
-                console.log('  ✓ window.currentEnemyInfo設定OK');
+                debugLog('  ✓ window.currentEnemyInfo設定OK');
             } catch (e) {
-                console.log('  ❌ window.currentEnemyInfo設定ERROR: ' + e.message);
+                debugLog('  ❌ window.currentEnemyInfo設定ERROR: ' + e.message);
                 inBattle = false;
                 return;
             }
             
-            console.log('✓ 状態設定完了、start_battle呼び出し準備...');
+            debugLog('✓ 状態設定完了、start_battle呼び出し準備...');
             
             debugLog('🔧 start_battle_from_js を呼び出し');
             try {
@@ -3755,15 +3755,22 @@
     <script>
         // Debug panel output function
         function debugLog(msg) {
-            console.log(msg);
-            const panel = document.getElementById('debug-panel');
-            if (panel) {
-                panel.classList.remove('hidden');
-                const entry = document.createElement('div');
-                entry.className = 'debug-log-entry';
-                entry.textContent = msg;
-                panel.appendChild(entry);
-                panel.scrollTop = panel.scrollHeight;
+            try {
+                console.log(msg);
+            } catch (e) {}
+            
+            try {
+                const panel = document.getElementById('debug-panel');
+                if (panel) {
+                    panel.classList.remove('hidden');
+                    const entry = document.createElement('div');
+                    entry.className = 'debug-log-entry';
+                    entry.textContent = msg;
+                    panel.appendChild(entry);
+                    panel.scrollTop = panel.scrollHeight;
+                }
+            } catch (e) {
+                console.log('debugLog panel error:', e);
             }
         }
 
