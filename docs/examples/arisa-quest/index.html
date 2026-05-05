@@ -789,7 +789,7 @@
         #debug-panel {
             position: fixed; bottom: 62px; right: 10px; z-index: 99999;
             background: rgba(0, 0, 0, 0.85); border: 2px solid #00ff00;
-            border-radius: 8px; padding: 8px 12px 12px; max-width: 400px;
+            border-radius: 8px; padding: 8px 12px 12px; max-width: 220px; width: 220px;
             font-family: 'Courier New', monospace; font-size: 0.7rem;
             color: #00ff00; line-height: 1.4;
         }
@@ -813,10 +813,10 @@
 </head>
 <body>
     <!-- Debug Panel -->
-    <div id="debug-panel" class="hidden">
+    <div id="debug-panel" class="hidden minimized">
         <div id="debug-panel-header">
             <span>🖥 DEBUG</span>
-            <button id="debug-panel-toggle">－</button>
+            <button id="debug-panel-toggle">＋</button>
         </div>
         <div id="debug-panel-body"></div>
     </div>
