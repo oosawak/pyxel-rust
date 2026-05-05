@@ -375,6 +375,7 @@
         }
         #canvas-scene {
             width: 100%; height: 100%;
+            position: relative; z-index: 0;
         }
         #game-wrapper { position: relative; width: 100%; height: 100%; }
         #pyxel_canvas {
@@ -384,7 +385,7 @@
         #bg-canvas {
             position: absolute; inset: 0;
             width: 100%; height: 100%;
-            image-rendering: auto; pointer-events: none; z-index: 0;
+            image-rendering: auto; pointer-events: none; z-index: -1;
         }
 
         /* ── Arisa Quest バトルUI ─────────────────────────────────── */
@@ -392,13 +393,13 @@
             display: none; flex-direction: column; flex-shrink: 0;
             background: #08041a; border-top: 2px solid #2a1045;
             width: 100%; max-width: 480px; margin: 0 auto;
-            z-index: 2;
+            z-index: 10;
         }
         #battle-ui.active { display: flex; }
 
         /* ── 落下コマンドタイムライン ── */
         #battle-timeline {
-            position: absolute; inset: 0; z-index: 1;
+            position: absolute; inset: 0; z-index: 5;
             pointer-events: none; display: none;
         }
         #battle-timeline.active { display: block; }
@@ -590,7 +591,7 @@
 
         /* ── バトルメッセージログ ──────────────────────────────── */
         #battle-msg-log {
-            position: absolute; left: 0; right: 0; bottom: 8px; z-index: 2;
+            position: absolute; left: 0; right: 0; bottom: 8px; z-index: 5;
             pointer-events: none;
             padding: 0 28px;
             display: flex; flex-direction: column; gap: 3px;
