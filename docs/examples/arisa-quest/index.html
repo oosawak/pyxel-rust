@@ -787,18 +787,26 @@
 
         /* ── Debug Panel ────────────────────────────────────────── */
         #debug-panel {
-            position: fixed; bottom: 10px; right: 10px; z-index: 99999;
+            position: fixed; bottom: 120px; right: 10px; z-index: 99999;
             background: rgba(0, 0, 0, 0.85); border: 2px solid #00ff00;
-            border-radius: 8px; padding: 12px; max-width: 400px;
-            max-height: 300px; overflow-y: auto;
+            border-radius: 8px; padding: 12px; max-width: 260px; width: 260px;
+            max-height: 260px; overflow-y: auto;
             font-family: 'Courier New', monospace; font-size: 0.7rem;
             color: #00ff00; line-height: 1.4;
+            pointer-events: none;
         }
         #debug-panel.hidden { display: none; }
         .debug-log-entry {
             margin-bottom: 4px; padding: 2px 0;
             border-bottom: 1px solid rgba(0, 255, 0, 0.2);
         }
+        #btn-debug-log {
+            background: rgba(0,0,0,0.6); border: 1px solid #00aa44;
+            border-radius: 4px; color: #00cc66; font-size: 0.55rem;
+            font-family: monospace; padding: 2px 7px; cursor: pointer;
+            flex-shrink: 0;
+        }
+        #btn-debug-log.active { border-color: #00ff88; color: #00ff88; }
     </style>
 </head>
 <body>
@@ -825,6 +833,7 @@
             </div>
         </div>
         <div class="lv-badge" id="lv-badge">Lv.1</div>
+        <button id="btn-debug-log">LOG</button>
         <div class="back-link"><a href="../../">← Back</a></div>
     </div>
 
@@ -3834,6 +3843,18 @@
         }
 
         debugLog('✅ Arisa Quest v20260505 #ac60a30 - Three.js 3D大観音バトル + ログバージョン表示');
+
+        // ── デバッグログ表示トグル ─────────────────────────────────────────
+        (function() {
+            const btn   = document.getElementById('btn-debug-log');
+            const panel = document.getElementById('debug-panel');
+            if (!btn || !panel) return;
+            btn.addEventListener('click', function() {
+                const isHidden = panel.classList.toggle('hidden');
+                btn.classList.toggle('active', !isHidden);
+                btn.textContent = isHidden ? 'LOG' : 'LOG✓';
+            });
+        })();
     </script>
 </body>
 </html>
