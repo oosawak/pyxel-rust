@@ -392,13 +392,13 @@
             display: none; flex-direction: column; flex-shrink: 0;
             background: #08041a; border-top: 2px solid #2a1045;
             width: 100%; max-width: 480px; margin: 0 auto;
-            z-index: 40;
+            z-index: 9100;
         }
         #battle-ui.active { display: flex; }
 
         /* ── 落下コマンドタイムライン ── */
         #battle-timeline {
-            position: absolute; inset: 0; z-index: 30;
+            position: absolute; inset: 0; z-index: 9000;
             pointer-events: none; display: none;
         }
         #battle-timeline.active { display: block; }
@@ -590,7 +590,7 @@
 
         /* ── バトルメッセージログ ──────────────────────────────── */
         #battle-msg-log {
-            position: absolute; left: 0; right: 0; bottom: 8px; z-index: 20;
+            position: absolute; left: 0; right: 0; bottom: 8px; z-index: 9050;
             pointer-events: none;
             padding: 0 28px;
             display: flex; flex-direction: column; gap: 3px;
