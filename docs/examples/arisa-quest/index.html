@@ -788,7 +788,6 @@
             padding: 6px 10px; font-family: 'DotGothic16', monospace;
             box-shadow: 0 0 8px rgba(136,68,255,0.4), inset 0 0 6px rgba(255,255,255,0.08);
             min-width: 110px; text-align: center;
-            display: none;
         }
         #territory-points-display .points-label {
             font-size: 0.55rem; color: #ddbbff; letter-spacing: 0.08em;
@@ -1854,7 +1853,6 @@
         btnToggle3d.classList.add('visible');
         btnToggle3d.addEventListener('click', () => {
             is3dMode = !is3dMode;
-            const territoryDisplay = document.getElementById('territory-points-display');
             if (is3dMode) {
                 // 先にコンテナを表示してからMapLibreを初期化（サイズ計算のため）
                 document.getElementById('map').style.visibility = 'hidden';
@@ -1868,7 +1866,6 @@
                 btnToggle3d.classList.add('active');
                 btnTileSwitch.style.opacity = '0.4';
                 btnTileSwitch.style.pointerEvents = 'none';
-                territoryDisplay.style.display = 'block';
             } else {
                 document.getElementById('map').style.visibility = '';
                 document.getElementById('map-3d').style.display = 'none';
@@ -1876,7 +1873,6 @@
                 btnToggle3d.classList.remove('active');
                 btnTileSwitch.style.opacity = '';
                 btnTileSwitch.style.pointerEvents = '';
-                territoryDisplay.style.display = 'none';
             }
         });
 
