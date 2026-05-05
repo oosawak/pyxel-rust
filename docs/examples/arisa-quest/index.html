@@ -1742,6 +1742,11 @@
                     const info   = { marker, eIdx, lat: eLat, lng: eLng };
                     marker.on('click', () => {
                         debugLog('🗺️ マーカークリック detected！敵INDEX: ' + info.eIdx);
+                        debugLog('⏳ battleUILoaded: ' + battleUILoaded);
+                        if (!battleUILoaded) {
+                            debugLog('❌ Battle UI がまだロード中...');
+                            return;
+                        }
                         triggerBattle(info);
                     });
                     enemyMarkers.push(info);
@@ -3776,6 +3781,9 @@
             }
         }
 
+        // Track if battle UI is loaded
+        let battleUILoaded = false;
+
         debugLog('🔍 Battle UI Loader Starting...');
         
         // Load battle-ui.html and inject into battle-ui-container
@@ -3811,7 +3819,12 @@
                 const battleUI = document.getElementById('battle-ui');
                 debugLog('✓ battle-ui after injection: ' + (battleUI ? '✓ FOUND' : '❌ NOT FOUND'));
                 
-                debugLog('✅ Battle UI Loading Complete!');
+                if (battleOverlay && battleUI) {
+                    battleUILoaded = true;
+                    debugLog('✅ Battle UI Loading Complete! (battleUILoaded = true)');
+                } else {
+                    debugLog('⚠️ Battle UI elements not found after injection!');
+                }
                 
             } catch (err) {
                 debugLog('❌ Failed to load battle UI: ' + err.message);
