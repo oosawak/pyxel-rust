@@ -2592,82 +2592,200 @@
                 }
                 
                 drawEnemy(game) {
-                    const cx = this.width / 2 - 100;
-                    const cy = this.height / 2 - 150;
-                    const w = 200, h = 300;
+                    const centerX = this.width / 2;
+                    const centerY = this.height / 2 - 100;
                     
-                    // 敵がダメージ状態で点滅
-                    const isDamaged = (this.enemyFrame / 5) % 2 === 0 && game.enemyHP < 80;
+                    // === こけし形の敵 ===
                     
-                    if (isDamaged) {
-                        this.ctx.fillStyle = '#ff8888'; // 明るい赤
-                    } else {
-                        this.ctx.fillStyle = '#8888ff'; // 明るい青
+                    // 頭部（大きな円）
+                    const headRadius = 70;
+                    this.ctx.fillStyle = '#d4a574'; // 頭部: 薄茶色
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY - 60, headRadius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // ダメージ時のフラッシュ：頭が赤くなる
+                    if ((this.enemyFrame / 5) % 2 === 0 && game.enemyHP < 80) {
+                        this.ctx.fillStyle = 'rgba(255, 136, 136, 0.5)';
+                        this.ctx.beginPath();
+                        this.ctx.arc(centerX, centerY - 60, headRadius, 0, Math.PI * 2);
+                        this.ctx.fill();
                     }
                     
-                    this.ctx.fillRect(cx, cy, w, h);
+                    // 頭部の枠線
+                    this.ctx.strokeStyle = '#8b5a2b';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY - 60, headRadius, 0, Math.PI * 2);
+                    this.ctx.stroke();
                     
-                    // 目（簡易版）
-                    this.ctx.fillStyle = '#ffff00';
-                    this.ctx.fillRect(cx + 50, cy + 80, 20, 20);
-                    this.ctx.fillRect(cx + 130, cy + 80, 20, 20);
+                    // 目
+                    const eyeRadius = 10;
+                    const eyeY = centerY - 70;
+                    const eyeLeftX = centerX - 25;
+                    const eyeRightX = centerX + 25;
                     
-                    // HP表示（敵キャラの上）
+                    // 瞳（黒い円）
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.beginPath();
+                    this.ctx.arc(eyeLeftX, eyeY, eyeRadius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.beginPath();
+                    this.ctx.arc(eyeRightX, eyeY, eyeRadius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // 目の白い部分
                     this.ctx.fillStyle = '#ffffff';
-                    this.ctx.font = 'bold 20px monospace';
-                    this.ctx.fillText('敵 HP: ' + Math.ceil(game.enemyHP), cx, cy - 10);
+                    this.ctx.beginPath();
+                    this.ctx.arc(eyeLeftX, eyeY, eyeRadius - 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.beginPath();
+                    this.ctx.arc(eyeRightX, eyeY, eyeRadius - 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // 瞳孔（黒い小さな円）
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.beginPath();
+                    this.ctx.arc(eyeLeftX - 3, eyeY - 2, 4, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.beginPath();
+                    this.ctx.arc(eyeRightX - 3, eyeY - 2, 4, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // 鼻
+                    this.ctx.fillStyle = '#cd853f'; // 濃い茶色
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY - 35, 6, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // 口
+                    this.ctx.strokeStyle = '#8b5a2b';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(centerX - 20, centerY - 10);
+                    this.ctx.quadraticCurveTo(centerX, centerY + 5, centerX + 20, centerY - 10);
+                    this.ctx.stroke();
+                    
+                    // 体部（円柱）
+                    const bodyWidth = 120;
+                    const bodyHeight = 150;
+                    const bodyTopY = centerY + 10;
+                    
+                    this.ctx.fillStyle = '#8b4513'; // 体: 濃い茶色
+                    this.ctx.fillRect(centerX - bodyWidth / 2, bodyTopY, bodyWidth, bodyHeight);
+                    
+                    // ダメージ時のフラッシュ：体が赤くなる
+                    if ((this.enemyFrame / 5) % 2 === 0 && game.enemyHP < 80) {
+                        this.ctx.fillStyle = 'rgba(255, 136, 136, 0.5)';
+                        this.ctx.fillRect(centerX - bodyWidth / 2, bodyTopY, bodyWidth, bodyHeight);
+                    }
+                    
+                    // 体部の枠線
+                    this.ctx.strokeStyle = '#654321';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(centerX - bodyWidth / 2, bodyTopY, bodyWidth, bodyHeight);
+                    
+                    // 体部の装飾（模様）
+                    this.ctx.strokeStyle = '#cd853f';
+                    this.ctx.lineWidth = 1;
+                    for (let i = 0; i < 4; i++) {
+                        const y = bodyTopY + 30 + i * 35;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(centerX - bodyWidth / 2 + 10, y);
+                        this.ctx.lineTo(centerX + bodyWidth / 2 - 10, y);
+                        this.ctx.stroke();
+                    }
                 }
                 
                 drawLeftBar(game) {
-                    const barX = 0, barWidth = 60;
+                    const barX = 5;
+                    const barWidth = 50;
+                    const barHeight = this.height - 20;
+                    const barY = 10;
                     
-                    // バーの背景
-                    this.ctx.fillStyle = '#004488'; // より明るい青
-                    this.ctx.fillRect(barX, 0, barWidth, this.height);
+                    // === プレイヤー攻撃ゲージ（RPG スタイル） ===
                     
-                    // バーの枠線
+                    // バーの背景（濃灰色）
+                    this.ctx.fillStyle = '#222222';
+                    this.ctx.fillRect(barX, barY, barWidth, barHeight);
+                    
+                    // バーの枠線（シアン）
                     this.ctx.strokeStyle = '#00ffff';
                     this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(barX, 0, barWidth, this.height);
+                    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
                     
-                    // プレイヤーの攻撃アイコン
+                    // プレイヤーの攻撃アイコン（縦に降ってくる）
                     for (const attack of game.playerAttacks) {
-                        // 攻撃アイコン（円）
+                        const iconX = barX + barWidth / 2;
+                        const iconY = barY + attack.y;
+                        
+                        // 攻撃アイコン（黄色い円）
                         this.ctx.fillStyle = '#ffff00';
                         this.ctx.beginPath();
-                        this.ctx.arc(barX + barWidth / 2, attack.y, 10, 0, Math.PI * 2);
+                        this.ctx.arc(iconX, iconY, 8, 0, Math.PI * 2);
                         this.ctx.fill();
+                        
+                        // アイコンの枠線
+                        this.ctx.strokeStyle = '#ff8800';
+                        this.ctx.lineWidth = 1;
+                        this.ctx.beginPath();
+                        this.ctx.arc(iconX, iconY, 8, 0, Math.PI * 2);
+                        this.ctx.stroke();
                     }
+                    
+                    // ラベル（攻撃）
+                    this.ctx.fillStyle = '#00ffff';
+                    this.ctx.font = 'bold 10px monospace';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('攻撃', barX + barWidth / 2, barY - 5);
                 }
                 
                 drawRightBar(game) {
-                    const barX = this.width - 60, barWidth = 60;
+                    const barX = this.width - 55;
+                    const barWidth = 50;
+                    const barHeight = this.height - 20;
+                    const barY = 10;
                     
-                    // バーの背景
-                    this.ctx.fillStyle = '#884400'; // より明るい赤茶色
-                    this.ctx.fillRect(barX, 0, barWidth, this.height);
+                    // === 敵の攻撃ゲージ（RPG スタイル） ===
                     
-                    // バーの枠線
+                    // バーの背景（濃い赤褐色）
+                    this.ctx.fillStyle = '#332211';
+                    this.ctx.fillRect(barX, barY, barWidth, barHeight);
+                    
+                    // バーの枠線（黄色）
                     this.ctx.strokeStyle = '#ffff00';
                     this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(barX, 0, barWidth, this.height);
+                    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
                     
-                    // 敵の攻撃カード＋回避枠
+                    // 敵の攻撃カード
                     for (const attack of game.enemyAttacks) {
-                        // 攻撃カード（赤い矩形）
-                        this.ctx.fillStyle = '#ff6666';
-                        this.ctx.fillRect(barX + 5, attack.y, barWidth - 10, 40);
+                        const cardX = barX + 3;
+                        const cardY = barY + attack.y;
+                        const cardWidth = barWidth - 6;
+                        const cardHeight = 30;
                         
-                        // 回避枠（緑の枠線）
+                        // 攻撃カード（赤い矩形）
+                        this.ctx.fillStyle = '#ff4444';
+                        this.ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
+                        
+                        // 回避ゾーン（緑の線で表示）
                         this.ctx.strokeStyle = '#00ff00';
-                        this.ctx.lineWidth = 3;
-                        this.ctx.strokeRect(
-                            barX + 5,
-                            attack.dodgeZoneMin,
-                            barWidth - 10,
-                            attack.dodgeZoneMax - attack.dodgeZoneMin
-                        );
+                        this.ctx.lineWidth = 2;
+                        const zoneTop = barY + attack.dodgeZoneMin;
+                        const zoneHeight = attack.dodgeZoneMax - attack.dodgeZoneMin;
+                        this.ctx.strokeRect(cardX, zoneTop, cardWidth, zoneHeight);
+                        
+                        // カードの枠線
+                        this.ctx.strokeStyle = '#ffaa00';
+                        this.ctx.lineWidth = 1;
+                        this.ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
                     }
+                    
+                    // ラベル（敵攻撃）
+                    this.ctx.fillStyle = '#ffff00';
+                    this.ctx.font = 'bold 10px monospace';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('敵攻撃', barX + barWidth / 2, barY - 5);
                 }
                 
                 drawHPBars(game) {
