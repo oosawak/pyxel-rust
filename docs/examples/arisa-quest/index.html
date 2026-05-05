@@ -2719,18 +2719,61 @@
                         const iconX = barX + barWidth / 2;
                         const iconY = barY + attack.y;
                         
-                        // 攻撃アイコン（黄色い円）
-                        this.ctx.fillStyle = '#ffff00';
+                        // === 波動アイコン（エネルギー球） ===
+                        
+                        // 外側の波紋（薄い）
+                        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+                        this.ctx.beginPath();
+                        this.ctx.arc(iconX, iconY, 12, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        
+                        // 中間の波紋
+                        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
                         this.ctx.beginPath();
                         this.ctx.arc(iconX, iconY, 8, 0, Math.PI * 2);
                         this.ctx.fill();
                         
-                        // アイコンの枠線
-                        this.ctx.strokeStyle = '#ff8800';
-                        this.ctx.lineWidth = 1;
+                        // 中央のエネルギー球（明るい黄色）
+                        this.ctx.fillStyle = '#ffff00';
                         this.ctx.beginPath();
-                        this.ctx.arc(iconX, iconY, 8, 0, Math.PI * 2);
-                        this.ctx.stroke();
+                        this.ctx.arc(iconX, iconY, 5, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        
+                        // 中央コア（白）
+                        this.ctx.fillStyle = '#ffffff';
+                        this.ctx.beginPath();
+                        this.ctx.arc(iconX, iconY, 2, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        
+                        // キラキラエフェクト（4本の矢印）
+                        const sparkSize = 6;
+                        const sparkDistance = 8;
+                        this.ctx.strokeStyle = '#ffff00';
+                        this.ctx.lineWidth = 1;
+                        this.ctx.globalAlpha = 0.7;
+                        
+                        // 上下左右の4方向に矢印
+                        const directions = [
+                            { dx: 0, dy: -sparkDistance },  // 上
+                            { dx: sparkDistance, dy: 0 },   // 右
+                            { dx: 0, dy: sparkDistance },    // 下
+                            { dx: -sparkDistance, dy: 0 }    // 左
+                        ];
+                        
+                        for (const dir of directions) {
+                            const x = iconX + dir.dx;
+                            const y = iconY + dir.dy;
+                            
+                            // 小さな矢印を描画
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(x - 2, y - 2);
+                            this.ctx.lineTo(x + 2, y + 2);
+                            this.ctx.moveTo(x + 2, y - 2);
+                            this.ctx.lineTo(x - 2, y + 2);
+                            this.ctx.stroke();
+                        }
+                        
+                        this.ctx.globalAlpha = 1.0;
                     }
                     
                     // ラベル（攻撃）
