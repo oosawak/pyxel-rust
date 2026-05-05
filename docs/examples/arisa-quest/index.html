@@ -3516,9 +3516,15 @@
             }
             
             debugLog('🔄 バトル状態を設定中...');
+            debugLog('  → inBattle = true');
             inBattle = true;
+            
+            debugLog('  → currentEnemyInfo設定');
             currentEnemyInfo = enemyInfo;
+            
+            debugLog('  → window.currentEnemyInfo設定');
             window.currentEnemyInfo = enemyInfo;
+            debugLog('✓ 状態設定完了、start_battle呼び出し準備...');
             
             debugLog('🔧 start_battle_from_js を呼び出し');
             try {
