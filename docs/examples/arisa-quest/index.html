@@ -2967,12 +2967,18 @@
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.remove('active');
             document.getElementById('territory-points-display').style.display = '';
+            document.getElementById('btn-tile-switch').classList.add('visible');
+            document.getElementById('btn-3d-toggle').classList.add('visible');
+            document.getElementById('btn-toggle-post-list').classList.add('visible');
         });
         document.getElementById('tab-battle').addEventListener('click', () => {
             setActiveTab('tab-battle');
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.remove('active');
             document.getElementById('territory-points-display').style.display = 'none';
+            document.getElementById('btn-tile-switch').classList.remove('visible');
+            document.getElementById('btn-3d-toggle').classList.remove('visible');
+            document.getElementById('btn-toggle-post-list').classList.remove('visible');
             if (inBattle) {
                 battleOverlay.classList.add('active');
                 battleUI.classList.add('active');
@@ -3014,6 +3020,9 @@
             document.getElementById('panel-territory').classList.remove('active');
             document.getElementById('panel-tsubuyaku').classList.add('active');
             document.getElementById('territory-points-display').style.display = 'none';
+            document.getElementById('btn-tile-switch').classList.remove('visible');
+            document.getElementById('btn-3d-toggle').classList.remove('visible');
+            document.getElementById('btn-toggle-post-list').classList.remove('visible');
         });
         document.getElementById('tab-territory').addEventListener('click', () => {
             setActiveTab('tab-territory');
@@ -3023,6 +3032,9 @@
             document.getElementById('panel-tsubuyaku').classList.remove('active');
             document.getElementById('panel-territory').classList.add('active');
             document.getElementById('territory-points-display').style.display = 'none';
+            document.getElementById('btn-tile-switch').classList.remove('visible');
+            document.getElementById('btn-3d-toggle').classList.remove('visible');
+            document.getElementById('btn-toggle-post-list').classList.remove('visible');
         });
 
         // つぶやく投稿
