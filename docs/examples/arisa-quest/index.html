@@ -299,6 +299,109 @@
         }
         #btn-back-to-map:active { transform: scale(0.96); }
 
+        /* ── 大観音バトルオーバーレイ（アリサバトルと完全分離） ──────────── */
+        #daikannon-overlay {
+            display: none;
+            position: absolute; top: 0; left: 0; right: 0; bottom: var(--tab-h);
+            z-index: 25;
+            background: #000814;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #daikannon-overlay.active { display: flex; }
+        #daikannon-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; background: rgba(0,0,0,0.85);
+            border-bottom: 2px solid #00ccff; flex-shrink: 0;
+        }
+        #daikannon-header-title {
+            font-family: 'DotGothic16', monospace; font-size: 1rem; color: #00ccff;
+        }
+        #daikannon-log-toggle {
+            background: rgba(0,200,255,0.15); border: 1px solid #00ccff;
+            border-radius: 4px; color: #00ccff; font-size: 0.75rem;
+            padding: 4px 10px; cursor: pointer;
+        }
+        #daikannon-logpanel {
+            display: none; max-height: 120px; overflow-y: auto;
+            background: rgba(0,0,0,0.9); border-bottom: 1px solid #00ff00;
+            padding: 6px 10px; font-family: monospace; font-size: 0.65rem;
+            color: #00ff00; flex-shrink: 0;
+        }
+        #daikannon-logpanel.show { display: block; }
+        #daikannon-logpanel div { margin: 1px 0; }
+        #daikannon-canvas-wrap {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; min-height: 0;
+        }
+        #daikannon-canvas {
+            display: block; background: #000;
+            max-width: 100%; max-height: 100%;
+        }
+        #daikannon-hparea {
+            flex-shrink: 0; padding: 8px 12px;
+            background: rgba(0,0,0,0.7); display: flex; flex-direction: column; gap: 4px;
+        }
+        #daikannon-enemy-hp-row, #daikannon-player-hp-row {
+            display: flex; align-items: center; gap: 8px;
+        }
+        #daikannon-enemy-hp-label, #daikannon-player-hp-label {
+            font-family: 'DotGothic16', monospace; font-size: 0.7rem;
+            color: #ccc; width: 56px; flex-shrink: 0;
+        }
+        #daikannon-enemy-hp-bg, #daikannon-player-hp-bg {
+            flex: 1; height: 14px; background: #333;
+            border: 1px solid #666; border-radius: 3px; overflow: hidden;
+        }
+        #daikannon-enemy-hp-fill {
+            height: 100%; width: 100%;
+            background: linear-gradient(to right, #ff4444, #ff8844);
+            transition: width 0.3s;
+        }
+        #daikannon-player-hp-fill {
+            height: 100%; width: 100%;
+            background: linear-gradient(to right, #44ff44, #44ff88);
+            transition: width 0.3s;
+        }
+        #daikannon-enemy-hp-val, #daikannon-player-hp-val {
+            font-family: monospace; font-size: 0.7rem; color: #fff; width: 28px; text-align: right;
+        }
+        #daikannon-btnrow {
+            flex-shrink: 0; display: flex; gap: 6px; padding: 8px 12px;
+            background: rgba(0,0,0,0.7);
+        }
+        #daikannon-btnrow button {
+            flex: 1; padding: 10px 0; background: rgba(0,80,180,0.7);
+            border: 2px solid #4488ff; border-radius: 8px; color: #fff;
+            font-family: 'DotGothic16', monospace; font-size: 0.75rem; cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #daikannon-btnrow button:active { transform: scale(0.95); }
+        #daikannon-btn-back { background: rgba(80,20,120,0.7) !important; border-color: #aa66ff !important; }
+        #daikannon-result {
+            display: none; position: absolute; inset: 0;
+            background: rgba(0,0,0,0.85); z-index: 10;
+            flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+        }
+        #daikannon-result.show { display: flex; }
+        #daikannon-result-title {
+            font-family: 'DotGothic16', monospace; font-size: 2rem; letter-spacing: 4px;
+            text-shadow: 0 0 18px currentColor; color: #ffee44;
+        }
+        #daikannon-result-title.lose { color: #ff4466; }
+        #daikannon-result-msg {
+            font-family: 'DotGothic16', monospace; font-size: 0.85rem;
+            color: #aa99cc; text-align: center; line-height: 1.8;
+        }
+        #daikannon-result-back {
+            padding: 14px 36px;
+            background: linear-gradient(135deg, #2a1045, #3d1868);
+            border: 2px solid #aa66ff; border-radius: 14px;
+            color: #eeddff; font-family: 'DotGothic16', monospace;
+            font-size: 1rem; cursor: pointer;
+        }
+        #daikannon-result-back:active { transform: scale(0.96); }
+
         /* ── タブバー ─────────────────────────────────────────────── */
         #tab-bar {
             position: absolute; bottom: 0; left: 0; right: 0; z-index: 30;
@@ -847,6 +950,41 @@
             <div id="battle-result-title">勝利！</div>
             <div id="battle-result-msg"></div>
             <button id="btn-back-to-map">🗺 マップに戻る</button>
+        </div>
+
+        <!-- 大観音バトルオーバーレイ（アリサバトルとは完全に分離） -->
+        <div id="daikannon-overlay">
+            <div id="daikannon-header">
+                <span id="daikannon-header-title">🗿 仙台大観音バトル</span>
+                <button id="daikannon-log-toggle">📋 ログ</button>
+            </div>
+            <div id="daikannon-logpanel"></div>
+            <div id="daikannon-canvas-wrap">
+                <canvas id="daikannon-canvas"></canvas>
+            </div>
+            <div id="daikannon-hparea">
+                <div id="daikannon-enemy-hp-row">
+                    <span id="daikannon-enemy-hp-label">敵 HP</span>
+                    <div id="daikannon-enemy-hp-bg"><div id="daikannon-enemy-hp-fill"></div></div>
+                    <span id="daikannon-enemy-hp-val">100</span>
+                </div>
+                <div id="daikannon-player-hp-row">
+                    <span id="daikannon-player-hp-label">アリサ HP</span>
+                    <div id="daikannon-player-hp-bg"><div id="daikannon-player-hp-fill"></div></div>
+                    <span id="daikannon-player-hp-val">100</span>
+                </div>
+            </div>
+            <div id="daikannon-btnrow">
+                <button id="daikannon-btn-attack">⚔️ 攻撃</button>
+                <button id="daikannon-btn-dodge">💨 回避</button>
+                <button id="daikannon-btn-auto">🤖 オート</button>
+                <button id="daikannon-btn-back">🗺️ 戻る</button>
+            </div>
+            <div id="daikannon-result">
+                <div id="daikannon-result-title">勝利！</div>
+                <div id="daikannon-result-msg"></div>
+                <button id="daikannon-result-back">マップに戻る</button>
+            </div>
         </div>
 
         <!-- つぶやくパネル -->
@@ -2072,680 +2210,231 @@
             }, 40);
         }
 
-        // ── 仙台大観音ミニゲーム（Rust WASM実装） ──────────────────────
+        // ── 仙台大観音バトル（#battle-overlayと完全分離） ────────────────────
         async function startSendaiDaikannonGame() {
-            console.log('🗿 仙台大観音ゲーム開始 (WASM)');
-            
-            // sendai_daikannon WASM をインポート
+            debugLog('🗿 大観音バトル: 起動開始');
+
+            const overlay = document.getElementById('daikannon-overlay');
+            const logPanel = document.getElementById('daikannon-logpanel');
+            const logToggle = document.getElementById('daikannon-log-toggle');
+
+            function dkLog(msg) {
+                debugLog(msg);
+                const d = document.createElement('div');
+                d.textContent = new Date().toLocaleTimeString('ja-JP') + ' ' + msg;
+                logPanel.appendChild(d);
+                logPanel.scrollTop = logPanel.scrollHeight;
+            }
+
+            dkLog('🗿 大観音バトル初期化');
+
+            // ログトグルボタン
+            logToggle.onclick = () => logPanel.classList.toggle('show');
+
+            // オーバーレイ表示
+            overlay.classList.add('active');
+            dkLog('✅ オーバーレイ表示');
+
+            // WASM ロード
+            dkLog('⚙️ WASM読み込み開始...');
             let wasmGame;
             try {
                 const wasmModule = await import('./sendai_daikannon_wasm/sendai_daikannon_lib.js');
-                
-                // WASM を初期化（重要：これがないと wasm インスタンスが undefined）
                 await wasmModule.default({ module_or_path: './sendai_daikannon_wasm/sendai_daikannon_lib_bg.wasm' });
-                
                 wasmGame = wasmModule;
-                console.log('✓ WASM モジュール読み込みと初期化完了');
+                dkLog('✅ WASM読み込み完了');
             } catch (e) {
-                console.error('✗ WASM 読み込みエラー:', e);
-                alert('⚠️ ゲームの読み込みに失敗しました: ' + e.message);
+                dkLog('❌ WASM読み込みエラー: ' + e.message);
+                overlay.classList.remove('active');
                 return;
             }
-            
-            // WASM API をラップするゲームクラス
-            class SendaiGame {
-                constructor(playerHP) {
-                    // WASM 初期化
-                    wasmGame.sendai_daikannon_init(playerHP);
-                    this._wasmModule = wasmGame;
-                    
-                    // JavaScript 側での描画用状態
-                    this.playerAttacks = [];
-                    this.enemyAttacks = [];
-                    this.frame = 0;
-                }
-                
-                get playerHP() {
-                    return this._wasmModule.sendai_daikannon_get_player_hp();
-                }
-                
-                get enemyHP() {
-                    return this._wasmModule.sendai_daikannon_get_enemy_hp();
-                }
-                
-                get state() {
-                    const stateCode = this._wasmModule.sendai_daikannon_get_state();
-                    // 0: running, 1: victory, 2: defeat
-                    if (stateCode === 1) return 'victory';
-                    if (stateCode === 2) return 'defeat';
-                    return 'running';
-                }
-                
-                update() {
-                    // WASM 側で状態を更新
-                    this._wasmModule.sendai_daikannon_update();
-                    
-                    // JavaScript 側での描画用フレーム管理
-                    this.frame++;
-                    
-                    // プレイヤー攻撃の落下処理
-                    const fallSpeed = 4;
-                    for (let i = this.playerAttacks.length - 1; i >= 0; i--) {
-                        const attack = this.playerAttacks[i];
-                        attack.y += fallSpeed;
-                        if (attack.y > 800) {
-                            this.playerAttacks.splice(i, 1);
-                        }
-                    }
-                    
-                    // 敵の攻撃の落下処理
-                    const enemyFallSpeed = 2.5;
-                    for (let i = this.enemyAttacks.length - 1; i >= 0; i--) {
-                        const attack = this.enemyAttacks[i];
-                        attack.y += enemyFallSpeed;
-                        if (attack.y > 800) {
-                            this.enemyAttacks.splice(i, 1);
-                        }
-                    }
-                    
-                    // 敵AI：攻撃タイミング制御（WASM側と同期して2～4秒間隔）
-                    const enemyAttackInterval = 120 + (this.frame % 120);
-                    if (this.frame > 0 && this.frame % enemyAttackInterval === 0) {
-                        this.spawnEnemyAttack();
-                    }
-                }
-                
-                addPlayerAttack(power) {
-                    // WASM に攻撃を追加
-                    this._wasmModule.sendai_daikannon_add_attack(Math.min(power, 100));
-                    
-                    // 描画用に JavaScript 側でも記録（フェーズアウト可能）
-                    this.playerAttacks.push({
-                        y: 0,
-                        power: Math.min(power, 100),
-                        hit: false
-                    });
-                }
-                
-                tryDodge(dodgeY) {
-                    // TODO: WASM 側に回避判定メソッドがあれば呼び出し
-                    // 現在は JavaScript 側で処理
-                    if (this.enemyAttacks.length === 0) return false;
-                    
-                    const attack = this.enemyAttacks[this.enemyAttacks.length - 1];
-                    const success = dodgeY >= attack.dodgeZoneMin && dodgeY <= attack.dodgeZoneMax;
-                    attack.dodged = true;
-                    
-                    return success;
-                }
-                
-                // 描画用ヘルパー：敵攻撃を追加（JavaScript側で管理）
-                spawnEnemyAttack() {
-                    const dodgeZoneSize = 100;
-                    const randomY = (this.frame * 7) % 600;
-                    
-                    this.enemyAttacks.push({
-                        y: 0,
-                        dodgeZoneMin: randomY,
-                        dodgeZoneMax: randomY + dodgeZoneSize,
-                        dodged: false,
-                        damageApplied: false
-                    });
-                }
+
+            // ゲーム初期化
+            const PLAYER_MAX_HP = 100;
+            wasmGame.sendai_daikannon_init(PLAYER_MAX_HP);
+            dkLog('🎮 ゲーム初期化完了');
+
+            // キャンバス設定
+            const canvas = document.getElementById('daikannon-canvas');
+            const wrap = document.getElementById('daikannon-canvas-wrap');
+            function resizeCanvas() {
+                canvas.width = wrap.clientWidth;
+                canvas.height = wrap.clientHeight;
             }
-            
-            // 描画クラス
-            class SendaiRenderer {
-                constructor(canvas, width, height) {
-                    this.canvas = canvas;
-                    this.ctx = canvas.getContext('2d');
-                    this.width = width;
-                    this.height = height;
-                    this.enemyFrame = 0;
-                    console.log('✓ SendaiRenderer初期化:', { width, height, ctx: !!this.ctx });
-                }
-                
-                update() {
-                    this.enemyFrame++;
-                }
-                
-                render(game) {
-                    if (!this.ctx) {
-                        console.error('❌ Canvas Context が null です');
-                        return;
-                    }
-                    
-                    // 背景クリア
-                    this.ctx.fillStyle = '#000';
-                    this.ctx.fillRect(0, 0, this.width, this.height);
-                    
-                    // 敵キャラクター（中央）
-                    this.drawEnemy(game);
-                    
-                    // 左バー：プレイヤー攻撃
-                    this.drawLeftBar(game);
-                    
-                    // 右バー：敵攻撃＋回避枠
-                    this.drawRightBar(game);
-                    
-                    // HP表示
-                    this.drawHPBars(game);
-                    
-                    // ゲーム終了画面
-                    if (game.state !== 'running') {
-                        this.drawEndScreen(game);
-                    }
-                }
-                
-                drawEnemy(game) {
-                    const centerX = this.width / 2;
-                    const centerY = this.height / 2 - 100;
-                    
-                    // === こけし形の敵 ===
-                    
-                    // 頭部（大きな円）
-                    const headRadius = 70;
-                    this.ctx.fillStyle = '#d4a574'; // 頭部: 薄茶色
-                    this.ctx.beginPath();
-                    this.ctx.arc(centerX, centerY - 60, headRadius, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    
-                    // ダメージ時のフラッシュ：頭が赤くなる
-                    if ((this.enemyFrame / 5) % 2 === 0 && game.enemyHP < 80) {
-                        this.ctx.fillStyle = 'rgba(255, 136, 136, 0.5)';
-                        this.ctx.beginPath();
-                        this.ctx.arc(centerX, centerY - 60, headRadius, 0, Math.PI * 2);
-                        this.ctx.fill();
-                    }
-                    
-                    // 頭部の枠線
-                    this.ctx.strokeStyle = '#8b5a2b';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.beginPath();
-                    this.ctx.arc(centerX, centerY - 60, headRadius, 0, Math.PI * 2);
-                    this.ctx.stroke();
-                    
-                    // 目
-                    const eyeRadius = 10;
-                    const eyeY = centerY - 70;
-                    const eyeLeftX = centerX - 25;
-                    const eyeRightX = centerX + 25;
-                    
-                    // 瞳（黒い円）
-                    this.ctx.fillStyle = '#000000';
-                    this.ctx.beginPath();
-                    this.ctx.arc(eyeLeftX, eyeY, eyeRadius, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    this.ctx.beginPath();
-                    this.ctx.arc(eyeRightX, eyeY, eyeRadius, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    
-                    // 目の白い部分
-                    this.ctx.fillStyle = '#ffffff';
-                    this.ctx.beginPath();
-                    this.ctx.arc(eyeLeftX, eyeY, eyeRadius - 2, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    this.ctx.beginPath();
-                    this.ctx.arc(eyeRightX, eyeY, eyeRadius - 2, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    
-                    // 瞳孔（黒い小さな円）
-                    this.ctx.fillStyle = '#000000';
-                    this.ctx.beginPath();
-                    this.ctx.arc(eyeLeftX - 3, eyeY - 2, 4, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    this.ctx.beginPath();
-                    this.ctx.arc(eyeRightX - 3, eyeY - 2, 4, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    
-                    // 鼻
-                    this.ctx.fillStyle = '#cd853f'; // 濃い茶色
-                    this.ctx.beginPath();
-                    this.ctx.arc(centerX, centerY - 35, 6, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    
-                    // 口
-                    this.ctx.strokeStyle = '#8b5a2b';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(centerX - 20, centerY - 10);
-                    this.ctx.quadraticCurveTo(centerX, centerY + 5, centerX + 20, centerY - 10);
-                    this.ctx.stroke();
-                    
-                    // 体部（円柱）
-                    const bodyWidth = 120;
-                    const bodyHeight = 150;
-                    const bodyTopY = centerY + 10;
-                    
-                    this.ctx.fillStyle = '#8b4513'; // 体: 濃い茶色
-                    this.ctx.fillRect(centerX - bodyWidth / 2, bodyTopY, bodyWidth, bodyHeight);
-                    
-                    // ダメージ時のフラッシュ：体が赤くなる
-                    if ((this.enemyFrame / 5) % 2 === 0 && game.enemyHP < 80) {
-                        this.ctx.fillStyle = 'rgba(255, 136, 136, 0.5)';
-                        this.ctx.fillRect(centerX - bodyWidth / 2, bodyTopY, bodyWidth, bodyHeight);
-                    }
-                    
-                    // 体部の枠線
-                    this.ctx.strokeStyle = '#654321';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(centerX - bodyWidth / 2, bodyTopY, bodyWidth, bodyHeight);
-                    
-                    // 体部の装飾（模様）
-                    this.ctx.strokeStyle = '#cd853f';
-                    this.ctx.lineWidth = 1;
-                    for (let i = 0; i < 4; i++) {
-                        const y = bodyTopY + 30 + i * 35;
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(centerX - bodyWidth / 2 + 10, y);
-                        this.ctx.lineTo(centerX + bodyWidth / 2 - 10, y);
-                        this.ctx.stroke();
-                    }
-                }
-                
-                drawLeftBar(game) {
-                    const barX = 5;
-                    const barWidth = 50;
-                    const barHeight = this.height - 20;
-                    const barY = 10;
-                    
-                    // === プレイヤー攻撃ゲージ（RPG スタイル） ===
-                    
-                    // バーの背景（濃灰色）
-                    this.ctx.fillStyle = '#222222';
-                    this.ctx.fillRect(barX, barY, barWidth, barHeight);
-                    
-                    // バーの枠線（シアン）
-                    this.ctx.strokeStyle = '#00ffff';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
-                    
-                    // プレイヤーの攻撃アイコン（縦に降ってくる）
-                    for (const attack of game.playerAttacks) {
-                        const iconX = barX + barWidth / 2;
-                        const iconY = barY + attack.y;
-                        
-                        // === 波動アイコン（エネルギー球） ===
-                        
-                        // 外側の波紋（薄い）
-                        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
-                        this.ctx.beginPath();
-                        this.ctx.arc(iconX, iconY, 12, 0, Math.PI * 2);
-                        this.ctx.fill();
-                        
-                        // 中間の波紋
-                        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
-                        this.ctx.beginPath();
-                        this.ctx.arc(iconX, iconY, 8, 0, Math.PI * 2);
-                        this.ctx.fill();
-                        
-                        // 中央のエネルギー球（明るい黄色）
-                        this.ctx.fillStyle = '#ffff00';
-                        this.ctx.beginPath();
-                        this.ctx.arc(iconX, iconY, 5, 0, Math.PI * 2);
-                        this.ctx.fill();
-                        
-                        // 中央コア（白）
-                        this.ctx.fillStyle = '#ffffff';
-                        this.ctx.beginPath();
-                        this.ctx.arc(iconX, iconY, 2, 0, Math.PI * 2);
-                        this.ctx.fill();
-                        
-                        // キラキラエフェクト（4本の矢印）
-                        const sparkSize = 6;
-                        const sparkDistance = 8;
-                        this.ctx.strokeStyle = '#ffff00';
-                        this.ctx.lineWidth = 1;
-                        this.ctx.globalAlpha = 0.7;
-                        
-                        // 上下左右の4方向に矢印
-                        const directions = [
-                            { dx: 0, dy: -sparkDistance },  // 上
-                            { dx: sparkDistance, dy: 0 },   // 右
-                            { dx: 0, dy: sparkDistance },    // 下
-                            { dx: -sparkDistance, dy: 0 }    // 左
-                        ];
-                        
-                        for (const dir of directions) {
-                            const x = iconX + dir.dx;
-                            const y = iconY + dir.dy;
-                            
-                            // 小さな矢印を描画
-                            this.ctx.beginPath();
-                            this.ctx.moveTo(x - 2, y - 2);
-                            this.ctx.lineTo(x + 2, y + 2);
-                            this.ctx.moveTo(x + 2, y - 2);
-                            this.ctx.lineTo(x - 2, y + 2);
-                            this.ctx.stroke();
-                        }
-                        
-                        this.ctx.globalAlpha = 1.0;
-                    }
-                    
-                    // ラベル（攻撃）
-                    this.ctx.fillStyle = '#00ffff';
-                    this.ctx.font = 'bold 10px monospace';
-                    this.ctx.textAlign = 'center';
-                    this.ctx.fillText('攻撃', barX + barWidth / 2, barY - 5);
-                }
-                
-                drawRightBar(game) {
-                    const barX = this.width - 55;
-                    const barWidth = 50;
-                    const barHeight = this.height - 20;
-                    const barY = 10;
-                    
-                    // === 敵の攻撃ゲージ（RPG スタイル） ===
-                    
-                    // バーの背景（濃い赤褐色）
-                    this.ctx.fillStyle = '#332211';
-                    this.ctx.fillRect(barX, barY, barWidth, barHeight);
-                    
-                    // バーの枠線（黄色）
-                    this.ctx.strokeStyle = '#ffff00';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
-                    
-                    // 敵の攻撃カード
-                    for (const attack of game.enemyAttacks) {
-                        const cardX = barX + 3;
-                        const cardY = barY + attack.y;
-                        const cardWidth = barWidth - 6;
-                        const cardHeight = 30;
-                        
-                        // 攻撃カード（赤い矩形）
-                        this.ctx.fillStyle = '#ff4444';
-                        this.ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
-                        
-                        // 回避ゾーン（緑の線で表示）
-                        this.ctx.strokeStyle = '#00ff00';
-                        this.ctx.lineWidth = 2;
-                        const zoneTop = barY + attack.dodgeZoneMin;
-                        const zoneHeight = attack.dodgeZoneMax - attack.dodgeZoneMin;
-                        this.ctx.strokeRect(cardX, zoneTop, cardWidth, zoneHeight);
-                        
-                        // カードの枠線
-                        this.ctx.strokeStyle = '#ffaa00';
-                        this.ctx.lineWidth = 1;
-                        this.ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
-                    }
-                    
-                    // ラベル（敵攻撃）
-                    this.ctx.fillStyle = '#ffff00';
-                    this.ctx.font = 'bold 10px monospace';
-                    this.ctx.textAlign = 'center';
-                    this.ctx.fillText('敵攻撃', barX + barWidth / 2, barY - 5);
-                }
-                
-                drawHPBars(game) {
-                    const barHeight = 30;
-                    const barWidth = 150;
-                    
-                    // 敵HP（左上）
-                    this.ctx.fillStyle = '#444';
-                    this.ctx.fillRect(100, 20, barWidth, barHeight);
-                    this.ctx.fillStyle = '#ff6464';
-                    const enemyFilledWidth = (game.enemyHP / 100) * barWidth;
-                    this.ctx.fillRect(100, 20, enemyFilledWidth, barHeight);
-                    this.ctx.strokeStyle = '#ffffff';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(100, 20, barWidth, barHeight);
-                    
-                    // プレイヤーHP（右上）
-                    this.ctx.fillStyle = '#444';
-                    this.ctx.fillRect(this.width - 250, 20, barWidth, barHeight);
-                    this.ctx.fillStyle = '#64ff64';
-                    const playerHPPercent = Math.max(0, game.playerHP / 100);
-                    const playerFilledWidth = playerHPPercent * barWidth;
-                    this.ctx.fillRect(this.width - 250, 20, playerFilledWidth, barHeight);
-                    this.ctx.strokeStyle = '#ffffff';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(this.width - 250, 20, barWidth, barHeight);
-                    
-                    // HP数値表示
-                    this.ctx.fillStyle = '#ffff00';
-                    this.ctx.font = 'bold 16px monospace';
-                    this.ctx.fillText(`敵 HP: ${Math.ceil(game.enemyHP)}`, 110, 40);
-                    this.ctx.fillText(`プレイヤー HP: ${Math.ceil(game.playerHP)}`, this.width - 240, 40);
-                }
-                
-                drawEndScreen(game) {
-                    // 半透明の黒い覆い
-                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                    this.ctx.fillRect(0, 0, this.width, this.height);
-                    
-                    // テキスト
-                    this.ctx.fillStyle = game.state === 'victory' ? '#00ff00' : '#ff0000';
-                    this.ctx.font = 'bold 48px monospace';
-                    this.ctx.textAlign = 'center';
-                    const text = game.state === 'victory' ? '🎉 勝利！' : '💔 敗北...';
-                    this.ctx.fillText(text, this.width / 2, this.height / 2);
-                    
-                    this.ctx.font = '16px monospace';
-                    this.ctx.fillText('タップしてマップに戻る', this.width / 2, this.height / 2 + 50);
-                }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            dkLog('🖼️ キャンバスサイズ: ' + canvas.width + 'x' + canvas.height);
+
+            const ctx = canvas.getContext('2d');
+            let frame = 0;
+            let isRunning = true;
+            let autoMode = false;
+            let autoAttackTimer = 0;
+
+            // HP更新
+            function updateHPBars() {
+                const pHP = wasmGame.sendai_daikannon_get_player_hp();
+                const eHP = wasmGame.sendai_daikannon_get_enemy_hp();
+                document.getElementById('daikannon-enemy-hp-fill').style.width = Math.max(0, eHP) + '%';
+                document.getElementById('daikannon-player-hp-fill').style.width = Math.max(0, pHP) + '%';
+                document.getElementById('daikannon-enemy-hp-val').textContent = Math.ceil(eHP);
+                document.getElementById('daikannon-player-hp-val').textContent = Math.ceil(pHP);
             }
-            
-            // ゲーム状態初期化
-            const playerHP = 100; // WASM ゲーム開始時のプレイヤー HP
-            const game = new SendaiGame(playerHP);
-            
-            // キャンバス準備：Pyxel の canvas-scene と game-wrapper を完全に隠す
-            const canvasScene = document.getElementById('canvas-scene');
-            canvasScene.style.display = 'none';
-            canvasScene.style.visibility = 'hidden';
-            canvasScene.style.pointerEvents = 'none';
-            
-            const gameWrapper = document.getElementById('game-wrapper');
-            if (gameWrapper) {
-                gameWrapper.style.display = 'none';
-                gameWrapper.style.visibility = 'hidden';
-                gameWrapper.style.pointerEvents = 'none';
-            }
-            
-            let gameCanvas = document.getElementById('sendai-game-canvas');
-            if (gameCanvas) {
-                gameCanvas.remove();
-            }
-            
-            // Canvas を battle-overlay に直接追加
-            gameCanvas = document.createElement('canvas');
-            gameCanvas.id = 'sendai-game-canvas';
-            gameCanvas.width = 800;
-            gameCanvas.height = 800;
-            gameCanvas.style.cssText = `
-                display: block;
-                background: #000000;
-                border: 3px solid #ffff00;
-                margin: 0 auto;
-                z-index: 100;
-                position: relative;
-                max-width: 100%;
-                max-height: 100%;
-                width: auto;
-                height: auto;
-                object-fit: contain;
-            `;
-            
-            // battleOverlay に直接追加（canvas-scene の代わりに）
-            const existingCanvas = getBattleOverlay().querySelector('canvas');
-            if (existingCanvas) existingCanvas.remove();
-            
-            getBattleOverlay().appendChild(gameCanvas);
-            
-            console.log('✓ Canvas作成:', { width: gameCanvas.width, height: gameCanvas.height });
-            console.log('✓ Canvas を battleOverlay に直接追加');
-            
-            const renderer = new SendaiRenderer(gameCanvas, 800, 800);
-            console.log('✓ Renderer初期化:', { canvas: { w: gameCanvas.width, h: gameCanvas.height }, renderer: { w: renderer.width, h: renderer.height } });
-            
-            // テスト描画：背景と文字
-            const ctx = gameCanvas.getContext('2d');
-            if (ctx) {
+
+            // 描画
+            function render() {
+                const w = canvas.width, h = canvas.height;
+                const pHP = wasmGame.sendai_daikannon_get_player_hp();
+                const eHP = wasmGame.sendai_daikannon_get_enemy_hp();
+
                 // 背景
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, 800, 800);
-                
-                // 敵キャラの簡易版
-                ctx.fillStyle = '#0088ff';
-                ctx.fillRect(300, 250, 200, 300);
-                
-                // 左バー
-                ctx.fillStyle = '#004488';
-                ctx.fillRect(0, 0, 60, 800);
-                
-                // 右バー
-                ctx.fillStyle = '#884400';
-                ctx.fillRect(740, 0, 60, 800);
-                
-                // テキスト
-                ctx.fillStyle = '#ffff00';
-                ctx.font = 'bold 32px monospace';
-                ctx.fillText('Canvas Ready', 250, 100);
-                
-                // HP表示
-                ctx.font = 'bold 20px monospace';
-                ctx.fillText('Enemy HP: 100', 100, 50);
-                ctx.fillText('Player HP: 100', 450, 50);
-                
-                console.log('✓ テスト描画成功');
-            } else {
-                console.error('❌ Canvas Context 取得失敗');
+                ctx.fillStyle = '#001122';
+                ctx.fillRect(0, 0, w, h);
+
+                // 空（グラデーション風）
+                ctx.fillStyle = '#003366';
+                ctx.fillRect(0, 0, w, h * 0.6);
+
+                // 地面
+                ctx.fillStyle = '#224422';
+                ctx.fillRect(0, h * 0.75, w, h * 0.25);
+
+                const cx = w / 2;
+
+                // 大観音像（シルエット）
+                const scale = Math.min(w, h) / 400;
+                const baseY = h * 0.78;
+
+                // ダメージフラッシュ
+                const flashAlpha = (eHP < 60 && frame % 20 < 10) ? 0.4 : 0;
+
+                // 台座
+                ctx.fillStyle = '#8b7355';
+                ctx.fillRect(cx - 50 * scale, baseY - 20 * scale, 100 * scale, 20 * scale);
+
+                // 体（白い像）
+                ctx.fillStyle = flashAlpha > 0 ? `rgba(255,200,200,0.9)` : '#f5f5e8';
+                ctx.fillRect(cx - 25 * scale, baseY - 130 * scale, 50 * scale, 110 * scale);
+
+                // 頭
+                ctx.fillStyle = flashAlpha > 0 ? `rgba(255,200,200,0.9)` : '#f5f5e8';
+                ctx.beginPath();
+                ctx.arc(cx, baseY - 155 * scale, 30 * scale, 0, Math.PI * 2);
+                ctx.fill();
+
+                // HP バー（キャンバス内）
+                ctx.fillStyle = '#333';
+                ctx.fillRect(w * 0.05, 15, w * 0.4, 18);
+                ctx.fillStyle = '#ff5544';
+                ctx.fillRect(w * 0.05, 15, w * 0.4 * (eHP / 100), 18);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(w * 0.05, 15, w * 0.4, 18);
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${Math.max(10, 12 * scale)}px monospace`;
+                ctx.textAlign = 'left';
+                ctx.fillText('敵 ' + Math.ceil(eHP), w * 0.05 + 4, 29);
+
+                ctx.fillStyle = '#333';
+                ctx.fillRect(w * 0.55, 15, w * 0.4, 18);
+                ctx.fillStyle = '#44cc44';
+                ctx.fillRect(w * 0.55, 15, w * 0.4 * (Math.max(0, pHP) / 100), 18);
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(w * 0.55, 15, w * 0.4, 18);
+                ctx.fillStyle = '#fff';
+                ctx.fillText('アリサ ' + Math.ceil(pHP), w * 0.55 + 4, 29);
+
+                // フレームカウンタ（デバッグ）
+                ctx.fillStyle = 'rgba(0,255,0,0.5)';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText('f:' + frame, w - 4, h - 4);
             }
-            
-            // 音声認識セットアップ
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            let recognition = null;
-            
-            if (SpeechRecognition) {
-                recognition = new SpeechRecognition();
-                recognition.lang = 'ja-JP';
-                recognition.continuous = true;
-                recognition.interimResults = false;
-                
-                recognition.onresult = (event) => {
-                    for (let i = event.resultIndex; i < event.results.length; i++) {
-                        if (event.results[i].isFinal) {
-                            const transcript = event.results[i][0].transcript;
-                            console.log('🎤 音声:', transcript);
-                            
-                            // 攻撃力計算（文字数で簡易実装）
-                            const power = Math.min(transcript.length * 3, 100);
-                            game.addPlayerAttack(power);
-                        }
-                    }
-                };
-                
-                try {
-                    recognition.start();
-                    console.log('🎤 音声認識開始');
-                } catch (e) {
-                    console.warn('🎤 音声認識エラー:', e);
-                }
+
+            // 結果表示
+            function showResult(won) {
+                dkLog(won ? '🎉 勝利！' : '💔 敗北...');
+                const resultEl = document.getElementById('daikannon-result');
+                const titleEl = document.getElementById('daikannon-result-title');
+                const msgEl = document.getElementById('daikannon-result-msg');
+                titleEl.textContent = won ? '勝利！' : '敗北...';
+                titleEl.className = won ? '' : 'lose';
+                msgEl.textContent = won ? '仙台大観音を打ち破った！' : 'アリサは力尽きた...';
+                resultEl.classList.add('show');
             }
-            
-            // タッチ/スワイプイベント
-            let touchStartY = 0;
-            gameCanvas.addEventListener('touchstart', (e) => {
-                touchStartY = e.touches[0].clientY;
-            }, { passive: true });
-            
-            gameCanvas.addEventListener('touchend', (e) => {
-                const touchEndY = e.changedTouches[0].clientY;
-                const deltaY = touchStartY - touchEndY;
-                
-                if (Math.abs(deltaY) > 50) {
-                    console.log('↕️ スワイプ:', deltaY > 0 ? '下' : '上');
-                    const dodgeSuccess = game.tryDodge(touchStartY);
-                    console.log('回避:', dodgeSuccess ? '成功 ✓' : '失敗 ✗');
-                }
-            }, { passive: true });
-            
-            // ゲーム終了時のクリックで戻る
-            gameCanvas.addEventListener('click', () => {
-                if (game.state !== 'running') {
-                    endGame();
-                }
-            });
-            
-            // ゲーム終了処理
-            const endGame = () => {
-                console.log('🗿 ゲーム終了:', game.state);
-                
-                // 音声認識停止
-                if (recognition) {
-                    try {
-                        recognition.stop();
-                    } catch (e) { }
-                }
-                
-                // キャンバス削除
-                gameCanvas.remove();
-                
-                // バトルオーバーレイ非表示
-                getBattleOverlay().classList.remove('active');
-                
-                // マップに戻る
+
+            // マップに戻る
+            function returnToMap() {
+                dkLog('🗺️ マップに戻る');
+                window.removeEventListener('resize', resizeCanvas);
+                isRunning = false;
+                overlay.classList.remove('active');
+                document.getElementById('daikannon-result').classList.remove('show');
+                logPanel.classList.remove('show');
+                logPanel.innerHTML = '';
                 setActiveTab('tab-map');
+            }
+
+            // ボタン設定
+            document.getElementById('daikannon-btn-attack').onclick = () => {
+                if (!isRunning) return;
+                dkLog('⚔️ 攻撃！');
+                wasmGame.sendai_daikannon_add_attack(30);
             };
-            
+            document.getElementById('daikannon-btn-dodge').onclick = () => {
+                if (!isRunning) return;
+                dkLog('💨 回避！');
+            };
+            document.getElementById('daikannon-btn-auto').onclick = () => {
+                autoMode = !autoMode;
+                dkLog('🤖 オートモード: ' + (autoMode ? 'ON' : 'OFF'));
+                document.getElementById('daikannon-btn-auto').textContent = autoMode ? '🤖 オートON' : '🤖 オート';
+            };
+            document.getElementById('daikannon-btn-back').onclick = returnToMap;
+            document.getElementById('daikannon-result-back').onclick = returnToMap;
+
             // メインループ
-            let animationFrameId = null;
-            let frameCount = 0;
-            const gameLoop = () => {
-                frameCount++;
-                if (frameCount === 1) {
-                    console.log('🎮 ゲームループ開始:', { gameState: game.state, canvas: gameCanvas });
-                }
-                
-                if (game.state === 'running') {
-                    game.update();
-                    renderer.update();
-                    renderer.render(game);
-                    
-                    if (frameCount % 60 === 0) {
-                        console.log('🎮 フレーム', frameCount, '敵HP:', game.enemyHP, 'プレイヤーHP:', game.playerHP);
+            function gameLoop() {
+                if (!isRunning) return;
+
+                frame++;
+                wasmGame.sendai_daikannon_update();
+
+                // オートモード
+                if (autoMode) {
+                    autoAttackTimer++;
+                    if (autoAttackTimer % 60 === 0) {
+                        wasmGame.sendai_daikannon_add_attack(20);
                     }
-                    
-                    animationFrameId = requestAnimationFrame(gameLoop);
-                } else {
-                    // ゲーム終了画面を表示
-                    console.log('🎮 ゲーム終了画面表示:', game.state);
-                    renderer.render(game);
-                    // 5秒後に自動でマップに戻る
-                    setTimeout(endGame, 5000);
                 }
-            };
-            
-            // ゲーム開始
-            debugLog('🎮 ゲーム開始: battle-overlayを表示中...');
-            const overlay = getBattleOverlay();
-            if (overlay) {
-                overlay.classList.add('active');
-                debugLog('✓ battle-overlay.active クラス追加成功');
-            } else {
-                debugLog('❌ battle-overlay がnull - 表示失敗！');
+
+                updateHPBars();
+                render();
+
+                if (frame % 180 === 0) {
+                    const pHP = wasmGame.sendai_daikannon_get_player_hp();
+                    const eHP = wasmGame.sendai_daikannon_get_enemy_hp();
+                    dkLog('📊 f:' + frame + ' 敵HP:' + Math.ceil(eHP) + ' アリサHP:' + Math.ceil(pHP));
+                }
+
+                const state = wasmGame.sendai_daikannon_get_state();
+                if (state === 1) {
+                    isRunning = false;
+                    dkLog('✅ 勝利（state=' + state + '）');
+                    showResult(true);
+                    return;
+                } else if (state === 2) {
+                    isRunning = false;
+                    dkLog('❌ 敗北（state=' + state + '）');
+                    showResult(false);
+                    return;
+                }
+
+                requestAnimationFrame(gameLoop);
             }
-            
-            const ui = getBattleUI();
-            if (ui) {
-                ui.classList.remove('active');
-                debugLog('✓ battle-ui.active クラス削除');
-            } else {
-                debugLog('❌ battle-ui がnull');
-            }
-            
-            console.log('🎮 ゲーム画面表示');
-            
-            // 初期描画を確実に実行
-            setTimeout(() => {
-                debugLog('🎮 初期フレーム強制描画実行');
-                console.log('🎮 初期フレーム強制描画');
-                game.update();
-                renderer.update();
-                renderer.render(game);
-                gameLoop();
-            }, 100);
+
+            dkLog('▶️ ゲームループ開始');
+            requestAnimationFrame(gameLoop);
         }
 
 
