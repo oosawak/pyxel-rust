@@ -358,9 +358,10 @@
             white-space: nowrap;
         }
         #daikannon-enemy-hp-row {
-            position: relative; z-index: 2;
-            display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 8px;
-            background: rgba(0,0,0,0.6);
+            position: absolute; top: 0; left: 38px; right: 38px; z-index: 4;
+            display: flex; align-items: center; gap: 8px; padding: 4px 8px;
+            background: rgba(0,0,0,0.7);
+            border-bottom: 1px solid rgba(255,136,68,0.3);
         }
         #daikannon-enemy-hp-label {
             font-family: 'DotGothic16', monospace; font-size: 0.7rem;
