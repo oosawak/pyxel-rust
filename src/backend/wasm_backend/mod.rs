@@ -56,10 +56,17 @@ pub fn start_battle_from_js(idx: i32) {
     BATTLE_REQUEST.store(idx, Ordering::Relaxed);
 }
 
-/// WASM entry point — JS calls `main()` after `await init()` to start the game.
+/// WASM entry point — JS calls `main()` after `await init()` to start the Arisa Quest game.
 #[wasm_bindgen]
 pub fn main() {
     crate::games::arisa::start();
+}
+
+/// WASM entry point for NanoTerras light-ring game.
+/// Separate from main() — arisa state is completely unaffected.
+#[wasm_bindgen]
+pub fn main_nanoteras() {
+    crate::games::nanoteras::start();
 }
 
 // ── Rust → JS: internal setters (called each frame from game draw/update) ────

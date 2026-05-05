@@ -31,9 +31,15 @@ export function get_player_mp(): number;
 export function key_index(code: string): number;
 
 /**
- * WASM entry point — JS calls `main()` after `await init()` to start the game.
+ * WASM entry point — JS calls `main()` after `await init()` to start the Arisa Quest game.
  */
 export function main(): void;
+
+/**
+ * WASM entry point for NanoTerras light-ring game.
+ * Separate from main() — arisa state is completely unaffected.
+ */
+export function main_nanoteras(): void;
 
 /**
  * タッチ UI から直接呼べるキー状態セット関数
@@ -66,6 +72,7 @@ export interface InitOutput {
     readonly set_key: (a: number, b: number) => void;
     readonly start_battle_from_js: (a: number) => void;
     readonly main: () => void;
+    readonly main_nanoteras: () => void;
     readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_e2dca692cdd4c806___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_e2dca692cdd4c806___features__gen_MouseEvent__MouseEvent______true__1: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke_______true_: (a: number, b: number) => void;

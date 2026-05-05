@@ -17,6 +17,7 @@ export const key_index: (a: number, b: number) => number;
 export const set_key: (a: number, b: number) => void;
 export const start_battle_from_js: (a: number) => void;
 export const main: () => void;
+export const main_nanoteras: () => void;
 export const wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_e2dca692cdd4c806___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
 export const wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke___web_sys_e2dca692cdd4c806___features__gen_MouseEvent__MouseEvent______true__1: (a: number, b: number, c: any) => void;
 export const wasm_bindgen_7409b725ef28e7cd___convert__closures_____invoke_______true_: (a: number, b: number) => void;

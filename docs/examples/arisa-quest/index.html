@@ -299,6 +299,40 @@
         }
         #btn-back-to-map:active { transform: scale(0.96); }
 
+        /* ── ナノテラスゲームオーバーレイ（アリサクエストと完全分離） ─────── */
+        #nt-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 40;
+            background: #000;
+            flex-direction: column;
+        }
+        #nt-overlay.active { display: flex; }
+        #nt-overlay-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px;
+            background: #0a0a1a;
+            border-bottom: 1px solid #19959c;
+            flex-shrink: 0;
+        }
+        #nt-overlay-title {
+            font-family: monospace; font-size: 0.85rem; color: #a9c1ff;
+        }
+        #nt-overlay-close {
+            background: #1a2a4a; border: 1px solid #395c98; border-radius: 6px;
+            color: #a9c1ff; font-size: 0.8rem; padding: 4px 12px; cursor: pointer;
+        }
+        #nt-overlay-close:active { background: #2a3a6a; }
+        #nt-overlay-frame-wrap {
+            flex: 1; min-height: 0; display: flex;
+            align-items: center; justify-content: center;
+            background: #000;
+        }
+        #nt-frame {
+            width: 100%; height: 100%;
+            border: none;
+        }
+
         /* ── 大観音バトルオーバーレイ（アリサバトルと完全分離） ──────────── */
         #daikannon-overlay {
             display: none;
@@ -1203,6 +1237,17 @@
         </div>
 
     </div><!-- #main -->
+
+    <!-- ナノテラスゲームオーバーレイ（アリサクエストと完全分離・iframeで独立動作） -->
+    <div id="nt-overlay">
+        <div id="nt-overlay-header">
+            <span id="nt-overlay-title">🔬 NanoTerras — 東北放射光施設</span>
+            <button id="nt-overlay-close">✕ とじる</button>
+        </div>
+        <div id="nt-overlay-frame-wrap">
+            <iframe id="nt-frame" src="" title="NanoTerras Game" allow="autoplay"></iframe>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -2209,7 +2254,7 @@
                     const landmarks = [
                         { name: '青葉城', emoji: '🏯', callback: null },
                         { name: '仙台大観音', emoji: '🗿', callback: startSendaiDaikannonGame },
-                        { name: 'ナノテラス', emoji: '🏟️', callback: null }
+                        { name: 'ナノテラス', emoji: '🏟️', callback: startNanoTerasGame }
                     ];
                     landmarks.forEach((lm, idx) => {
                         // GPS位置から±0.008度のランダムオフセット（約900m以内）
@@ -2335,6 +2380,23 @@
         }
 
         // ── 仙台大観音バトル（JavaScript実装・WASM不使用） ────────────────────
+        // ── ナノテラスゲーム（iframe完全分離） ───────────────────────────────
+        function startNanoTerasGame() {
+            const overlay = document.getElementById('nt-overlay');
+            const frame   = document.getElementById('nt-frame');
+            // iframeのsrcをここでセット（毎回リロードされ状態クリア）
+            frame.src = '../../nanoteras/index.html';
+            overlay.classList.add('active');
+        }
+
+        document.getElementById('nt-overlay-close').addEventListener('click', () => {
+            const overlay = document.getElementById('nt-overlay');
+            const frame   = document.getElementById('nt-frame');
+            overlay.classList.remove('active');
+            // srcをクリアしてWASMループを停止
+            frame.src = '';
+        });
+
         async function startSendaiDaikannonGame() {
             debugLog('🗿 大観音バトル: 起動開始');
 
