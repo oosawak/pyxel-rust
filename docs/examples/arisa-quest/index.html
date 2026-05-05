@@ -1895,9 +1895,15 @@
         }
         
         // ランドマークマーカーを地図に追加する関数
-        function addLandmarkMarker(lat, lng, name, emoji) {
+        function addLandmarkMarker(lat, lng, name, emoji, onClickCallback) {
             const icon = createLocationMarker(name, lat, lng, emoji);
-            L.marker([lat, lng], { icon }).addTo(map);
+            const marker = L.marker([lat, lng], { icon }).addTo(map);
+            if (onClickCallback) {
+                marker.on('click', (e) => {
+                    L.DomEvent.stopPropagation(e);
+                    onClickCallback();
+                });
+            }
         }
 
         // ── 投稿機能 ──────────────────────────────────────────────────────────
@@ -2283,9 +2289,9 @@
                     
                     // ユーザーGPS周辺にランドマークを動的配置
                     const landmarks = [
-                        { name: '青葉城', emoji: '🏯' },
-                        { name: '仙台大観音', emoji: '🗿' },
-                        { name: 'ナノテラス', emoji: '🏟️' }
+                        { name: '青葉城', emoji: '🏯', callback: null },
+                        { name: '仙台大観音', emoji: '🗿', callback: startSendaiDaikannonGame },
+                        { name: 'ナノテラス', emoji: '🏟️', callback: null }
                     ];
                     landmarks.forEach((lm, idx) => {
                         // GPS位置から±0.008度のランダムオフセット（約900m以内）
@@ -2293,7 +2299,7 @@
                         const dlng = (Math.random() - 0.5) * 0.016;
                         const lmLat = lat + dlat;
                         const lmLng = lng + dlng;
-                        addLandmarkMarker(lmLat, lmLng, lm.name, lm.emoji);
+                        addLandmarkMarker(lmLat, lmLng, lm.name, lm.emoji, lm.callback);
                     });
                     
                     showToast(toastMsg);
@@ -2408,6 +2414,34 @@
                     trySpawn();
                 }
             }, 40);
+        }
+
+        // ── 仙台大観音ミニゲーム（新規ゲーム） ──────────────────────────────────
+        function startSendaiDaikannonGame() {
+            console.log('🗿 仙台大観音ゲーム開始');
+            
+            // ゲーム状態
+            let miniGameActive = true;
+            let miniGameScore = 0;
+            
+            // ゲームオーバーレイを表示（バトルオーバーレイを流用、または新規作成）
+            battleOverlay.classList.add('active');
+            battleUI.classList.remove('active');
+            
+            // TODO: ここにミニゲームのゲームロジックを実装（WASM）
+            // 例：canvas-sceneを使用してゲームをレンダリング
+            
+            // ゲーム終了（テスト用：5秒後に自動終了）
+            const endGame = () => {
+                console.log('🗿 ゲーム終了', miniGameScore);
+                miniGameActive = false;
+                battleOverlay.classList.remove('active');
+                // マップに戻る
+                setActiveTab('tab-map');
+            };
+            
+            // テスト：自動終了
+            setTimeout(endGame, 5000);
         }
 
 
