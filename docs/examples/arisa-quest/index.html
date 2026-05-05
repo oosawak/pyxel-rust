@@ -3521,7 +3521,14 @@
             window.currentEnemyInfo = enemyInfo;
             
             debugLog('🔧 start_battle_from_js を呼び出し');
-            window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
+            try {
+                window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
+                debugLog('✓ start_battle_from_js 成功');
+            } catch (e) {
+                debugLog('❌ start_battle_from_js エラー: ' + e.message);
+                inBattle = false;
+                return;
+            }
             
             debugLog('📺 UI要素を更新中');
             const overlay = getBattleOverlay();
@@ -3530,36 +3537,55 @@
                 overlay.classList.remove('ending');
                 overlay.classList.add('active');
                 debugLog('✓ battle-overlay updated');
+            } else {
+                debugLog('❌ battle-overlay is null');
             }
             
             const ui = getBattleUI();
             if (ui) {
                 ui.classList.add('active');
                 debugLog('✓ battle-ui updated');
+            } else {
+                debugLog('❌ battle-ui is null');
             }
+            
+            debugLog('🎯 setActiveTab 呼び出し');
             setActiveTab('tab-battle');
+            debugLog('✓ setActiveTab 完了');
+            
+            debugLog('📐 resizeBgCanvas スケジュール');
             requestAnimationFrame(() => resizeBgCanvas());
 
+            debugLog('⏱️ タイムライン開始');
             // タイムライン開始
             startTimeline(enemyInfo.eIdx);
             startSP();
+            debugLog('✓ タイムライン開始 OK');
 
             // バトル開始メッセージ
+            debugLog('💬 バトル開始メッセージ設定中');
             prevEnemyFlash = 0; prevPlayerFlash = 0;
             prevPlayerHp = window.wasmModule.get_player_hp?.() ?? null;
             const eMapEntry = ENEMY_MAP[enemyInfo.eIdx];
             currentEnemyMaxHp = eMapEntry?.maxHp ?? 30;
             currentEnemyHp    = currentEnemyMaxHp;
             const eName = ENEMY_NAMES[enemyInfo.eIdx] ?? '???';
-            setTimeout(() => pushBattleMsg(`${eName} が現れた！`, 'system'), 300);
+            setTimeout(() => {
+                debugLog('📢 バトル開始メッセージ送信: ' + eName + ' が現れた！');
+                pushBattleMsg(`${eName} が現れた！`, 'system');
+            }, 300);
+            debugLog('✓ バトル開始メッセージ OK');
 
             // 静的スプライト情報をセット
+            debugLog('🎨 敵スプライト情報セット');
             const e = ENEMY_MAP[enemyInfo.eIdx];
             dbgStaticText = [
                 `[${enemyInfo.eIdx}] ${ENEMY_NAMES[enemyInfo.eIdx]}`,
                 `sx=${e.sx} sy=${e.sy} sw=${e.sw} sh=${e.sh}`,
                 `dest x=${calcEnemyDest().x} y=${calcEnemyDest().y} w=${calcEnemyDest().w} h=${calcEnemyDest().h}`,
             ].join('\n');
+            debugLog('✓ スプライト情報 OK');
+            debugLog('🎮 === バトル初期化完了 ===');
             dbgArisaText = [
                 `sx=${ARISA_SRC.sx} sy=${ARISA_SRC.sy} sw=${ARISA_SRC.sw} sh=${ARISA_SRC.sh}`,
                 `dest x=${ARISA_DEST.x} y=${ARISA_DEST.y} w=${ARISA_DEST.w} h=${ARISA_DEST.h}`,
