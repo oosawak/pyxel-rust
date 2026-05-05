@@ -1725,6 +1725,7 @@
 
         // 不足分だけ追加スポーン（既存の敵はそのまま）
         function addEnemies(lat, lng, count) {
+            debugLog('🎯 addEnemies: ' + count + '体スポーン開始');
             const indices = [];
             for (let i = 0; i < count; i++) {
                 indices.push(Math.floor(Math.random() * ENEMY_NAMES.length));
@@ -1735,10 +1736,14 @@
                 const eLat  = lat + Math.cos(angle) * dist;
                 const eLng  = lng + Math.sin(angle) * dist;
                 setTimeout(() => {
+                    debugLog('📍 敵マーカー配置: idx=' + eIdx + ' (' + ENEMY_NAMES[eIdx] + ')');
                     const icon   = makeEnemyIcon(eIdx);
                     const marker = L.marker([eLat, eLng], { icon }).addTo(map);
                     const info   = { marker, eIdx, lat: eLat, lng: eLng };
-                    marker.on('click', () => triggerBattle(info));
+                    marker.on('click', () => {
+                        debugLog('🗺️ マーカークリック detected！敵INDEX: ' + info.eIdx);
+                        triggerBattle(info);
+                    });
                     enemyMarkers.push(info);
                 }, i * 300);
             });
@@ -3499,15 +3504,39 @@
         }
 
         function triggerBattle(enemyInfo) {
-            if (inBattle || !window.wasmModule) return;
+            debugLog('⚔️ triggerBattle 呼ばれた！敵INDEX: ' + enemyInfo.eIdx);
+            
+            if (inBattle) {
+                debugLog('❌ 既にバトル中 (inBattle=true)');
+                return;
+            }
+            if (!window.wasmModule) {
+                debugLog('❌ wasmModule がロードされていない');
+                return;
+            }
+            
+            debugLog('🔄 バトル状態を設定中...');
             inBattle = true;
             currentEnemyInfo = enemyInfo;
             window.currentEnemyInfo = enemyInfo;
+            
+            debugLog('🔧 start_battle_from_js を呼び出し');
             window.wasmModule.start_battle_from_js(enemyInfo.eIdx);
-            getBattleOverlay().style.display = ''; // endBattle の念押しをリセット
-            getBattleOverlay().classList.remove('ending');
-            getBattleOverlay().classList.add('active');
-            getBattleUI().classList.add('active');
+            
+            debugLog('📺 UI要素を更新中');
+            const overlay = getBattleOverlay();
+            if (overlay) {
+                overlay.style.display = ''; // endBattle の念押しをリセット
+                overlay.classList.remove('ending');
+                overlay.classList.add('active');
+                debugLog('✓ battle-overlay updated');
+            }
+            
+            const ui = getBattleUI();
+            if (ui) {
+                ui.classList.add('active');
+                debugLog('✓ battle-ui updated');
+            }
             setActiveTab('tab-battle');
             requestAnimationFrame(() => resizeBgCanvas());
 
