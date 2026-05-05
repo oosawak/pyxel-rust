@@ -435,6 +435,40 @@
             border: none;
         }
 
+        /* ── pyxel CubeBoy オーバーレイ ────────────────────────────────────── */
+        #pxcubeboy-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 44;
+            background: #000;
+            flex-direction: column;
+        }
+        #pxcubeboy-overlay.active { display: flex; }
+        #pxcubeboy-overlay-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px;
+            background: #0a001a;
+            border-bottom: 1px solid #6a0aaa;
+            flex-shrink: 0;
+        }
+        #pxcubeboy-overlay-title {
+            font-family: monospace; font-size: 0.85rem; color: #cc88ff;
+        }
+        #pxcubeboy-overlay-close {
+            background: #14003a; border: 1px solid #6a0aaa; border-radius: 6px;
+            color: #cc88ff; font-size: 0.8rem; padding: 4px 12px; cursor: pointer;
+        }
+        #pxcubeboy-overlay-close:active { background: #200060; }
+        #pxcubeboy-overlay-frame-wrap {
+            flex: 1; min-height: 0; display: flex;
+            align-items: center; justify-content: center;
+            background: #000;
+        }
+        #pxcubeboy-frame {
+            width: 100%; height: 100%;
+            border: none;
+        }
+
         /* ── 大観音バトルオーバーレイ（アリサバトルと完全分離） ──────────── */
         #daikannon-overlay {
             display: none;
@@ -1378,6 +1412,16 @@
         </div>
         <div id="lineboy-overlay-frame-wrap">
             <iframe id="lineboy-frame" src="" title="Lineboy" allow="autoplay"></iframe>
+        </div>
+    </div>
+
+    <div id="pxcubeboy-overlay">
+        <div id="pxcubeboy-overlay-header">
+            <span id="pxcubeboy-overlay-title">🟣 CubeBoy (pyxel)</span>
+            <button id="pxcubeboy-overlay-close">← もどる</button>
+        </div>
+        <div id="pxcubeboy-overlay-frame-wrap">
+            <iframe id="pxcubeboy-frame" src="" title="CubeBoy pyxel" allow="autoplay"></iframe>
         </div>
     </div>
 
@@ -2388,7 +2432,8 @@
                         { name: '仙台大観音', emoji: '🗿', callback: startSendaiDaikannonGame },
                         { name: 'ナノテラス', emoji: '🏟️', callback: startNanoTerasGame },
                         { name: 'CubeBoy', emoji: '🥊', callback: startCubeboyGame },
-                        { name: 'Lineboy', emoji: '🚂', callback: startLineboyGame }
+                        { name: 'Lineboy', emoji: '🚂', callback: startLineboyGame },
+                        { name: 'CubeBoy(Rust)', emoji: '🟣', callback: startPxCubeboyGame }
                     ];
                     landmarks.forEach((lm, idx) => {
                         // GPS位置から±0.008度のランダムオフセット（約900m以内）
@@ -2569,6 +2614,20 @@
         document.getElementById('lineboy-overlay-close').addEventListener('click', () => {
             const overlay = document.getElementById('lineboy-overlay');
             const frame   = document.getElementById('lineboy-frame');
+            overlay.classList.remove('active');
+            frame.src = '';
+        });
+
+        function startPxCubeboyGame() {
+            const overlay = document.getElementById('pxcubeboy-overlay');
+            const frame   = document.getElementById('pxcubeboy-frame');
+            frame.src = 'https://oosawak.github.io/pyxel-rust/examples/cubeboy/';
+            overlay.classList.add('active');
+        }
+
+        document.getElementById('pxcubeboy-overlay-close').addEventListener('click', () => {
+            const overlay = document.getElementById('pxcubeboy-overlay');
+            const frame   = document.getElementById('pxcubeboy-frame');
             overlay.classList.remove('active');
             frame.src = '';
         });
