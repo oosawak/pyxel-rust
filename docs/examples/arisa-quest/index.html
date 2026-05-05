@@ -1717,6 +1717,11 @@
         // 戦闘数と同期（ページ初期表示）
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('terr-battles').textContent = arisaSave.battles;
+            // マップタブが最初からアクティブなので、関連要素を表示
+            document.getElementById('territory-points-display').style.display = '';
+            document.getElementById('btn-tile-switch').classList.add('visible');
+            document.getElementById('btn-3d-toggle').classList.add('visible');
+            document.getElementById('btn-toggle-post-list').classList.add('visible');
         });
 
         let toastTimer = null;
