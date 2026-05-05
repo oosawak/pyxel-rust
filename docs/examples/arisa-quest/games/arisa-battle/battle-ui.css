@@ -30,24 +30,12 @@
     display: none;
     position: absolute; top: 4px; right: 4px; z-index: 99;
     background: rgba(0,0,0,0.82); border: 1px solid #555;
-    border-radius: 6px; padding: 4px 8px 6px;
+    border-radius: 6px; padding: 6px 10px;
     font-size: 0.6rem; color: #0f0; line-height: 1.7;
-    font-family: monospace; pointer-events: auto;
-    white-space: pre; max-width: 260px;
+    font-family: monospace; pointer-events: none;
+    white-space: pre;
 }
 #debug-overlay.visible { display: block; }
-#debug-overlay.minimized { white-space: normal; overflow: hidden; height: 22px; padding: 3px 8px; }
-#debug-overlay-header {
-    display: flex; justify-content: space-between; align-items: center;
-    border-bottom: 1px solid #333; margin-bottom: 3px; padding-bottom: 2px;
-    cursor: pointer; color: #0f0; font-size: 0.55rem;
-}
-#debug-overlay-body { white-space: pre; }
-#debug-overlay-min-btn {
-    background: none; border: 1px solid #0f0; color: #0f0;
-    font-size: 0.5rem; padding: 0 5px; border-radius: 2px; cursor: pointer;
-    pointer-events: auto; line-height: 1.4;
-}
 #btn-debug {
     position: absolute; top: 4px; left: 28px; z-index: 100;
     background: rgba(0,0,0,0.7); border: 1px solid #555;

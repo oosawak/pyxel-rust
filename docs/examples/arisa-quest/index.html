@@ -967,13 +967,7 @@
             <div id="battle-overlay">
                 <button id="btn-debug">DBG</button>
                 <button id="btn-hud">HUD</button>
-                <div id="debug-overlay">
-                    <div id="debug-overlay-header">
-                        <span>🖥 DEBUG</span>
-                        <button id="debug-overlay-min-btn">－</button>
-                    </div>
-                    <div id="debug-overlay-body"></div>
-                </div>
+                <div id="debug-overlay"></div>
                 <!-- バトルHUD情報オーバーレイ -->
                 <div id="battle-hud">
                     <div class="hud-row">
@@ -1473,8 +1467,7 @@
                 const cropX    = baseSrcX + Math.round((BG_CW - cropW2) / 2);
                 const cropY    = baseSrcY + Math.round((BG_CH - cropH2) * bgYAnchor);
                 const dpr      = window.devicePixelRatio || 1;
-                const dbgBody = document.getElementById('debug-overlay-body');
-                if (dbgBody) dbgBody.textContent = [
+                dbgEl.textContent = [
                     `── ゲーム状態 ──`,
                     `state=${state}  Lv=${lv}`,
                     `HP=${hp}/${maxHp}  MP=${mp}/${maxMp}`,
@@ -1499,6 +1492,7 @@
                     `── アリサスプライト ──`,
                     dbgArisaText,
                 ].join('\n');
+            }
 
             resizeBgCanvas();
 
@@ -3117,18 +3111,8 @@
         const dbgOverlay = document.getElementById('debug-overlay');
         btnDebug.addEventListener('click', () => {
             const on = dbgOverlay.classList.toggle('visible');
-            if (on) dbgOverlay.classList.remove('minimized');
             btnDebug.classList.toggle('on', on);
         });
-        // デバッグオーバーレイ最小化ボタン
-        const dbgMinBtn = document.getElementById('debug-overlay-min-btn');
-        const dbgHeader = document.getElementById('debug-overlay-header');
-        function toggleDbgMin() {
-            const min = dbgOverlay.classList.toggle('minimized');
-            dbgMinBtn.textContent = min ? '＋' : '－';
-        }
-        dbgMinBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleDbgMin(); });
-        dbgHeader.addEventListener('click', toggleDbgMin);
 
         // ── HUDトグル ────────────────────────────────────────────────────────
         let hudVisible = false;
