@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
+    <link rel="stylesheet" href="games/arisa-battle/battle-ui.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; overflow: hidden; background: #0a0a1a; font-family: 'DotGothic16', monospace; color: #eee; }
@@ -262,388 +263,6 @@
             display: none !important;
         }
 
-        /* ── Battle overlay (hidden until battle) ────────────────── */
-        #battle-overlay {
-            position: absolute;
-            top: 56px; left: 0; right: 0;
-            bottom: calc(var(--tab-h) + 56px);
-            z-index: 100;
-            display: none; flex-direction: column;
-            justify-content: center; align-items: center;
-            background: rgba(0, 0, 18, 0.62);
-            border-radius: 12px;
-            transition: opacity 1.2s ease, filter 1.2s ease;
-            overflow: hidden;
-        }
-        #battle-overlay.active { display: flex; }
-        #battle-overlay.ending {
-            opacity: 0;
-        }
-        
-        /* Canvas 要素を最前面に */
-        #battle-overlay canvas {
-            position: relative;
-            z-index: 100;
-            display: block;
-            margin: 0 auto;
-            filter: none; /* ゲーム中は フィルター なし */
-        }
-        #debug-overlay {
-            display: none;
-            position: absolute; top: 4px; right: 4px; z-index: 99;
-            background: rgba(0,0,0,0.82); border: 1px solid #555;
-            border-radius: 6px; padding: 6px 10px;
-            font-size: 0.6rem; color: #0f0; line-height: 1.7;
-            font-family: monospace; pointer-events: none;
-            white-space: pre;
-        }
-        #debug-overlay.visible { display: block; }
-        #btn-debug {
-            position: absolute; top: 4px; left: 28px; z-index: 100;
-            background: rgba(0,0,0,0.7); border: 1px solid #555;
-            border-radius: 4px; color: #888; font-size: 0.55rem;
-            font-family: monospace; padding: 3px 6px; cursor: pointer;
-        }
-        #btn-debug.on { color: #0f0; border-color: #0f0; }
-
-        /* HUDトグルボタン */
-        #btn-hud {
-            position: absolute; top: 4px; left: 64px; z-index: 100;
-            background: rgba(0,0,0,0.7); border: 1px solid #555;
-            border-radius: 4px; color: #888; font-size: 0.55rem;
-            font-family: monospace; padding: 3px 6px; cursor: pointer;
-        }
-        #btn-hud.on { color: #ffcc66; border-color: #ffcc66; }
-
-        /* バトル距離バッジ（常時表示・右上固定） */
-        #battle-dist-badge {
-            position: absolute; top: 6px; right: 28px; z-index: 95;
-            display: none;
-            align-items: center; gap: 5px;
-            background: rgba(0,0,20,0.72); border: 1px solid #446;
-            border-radius: 20px; padding: 3px 10px;
-            font-family: 'DotGothic16', monospace; font-size: 0.72rem;
-            color: #c8d8ff; pointer-events: none;
-        }
-        #battle-overlay.active #battle-dist-badge { display: flex; }
-        #battle-dist-badge .dist-icon { font-size: 0.85rem; }
-        #battle-dist-badge #badge-dist.near { color: #ff6677; }
-        #battle-dist-badge #badge-dist.mid  { color: #ffcc44; }
-        #battle-dist-badge #badge-dist.far  { color: #88ddff; }
-        /* 距離グラデーションバー（バッジ直下） */
-        #battle-dist-bar {
-            position: absolute; top: 36px; right: 28px; z-index: 95;
-            display: none; width: 100px; height: 7px;
-            background: rgba(0,0,20,0.6); border-radius: 4px;
-            overflow: hidden; pointer-events: none;
-        }
-        #battle-overlay.active #battle-dist-bar { display: block; }
-        #battle-dist-bar-fill {
-            height: 100%; width: 0%;
-            background: linear-gradient(to right, rgba(255,60,60,0.9), rgba(255,220,0,0.9), rgba(0,255,120,0.9));
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-
-        /* バトルHUD情報オーバーレイ */
-        #battle-hud {
-            display: none;
-            position: absolute; top: 0; left: 0; right: 0; z-index: 90;
-            pointer-events: none;
-            padding: 6px 28px 8px 28px;
-            background: linear-gradient(to bottom, rgba(0,0,10,0.7) 0%, transparent 100%);
-        }
-        #battle-hud.active { display: block; }
-        .hud-row {
-            display: flex; align-items: center; gap: 12px;
-            font-family: 'DotGothic16', monospace; font-size: 0.7rem;
-        }
-        .hud-item {
-            display: flex; align-items: center; gap: 5px;
-            background: rgba(0,0,0,0.45); border-radius: 6px;
-            padding: 3px 8px; color: #eeddff;
-        }
-        .hud-item .hud-label { color: #aa88cc; font-size: 0.6rem; }
-        .hud-item .hud-val   { color: #ffffff; font-weight: bold; }
-        .hud-item .hud-val.near  { color: #ff6644; }
-        .hud-item .hud-val.mid   { color: #ffcc44; }
-        .hud-item .hud-val.far   { color: #88ddff; }
-        /* Canvas area */
-        #canvas-area {
-            flex: 1; min-height: 0;
-            position: relative;
-        }
-        #canvas-scene {
-            width: 100%; height: 100%;
-            position: relative; z-index: 0;
-        }
-        #game-wrapper { position: relative; width: 100%; height: 100%; }
-        #pyxel_canvas {
-            position: absolute; top: -9999px; left: -9999px;
-            width: 320px; height: 240px; visibility: hidden;
-        }
-        #bg-canvas {
-            position: absolute; inset: 0;
-            width: 100%; height: 100%;
-            image-rendering: auto; pointer-events: none; z-index: -1;
-        }
-
-        /* ── Arisa Quest バトルUI ─────────────────────────────────── */
-        #battle-ui {
-            display: none; flex-direction: column; flex-shrink: 0;
-            background: #08041a; border-top: 2px solid #2a1045;
-            width: 100%; max-width: 480px; margin: 0 auto;
-            z-index: 10;
-        }
-        #battle-ui.active { display: flex; }
-
-        /* ── 落下コマンドタイムライン ── */
-        #battle-timeline {
-            position: absolute; inset: 0; z-index: 5;
-            pointer-events: none; display: none;
-        }
-        #battle-timeline.active { display: block; }
-        .tl-lane {
-            position: absolute; top: 0; width: 20px;
-            background: rgba(0,0,10,0.62);
-            border-radius: 4px; overflow: hidden;
-        }
-        #tl-left  { left: 3px; }
-        #tl-right { right: 3px; }
-        .tl-header {
-            text-align: center; padding: 3px 1px 2px;
-            font-size: 0.55rem; line-height: 1;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            position: relative; z-index: 1;
-        }
-        #tl-left  .tl-header { color: rgba(100,190,255,0.85); }
-        #tl-right .tl-header { color: rgba(255,100,100,0.85); }
-        .tl-execute-line {
-            position: absolute; bottom: 20px; left: 0; right: 0;
-            height: 2px; background: rgba(255,255,255,0.22);
-        }
-        .tl-execute-line::before {
-            content: '▼発動'; position: absolute;
-            bottom: 3px; left: 0; right: 0;
-            font-size: 0.4rem; color: rgba(255,255,255,0.3);
-            font-family: 'DotGothic16', monospace; text-align: center;
-        }
-        /* クールダウンバー */
-        .tl-bar-track {
-            position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
-        }
-        .tl-bar-fill {
-            height: 100%; width: 0%; transition: width linear;
-        }
-        #tl-left  .tl-bar-fill { background: linear-gradient(90deg,#1155cc,#44aaff); }
-        #tl-right .tl-bar-fill { background: linear-gradient(90deg,#aa1133,#ff5544); }
-        /* 落下カード */
-        .tl-card {
-            position: absolute; left: 1px; right: 1px; height: 18px;
-            border-radius: 3px; display: flex;
-            align-items: center; justify-content: center;
-            will-change: transform;
-        }
-        .tl-card.player {
-            background: linear-gradient(160deg,rgba(18,55,170,0.95),rgba(50,140,255,0.95));
-            border: 1px solid rgba(80,180,255,0.85);
-            box-shadow: 0 0 8px rgba(50,150,255,0.5);
-        }
-        /* コマンドごとのカード色（ボタン枠色と一致） */
-        .tl-card.cmd-melee {
-            background: linear-gradient(160deg,rgba(120,30,10,0.95),rgba(220,80,40,0.95));
-            border: 1px solid rgba(255,102,68,0.9);
-            box-shadow: 0 0 8px rgba(255,80,40,0.5);
-        }
-        .tl-card.cmd-ranged {
-            background: linear-gradient(160deg,rgba(120,60,0,0.95),rgba(220,130,40,0.95));
-            border: 1px solid rgba(255,153,68,0.9);
-            box-shadow: 0 0 8px rgba(255,140,40,0.5);
-        }
-        .tl-card.cmd-skill {
-            background: linear-gradient(160deg,rgba(10,30,120,0.95),rgba(40,100,240,0.95));
-            border: 1px solid rgba(68,136,255,0.9);
-            box-shadow: 0 0 8px rgba(60,130,255,0.5);
-        }
-        .tl-card.cmd-item {
-            background: linear-gradient(160deg,rgba(0,80,40,0.95),rgba(30,170,100,0.95));
-            border: 1px solid rgba(68,204,136,0.9);
-            box-shadow: 0 0 8px rgba(50,200,120,0.5);
-        }
-        .tl-card.cmd-run {
-            background: linear-gradient(160deg,rgba(40,40,55,0.95),rgba(110,110,130,0.95));
-            border: 1px solid rgba(136,136,153,0.9);
-            box-shadow: 0 0 8px rgba(130,130,150,0.4);
-        }
-        .tl-card.cmd-lure {
-            background: linear-gradient(160deg,rgba(100,10,80,0.95),rgba(220,60,180,0.95));
-            border: 1px solid rgba(255,102,204,0.9);
-            box-shadow: 0 0 8px rgba(255,80,200,0.5);
-        }
-        .tl-card.enemy {
-            background: linear-gradient(160deg,rgba(160,18,38,0.95),rgba(255,75,40,0.95));
-            border: 1px solid rgba(255,80,60,0.85);
-            box-shadow: 0 0 8px rgba(255,55,55,0.5);
-        }
-        .tl-card.execute-flash { animation: tlFlash 0.4s ease-out forwards; }
-        @keyframes tlFlash {
-            0%   { opacity: 1; filter: brightness(3); }
-            50%  { opacity: 1; filter: brightness(4) saturate(2); }
-            100% { opacity: 0; filter: brightness(1); }
-        }
-        .tl-card.clash-flash { animation: clashAnim 0.5s ease-out forwards; }
-        @keyframes clashAnim {
-            0%   { opacity: 1; filter: brightness(3) hue-rotate(30deg); }
-            40%  { opacity: 1; filter: brightness(5); }
-            100% { opacity: 0; filter: brightness(1); }
-        }
-        #clash-banner {
-            position: absolute; left: 50%; top: 40%; transform: translate(-50%,-50%) scale(0);
-            z-index: 50; font-family: 'DotGothic16', monospace;
-            font-size: 1.6rem; color: #fff; text-shadow: 0 0 12px #ff0, 0 0 24px #f80;
-            pointer-events: none; white-space: nowrap;
-            animation: none;
-        }
-        #clash-banner.show {
-            animation: clashBanner 0.8s ease-out forwards;
-        }
-        #clash-banner.clash-win  { color: #fff176; text-shadow: 0 0 14px #ff0, 0 0 28px #f80; }
-        #clash-banner.clash-lose { color: #ff8888; text-shadow: 0 0 14px #f44, 0 0 28px #800; }
-        @keyframes clashBanner {
-            0%   { transform: translate(-50%,-50%) scale(0); opacity: 1; }
-            30%  { transform: translate(-50%,-50%) scale(1.4); opacity: 1; }
-            70%  { transform: translate(-50%,-50%) scale(1.1); opacity: 1; }
-            100% { transform: translate(-50%,-50%) scale(1.3); opacity: 0; }
-        }
-        #battle-commands {
-            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
-            padding: 8px 12px 6px;
-        }
-        .battle-cmd {
-            background: linear-gradient(160deg, #15082e, #22104a);
-            border: 2px solid #5533aa; border-radius: 10px;
-            color: #e8d8ff; font-family: 'DotGothic16', monospace;
-            font-size: 0.75rem; padding: 10px 2px; cursor: pointer;
-            text-align: center; transition: all 0.1s;
-            -webkit-tap-highlight-color: transparent; user-select: none;
-            line-height: 1.35;
-        }
-        .battle-cmd:active { transform: scale(0.95); }
-        /* オートバトル: 1列フルwidth */
-        #cmd-auto {
-            grid-column: 1 / -1;
-            padding: 11px 0; font-size: 0.85rem;
-            border-color: #ffcc00; color: #fff8aa;
-            background: linear-gradient(160deg, #2a1a00, #3a2800);
-        }
-        #cmd-auto:active    { background: #4a3800; border-color: #ffe44a; }
-        #cmd-auto.active-auto {
-            background: linear-gradient(160deg, #3a2a00, #5a4400);
-            border-color: #ffee44; box-shadow: 0 0 10px rgba(255,220,0,0.5);
-            animation: autoPulse 1s infinite;
-        }
-        @keyframes autoPulse {
-            0%, 100% { box-shadow: 0 0 6px rgba(255,220,0,0.4); }
-            50%       { box-shadow: 0 0 16px rgba(255,220,0,0.8); }
-        }
-        #cmd-melee  { border-color: #ff6644; color: #ffccbb; }
-        #cmd-melee:active  { background: #3a1500; border-color: #ff8866; }
-        #cmd-ranged { border-color: #ff9944; color: #ffddb8; }
-        #cmd-ranged:active { background: #2a1200; border-color: #ffbb66; }
-        #cmd-skill  { border-color: #4488ff; color: #bbddff; }
-        #cmd-skill:active  { background: #001535; border-color: #66aaff; }
-        #cmd-item   { border-color: #44cc88; color: #bbffdd; }
-        #cmd-item:active   { background: #001a0e; border-color: #66ddaa; }
-        #cmd-run    { border-color: #888899; color: #ccccdd; }
-        #cmd-run:active    { background: #111122; border-color: #aaaacc; }
-        #cmd-lure   { border-color: #ff66cc; color: #ffc8ee; }
-        #cmd-lure:active   { background: #2a0022; border-color: #ff88dd; }
-        /* ── SP バー ── */
-        #sp-bar-area {
-            display: flex; align-items: center; gap: 6px;
-            padding: 5px 12px 3px;
-            background: rgba(0,0,20,0.6);
-            border-bottom: 1px solid #1a0a44;
-        }
-        .sp-label { color: #66aaff; font-family: 'DotGothic16', monospace; font-size: 0.7rem; white-space: nowrap; }
-        #sp-bar-track { flex: 1; height: 8px; background: rgba(0,0,60,0.9); border-radius: 4px; overflow: hidden; border: 1px solid #224; }
-        #sp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #1144cc, #44aaff); transition: width 0.12s linear; border-radius: 3px; }
-        #sp-val { color: #88ccff; font-size: 0.65rem; font-family: monospace; min-width: 28px; text-align: right; }
-        .sp-cost { display: block; font-size: 0.58rem; color: #88aaff; opacity: 0.75; margin-top: 1px; }
-        .battle-cmd:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; filter: grayscale(50%); }
-        /* オートモード選択中コマンドのハイライト */
-        .battle-cmd.auto-selected {
-            border-width: 3px;
-            transform: scale(1.06);
-            animation: selectedPulse 0.8s infinite;
-        }
-        @keyframes selectedPulse {
-            0%, 100% { filter: brightness(1.0); }
-            50%       { filter: brightness(1.5); }
-        }
-        /* 各ボタン固有の選択色 */
-        #cmd-melee.auto-selected  { background: linear-gradient(160deg,#5a1a00,#8a2800); box-shadow: 0 0 16px rgba(255,100,60,0.8); }
-        #cmd-ranged.auto-selected { background: linear-gradient(160deg,#4a2000,#7a3800); box-shadow: 0 0 16px rgba(255,160,60,0.8); }
-        #cmd-skill.auto-selected  { background: linear-gradient(160deg,#001a55,#003090); box-shadow: 0 0 16px rgba(80,160,255,0.8); }
-        #cmd-item.auto-selected   { background: linear-gradient(160deg,#003320,#005a38); box-shadow: 0 0 16px rgba(80,220,150,0.8); }
-        #cmd-run.auto-selected    { background: linear-gradient(160deg,#222233,#383858); box-shadow: 0 0 16px rgba(160,160,220,0.8); }
-        #cmd-lure.auto-selected   { background: linear-gradient(160deg,#3a0033,#680055); box-shadow: 0 0 16px rgba(255,100,200,0.8); }
-
-        /* ── バトルメッセージログ ──────────────────────────────── */
-        #battle-msg-log {
-            position: absolute; left: 0; right: 0; bottom: 8px; z-index: 5;
-            pointer-events: none;
-            padding: 0 28px;
-            display: flex; flex-direction: column; gap: 3px;
-            justify-content: flex-end;
-        }
-        .battle-msg-item {
-            display: flex; align-items: center; gap: 7px;
-            padding: 3px 10px 3px 10px;
-            background: rgba(0, 0, 12, 0.45);
-            backdrop-filter: blur(4px);
-            border-left: 3px solid #00ffcc;
-            border-radius: 0 7px 7px 0;
-            font-family: 'DotGothic16', monospace;
-            font-size: 0.75rem; color: #d8f8ff;
-            letter-spacing: 0.04em;
-            text-shadow: 0 0 10px rgba(0,255,200,0.45);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            animation: msgSlideIn 0.22s ease-out, msgFadeOut 0.5s 2.6s ease-in forwards;
-            transform-origin: right center;
-        }
-        .battle-msg-item .msg-icon { display: none; }
-        .battle-msg-item.type-attack  { border-left-color: #ff6644; color: #ffe8d8; text-shadow: 0 0 8px rgba(255,100,50,0.4); }
-        /* 敵の攻撃：右帯 */
-        .battle-msg-item.type-damage  {
-            border-left: none;
-            border-right: 3px solid #ff3366;
-            border-radius: 7px 0 0 7px;
-            color: #ffc8d8; text-shadow: 0 0 8px rgba(255,50,100,0.4);
-        }
-        .battle-msg-item.type-skill   { border-left-color: #44aaff; color: #c8e8ff; text-shadow: 0 0 8px rgba(50,160,255,0.4); }
-        .battle-msg-item.type-item    { border-left-color: #44cc88; color: #c8ffdc; text-shadow: 0 0 8px rgba(50,200,120,0.4); }
-        .battle-msg-item.type-run     { border-left-color: #aabbcc; color: #dde8f0; text-shadow: 0 0 8px rgba(170,190,210,0.3); }
-        .battle-msg-item.type-info    { border-left-color: #ffcc44; color: #fff8d8; text-shadow: 0 0 8px rgba(255,200,50,0.4); }
-        .battle-msg-item.type-system  { border-left-color: #aa66ff; color: #e8d8ff; text-shadow: 0 0 10px rgba(170,100,255,0.45); }
-        @keyframes msgSlideIn {
-            from { opacity: 0; transform: translateX(-14px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes msgFadeOut {
-            from { opacity: 1; }
-            to   { opacity: 0; transform: translateX(-6px); }
-        }
-        @keyframes msgSlideInRight {
-            from { opacity: 0; transform: translateX(14px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes msgFadeOutRight {
-            from { opacity: 1; }
-            to   { opacity: 0; transform: translateX(6px); }
-        }
-
-        /* ── バトル結果画面 ─────────────────────────────────────── */
         #battle-result {
             display: none;
             position: absolute;
@@ -1130,78 +749,8 @@
             <span class="points-rate">0/sec</span>
         </div>
 
-        <!-- Battle overlay (shown when WASM is in battle state) -->
-        <div id="battle-overlay">
-            <button id="btn-debug">DBG</button>
-            <button id="btn-hud">HUD</button>
-            <div id="debug-overlay"></div>
-            <!-- バトルHUD情報オーバーレイ -->
-            <div id="battle-hud">
-                <div class="hud-row">
-                    <div class="hud-item">
-                        <span class="hud-label">敵との距離</span>
-                        <span class="hud-val" id="hud-dist">---</span>
-                    </div>
-                    <div class="hud-item">
-                        <span class="hud-label">敵HP</span>
-                        <span class="hud-val" id="hud-ehp">---</span>
-                    </div>
-                    <div class="hud-item">
-                        <span class="hud-label">アリサHP</span>
-                        <span class="hud-val" id="hud-php">---</span>
-                    </div>
-                </div>
-            </div>
-            <div id="canvas-area">
-                <!-- 距離バッジ（戦闘画面右上） -->
-                <div id="battle-dist-badge">
-                    <span class="dist-icon">📡</span>
-                    <span id="badge-dist">---</span>
-                </div>
-                <div id="battle-dist-bar"><div id="battle-dist-bar-fill"></div></div>
-                <div id="canvas-scene">
-                    <div id="game-wrapper">
-                        <canvas id="bg-canvas"></canvas>
-                        <canvas id="pyxel_canvas"></canvas>
-                    </div>
-                </div>
-                <!-- バトルメッセージログ -->
-                <div id="battle-msg-log"></div>
-                <!-- 落下コマンドタイムライン -->
-                <div id="battle-timeline">
-                    <div id="clash-banner">⚡ 相殺！</div>
-                    <div class="tl-lane" id="tl-left">
-                        <div class="tl-header">🧝</div>
-                        <div class="tl-execute-line"></div>
-                        <div class="tl-bar-track"><div class="tl-bar-fill" id="tl-player-bar"></div></div>
-                    </div>
-                    <div class="tl-lane" id="tl-right">
-                        <div class="tl-header">💀</div>
-                        <div class="tl-execute-line"></div>
-                        <div class="tl-bar-track"><div class="tl-bar-fill" id="tl-enemy-bar"></div></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Arisa Quest バトルUI（十字キーの代替） -->
-            <div id="battle-ui">
-                <!-- SP バー -->
-                <div id="sp-bar-area">
-                    <span class="sp-label">💫 SP</span>
-                    <div id="sp-bar-track"><div id="sp-bar-fill"></div></div>
-                    <span id="sp-val">0</span>
-                </div>
-                <div id="battle-commands">
-                    <button class="battle-cmd" id="cmd-auto">🤖 オートバトル</button>
-                    <button class="battle-cmd" id="cmd-melee">⚔ 近距離攻撃<span class="sp-cost">SP:20</span></button>
-                    <button class="battle-cmd" id="cmd-ranged">🏹 遠距離攻撃<span class="sp-cost">SP:20</span></button>
-                    <button class="battle-cmd" id="cmd-skill">✨ スキル<span class="sp-cost">SP:40</span></button>
-                    <button class="battle-cmd" id="cmd-item">🎒 どうぐ<span class="sp-cost">SP:30</span></button>
-                    <button class="battle-cmd" id="cmd-run">💨 にげる<span class="sp-cost">SP:15</span></button>
-                    <button class="battle-cmd" id="cmd-lure">🎵 歌う<span class="sp-cost">SP:25</span></button>
-                </div>
-            </div>
-        </div>
+        <!-- Battle UI Container (battle-ui.html will be loaded here) -->
+        <div id="battle-ui-container"></div>
 
         <!-- バトル結果画面（battle-overlayの外：canvas消去後に表示） -->
         <div id="battle-result">
@@ -4082,6 +3631,31 @@
             wasmMain();
         } catch(e) {
             console.error('WASM init failed:', e);
+        }
+    </script>
+
+    <!-- ── Load battle UI from external file ──────────────────────────────── -->
+    <script>
+        // Load battle-ui.html and inject into battle-ui-container
+        async function loadBattleUI() {
+            try {
+                const response = await fetch('games/arisa-battle/battle-ui.html');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const html = await response.text();
+                const container = document.getElementById('battle-ui-container');
+                if (container) {
+                    container.innerHTML = html;
+                    console.log('Battle UI loaded successfully');
+                }
+            } catch (err) {
+                console.error('Failed to load battle UI:', err);
+            }
+        }
+        // Load battle UI when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadBattleUI);
+        } else {
+            loadBattleUI();
         }
     </script>
 </body>

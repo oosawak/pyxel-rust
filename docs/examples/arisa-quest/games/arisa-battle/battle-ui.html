@@ -1,0 +1,71 @@
+<div id="battle-overlay">
+    <button id="btn-debug">DBG</button>
+    <button id="btn-hud">HUD</button>
+    <div id="debug-overlay"></div>
+    <!-- バトルHUD情報オーバーレイ -->
+    <div id="battle-hud">
+        <div class="hud-row">
+            <div class="hud-item">
+                <span class="hud-label">敵との距離</span>
+                <span class="hud-val" id="hud-dist">---</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">敵HP</span>
+                <span class="hud-val" id="hud-ehp">---</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">アリサHP</span>
+                <span class="hud-val" id="hud-php">---</span>
+            </div>
+        </div>
+    </div>
+    <div id="canvas-area">
+        <!-- 距離バッジ（戦闘画面右上） -->
+        <div id="battle-dist-badge">
+            <span class="dist-icon">📡</span>
+            <span id="badge-dist">---</span>
+        </div>
+        <div id="battle-dist-bar"><div id="battle-dist-bar-fill"></div></div>
+        <div id="canvas-scene">
+            <div id="game-wrapper">
+                <canvas id="bg-canvas"></canvas>
+                <canvas id="pyxel_canvas"></canvas>
+            </div>
+        </div>
+        <!-- バトルメッセージログ -->
+        <div id="battle-msg-log"></div>
+        <!-- 落下コマンドタイムライン -->
+        <div id="battle-timeline">
+            <div id="clash-banner">⚡ 相殺！</div>
+            <div class="tl-lane" id="tl-left">
+                <div class="tl-header">🧝</div>
+                <div class="tl-execute-line"></div>
+                <div class="tl-bar-track"><div class="tl-bar-fill" id="tl-player-bar"></div></div>
+            </div>
+            <div class="tl-lane" id="tl-right">
+                <div class="tl-header">💀</div>
+                <div class="tl-execute-line"></div>
+                <div class="tl-bar-track"><div class="tl-bar-fill" id="tl-enemy-bar"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Arisa Quest バトルUI（十字キーの代替） -->
+    <div id="battle-ui">
+        <!-- SP バー -->
+        <div id="sp-bar-area">
+            <span class="sp-label">💫 SP</span>
+            <div id="sp-bar-track"><div id="sp-bar-fill"></div></div>
+            <span id="sp-val">0</span>
+        </div>
+        <div id="battle-commands">
+            <button class="battle-cmd" id="cmd-auto">🤖 オートバトル</button>
+            <button class="battle-cmd" id="cmd-melee">⚔ 近距離攻撃<span class="sp-cost">SP:20</span></button>
+            <button class="battle-cmd" id="cmd-ranged">🏹 遠距離攻撃<span class="sp-cost">SP:20</span></button>
+            <button class="battle-cmd" id="cmd-skill">✨ スキル<span class="sp-cost">SP:40</span></button>
+            <button class="battle-cmd" id="cmd-item">🎒 どうぐ<span class="sp-cost">SP:30</span></button>
+            <button class="battle-cmd" id="cmd-run">💨 にげる<span class="sp-cost">SP:15</span></button>
+            <button class="battle-cmd" id="cmd-lure">🎵 歌う<span class="sp-cost">SP:25</span></button>
+        </div>
+    </div>
+</div>
