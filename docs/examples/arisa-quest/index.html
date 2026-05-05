@@ -2308,10 +2308,10 @@
                 if (firstFix) {
                     firstFix = false;
                     clearTimeout(fallbackTimer);
-                    revealMap(lat, lng, '📍 現在地を特定しました！');
+                    revealMap(lat, lng, '📍 現在地に移動しました！');
                 } else if (!gpsResolved) {
                     // まだ確定前なら更新
-                    revealMap(lat, lng, '📍 現在地を特定しました！');
+                    revealMap(lat, lng, '📍 現在地に移動しました！');
                 } else {
                     // 確定済み → マーカー位置のみ更新
                     arisaPos = [lat, lng];
