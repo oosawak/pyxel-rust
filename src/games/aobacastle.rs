@@ -257,11 +257,11 @@ impl Game {
                 if btnp(KEY_RIGHT) || btnp(KEY_D) {
                     if self.diff_sel < 2 { self.diff_sel += 1; }
                 }
-                // タッチ: 上ゾーン=開始、左下=難易度↓、右下=難易度↑
+                // タッチ: 上2/3=開始、左下=難易度↓、右下=難易度↑
                 if btnp(MOUSE_BUTTON_LEFT) {
                     let mx = mouse_x() as f32;
                     let my = mouse_y() as f32;
-                    if my < HF / 3.0 {
+                    if my < HF * 2.0 / 3.0 {
                         // 上タップ → 開始
                         let chosen = DIFFS[self.diff_sel];
                         self.reset_with_diff(chosen);
