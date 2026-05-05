@@ -2357,9 +2357,9 @@
 
             const scene  = new THREE.Scene();
             scene.fog    = new THREE.Fog(0x000d1f, 18, 40);
-            const camera = new THREE.PerspectiveCamera(45, 2, 0.1, 100);
-            camera.position.set(0, 3, 9);
-            camera.lookAt(0, 2, 0);
+            const camera = new THREE.PerspectiveCamera(50, 2, 0.1, 100);
+            camera.position.set(0, 2, 10);
+            camera.lookAt(0, 3, 0);
 
             function resizeThree() {
                 const w = enemyArea.clientWidth;
