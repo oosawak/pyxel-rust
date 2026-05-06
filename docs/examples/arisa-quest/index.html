@@ -1921,7 +1921,7 @@
         // 本番HTTPSサーバーに移行したら VIDEO_SERVER_URL にURLを設定し
         // VIDEO_USE_STATIC を false にしてください
         const VIDEO_USE_STATIC  = false;              // true=静的JSON(GitHub Pages), false=APIサーバー
-        const VIDEO_SERVER_URL  = 'http://i9:3700';  // 本番サーバーURL
+        const VIDEO_SERVER_URL  = '';                 // 同一オリジン（i9:3700/arisa-quest/から配信時）
         const VIDEO_API_VIDEOS  = VIDEO_USE_STATIC
             ? '../video-player/video-index.json'
             : `${VIDEO_SERVER_URL}/api/videos`;

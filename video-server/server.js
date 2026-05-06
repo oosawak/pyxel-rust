@@ -39,6 +39,11 @@ app.use((req, res, next) => {
 // 静的ファイル配信
 app.use(express.static(PLAYER_DIR));
 
+// Arisa Quest を同一オリジンで配信（Mixed Content回避）
+// http://i9:3700/arisa-quest/ でアクセス可能
+const ARISA_DIR = path.join(ROOT, 'docs', 'examples', 'arisa-quest');
+app.use('/arisa-quest', express.static(ARISA_DIR));
+
 // ── API ──────────────────────────────────────────────────────────────────────
 
 /** GET /api/videos — 動画一覧（manifest.jsonのtitle/createdAt） */
