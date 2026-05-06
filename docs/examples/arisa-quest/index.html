@@ -2547,17 +2547,20 @@
                     });
 
                     // 動画マーカーを取得して地図に配置
+                    console.log('[video] fetching:', VIDEO_API_VIDEOS);
                     fetch(VIDEO_API_VIDEOS)
-                        .then(r => r.json())
+                        .then(r => { console.log('[video] response status:', r.status); return r.json(); })
                         .then(videos => {
+                            console.log('[video] loaded', videos.length, 'videos');
                             videos.forEach(v => {
                                 if (v.lat && v.lng) {
+                                    console.log('[video] adding marker:', v.title, v.lat, v.lng);
                                     addLandmarkMarker(v.lat, v.lng, v.title, '🎬',
                                         () => startVideoPlayer(v.id, v.title));
                                 }
                             });
                         })
-                        .catch(() => {}); // サーバー未起動時は静かにスキップ
+                        .catch(e => console.warn('[video] fetch failed:', e));
                     
                     showToast(toastMsg);
                     // フェードアウト完了後に非表示
