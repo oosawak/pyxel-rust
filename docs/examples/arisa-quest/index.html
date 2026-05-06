@@ -1918,16 +1918,13 @@
     <script>
 
         // ── 動画サーバー設定 ─────────────────────────────────────────────
-        // 本番HTTPSサーバーに移行したら VIDEO_SERVER_URL にURLを設定し
-        // VIDEO_USE_STATIC を false にしてください
-        const VIDEO_USE_STATIC  = false;              // true=静的JSON(GitHub Pages), false=APIサーバー
-        const VIDEO_SERVER_URL  = '';                 // 同一オリジン（i9:3700/arisa-quest/から配信時）
-        const VIDEO_API_VIDEOS  = VIDEO_USE_STATIC
-            ? '../video-player/video-index.json'
-            : `${VIDEO_SERVER_URL}/api/videos`;
-        const VIDEO_PLAYER_BASE = VIDEO_USE_STATIC
-            ? '../video-player/'
-            : `${VIDEO_SERVER_URL}/`;
+        // VIDEO_INDEX_URL  : 動画一覧JSON（マーカー配置用）
+        // VIDEO_PLAYER_URL : 動画プレイヤーのベースURL
+        //   - 同一オリジン（i9:3700/arisa-quest/）: '' のまま
+        //   - GitHub Pages(HTTPS)から使う場合: 'http://i9:3700' に設定
+        //     → Mixed Contentのためiframeではなく新しいタブで開く
+        const VIDEO_INDEX_URL  = '../video-player/video-index.json'; // 静的JSON（常にHTTPS安全）
+        const VIDEO_PLAYER_URL = 'http://i9:3700';                   // 本番HTTPSに移行したら書き換え
         // ──────────────────────────────────────────────────────────────────
 
         // ── セーブデータ（localStorage永続化）────────────────────────────
@@ -2547,8 +2544,8 @@
                     });
 
                     // 動画マーカーを取得して地図に配置
-                    console.log('[video] fetching:', VIDEO_API_VIDEOS);
-                    fetch(VIDEO_API_VIDEOS)
+                    console.log('[video] fetching:', VIDEO_INDEX_URL);
+                    fetch(VIDEO_INDEX_URL)
                         .then(r => { console.log('[video] response status:', r.status); return r.json(); })
                         .then(videos => {
                             console.log('[video] loaded', videos.length, 'videos');
@@ -2765,12 +2762,21 @@
         });
 
         function startVideoPlayer(id, title) {
-            const overlay = document.getElementById('video-overlay');
-            const frame   = document.getElementById('video-frame');
-            const titleEl = document.getElementById('video-overlay-title');
-            titleEl.textContent = `🎬 ${title}`;
-            frame.src = `${VIDEO_PLAYER_BASE}?id=${id}`;
-            overlay.classList.add('active');
+            const playerUrl = `${VIDEO_PLAYER_URL}/?id=${id}`;
+            // 同一オリジンならiframe overlay、別オリジン(HTTP)なら新しいタブで開く
+            const isSameOrigin = VIDEO_PLAYER_URL === '' ||
+                VIDEO_PLAYER_URL.startsWith(location.origin);
+            if (isSameOrigin) {
+                const overlay = document.getElementById('video-overlay');
+                const frame   = document.getElementById('video-frame');
+                const titleEl = document.getElementById('video-overlay-title');
+                titleEl.textContent = `🎬 ${title}`;
+                frame.src = playerUrl;
+                overlay.classList.add('active');
+            } else {
+                // Mixed Content回避: 別タブで開く
+                window.open(playerUrl, '_blank');
+            }
         }
 
         document.getElementById('video-overlay-close').addEventListener('click', () => {
