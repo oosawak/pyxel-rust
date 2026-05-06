@@ -87,35 +87,90 @@ app.post('/api/upload', express.raw({ type: '*/*', limit: '200mb' }), (req, res)
     fs.writeFileSync(tmpFile, req.body);
     fs.mkdirSync(outDir, { recursive: true });
 
-    // FFmpegでセグメント分割
-    const tmpChunkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seg-'));
+    // FFmpegでfMP4（フラグメント化MP4）に変換 → MSEストリーミング対応
+    // -movflags frag_keyframe+empty_moov+default_base_moof: MSE互換fMP4
+    // -frag_duration 3000000: 3秒ごとにフラグメント（=3秒でストリーム再生開始）
+    const fmp4File = path.join(os.tmpdir(), `${id}_fmp4.mp4`);
     const ff = spawnSync('ffmpeg', [
-      '-y', '-i', tmpFile, '-c', 'copy',
-      '-f', 'segment', '-segment_time', '2', '-reset_timestamps', '1',
-      path.join(tmpChunkDir, 'chunk_%03d.mp4')
-    ]);
-    if (ff.status !== 0) throw new Error('FFmpeg failed');
+      '-y', '-i', tmpFile,
+      '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+      '-c:a', 'aac', '-b:a', '128k',
+      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+      '-frag_duration', '3000000',
+      fmp4File
+    ], { maxBuffer: 1024 * 1024 * 512 });
+    if (ff.status !== 0) throw new Error('FFmpeg failed: ' + ff.stderr?.toString().slice(-500));
 
-    // 暗号化
+    // avcCボックスからコーデック文字列を取得
+    const fmp4Data = fs.readFileSync(fmp4File);
+    let mimeType = 'video/mp4; codecs="avc1.640028,mp4a.40.2"';
+    const avcIdx = fmp4Data.indexOf(Buffer.from('avcC'));
+    if (avcIdx >= 0) {
+      const profile = fmp4Data[avcIdx + 5].toString(16).padStart(2,'0').toUpperCase();
+      const constraint = fmp4Data[avcIdx + 6].toString(16).padStart(2,'0').toUpperCase();
+      const level = fmp4Data[avcIdx + 7].toString(16).padStart(2,'0').toUpperCase();
+      mimeType = `video/mp4; codecs="avc1.${profile}${constraint}${level},mp4a.40.2"`;
+    }
+
+    // fMP4をボックス単位で解析して分割
+    // chunk_000 = 初期化セグメント (ftyp+moov)
+    // chunk_001〜 = メディアセグメント (moof+mdat ペア)
+    const segments = [];
+    let pos = 0;
+    let initEnd = 0;
+    while (pos < fmp4Data.length - 8) {
+      const size = fmp4Data.readUInt32BE(pos);
+      const name = fmp4Data.slice(pos + 4, pos + 8).toString('ascii');
+      if (size < 8) break;
+      if (name === 'ftyp' || name === 'moov') {
+        initEnd = pos + size;
+      } else if (name === 'moof') {
+        // moof+mdat をペアで取得
+        const moofEnd = pos + size;
+        const mdatSize = fmp4Data.readUInt32BE(moofEnd);
+        segments.push({ start: pos, end: moofEnd + mdatSize });
+      }
+      pos += size;
+    }
+
+    // 初期化セグメント暗号化・保存
     const key = crypto.randomBytes(32);
     const iv  = crypto.randomBytes(16);
-    const chunkFiles = fs.readdirSync(tmpChunkDir).filter(f => f.endsWith('.mp4')).sort();
-    const chunkMeta = chunkFiles.map((f, idx) => {
-      const raw  = fs.readFileSync(path.join(tmpChunkDir, f));
+    const chunkMeta = [];
+
+    const initRaw = fmp4Data.slice(0, initEnd);
+    const initCiph = crypto.createCipheriv('aes-256-ctr', key, iv);
+    const initEnc  = Buffer.concat([initCiph.update(initRaw), initCiph.final()]);
+    fs.writeFileSync(path.join(outDir, 'chunk_000.enc'), initEnc);
+    chunkMeta.push({ file: 'chunk_000.enc', size: initEnc.length, originalSize: initRaw.length, isInit: true });
+
+    // メディアセグメント暗号化・保存
+    let byteOffset = initRaw.length;
+    segments.forEach((seg, i) => {
+      const raw  = fmp4Data.slice(seg.start, seg.end);
       const ciph = crypto.createCipheriv('aes-256-ctr', key, iv);
+      // CTRモードはバイトオフセット指定が必要 → initサイズ分ずらす
       const enc  = Buffer.concat([ciph.update(raw), ciph.final()]);
-      fs.writeFileSync(path.join(outDir, `chunk_${String(idx).padStart(3,'0')}.enc`), enc);
-      return { file: `chunk_${String(idx).padStart(3,'0')}.enc`, size: enc.length, originalSize: raw.length };
+      const fname = `chunk_${String(i + 1).padStart(3,'0')}.enc`;
+      fs.writeFileSync(path.join(outDir, fname), enc);
+      chunkMeta.push({ file: fname, size: enc.length, originalSize: raw.length });
+      byteOffset += raw.length;
     });
 
     // manifest保存
-    const manifest = { title, lat, lng, mimeType: 'video/mp4', chunkDuration: 2,
-      chunks: chunkMeta, key: key.toString('hex'), iv: iv.toString('hex'),
-      createdAt: new Date().toISOString() };
+    const manifest = {
+      title, lat, lng,
+      mimeType,
+      isFragmented: true,
+      chunks: chunkMeta,
+      key: key.toString('hex'),
+      iv:  iv.toString('hex'),
+      createdAt: new Date().toISOString()
+    };
     fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-    fs.rmSync(tmpChunkDir, { recursive: true });
     fs.unlinkSync(tmpFile);
+    fs.unlinkSync(fmp4File);
 
     res.json({ id, title, chunkCount: chunkMeta.length });
   } catch (e) {
