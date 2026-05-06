@@ -40,12 +40,22 @@
   #status.ok  { color: #4a8; }
   #status.err { color: #f66; }
   #no-videos { color: #446; font-size: 0.85rem; }
+  #play-btn {
+    width: 100%; max-width: 640px;
+    background: #1a2a60; border: 1px solid #4466ff; border-radius: 8px;
+    color: #aac4ff; font-family: monospace; font-size: 1.1rem;
+    padding: 18px; cursor: pointer; letter-spacing: 2px;
+    display: none;
+  }
+  #play-btn:hover { background: #223580; }
 </style>
 </head>
 <body>
 <h1>🎬 WASM ENCRYPTED VIDEO PLAYER</h1>
 
 <div id="video-list"><div id="no-videos">読み込み中...</div></div>
+
+<button id="play-btn">▶ タップして再生</button>
 
 <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
 <div id="player-wrap"><video id="video" controls></video></div>
@@ -60,6 +70,7 @@ const progressWrap = document.getElementById('progress-bar-wrap');
 const progressBar  = document.getElementById('progress-bar');
 const videoEl    = document.getElementById('video');
 const statusEl   = document.getElementById('status');
+const playBtn    = document.getElementById('play-btn');
 
 function setStatus(msg, type = '') {
   statusEl.textContent = msg;
@@ -76,11 +87,15 @@ const API_BASE = '';  // 同オリジン（サーバー経由）
 // USE_WEBRTC=false → 既存HTTP API経由（fetch）
 const USE_WEBRTC = true;
 
-// URLパラメータに ?id= があれば直接再生
+// URLパラメータに ?id= があれば再生ボタンを表示
 const urlId = new URLSearchParams(location.search).get('id');
 if (urlId) {
   videoList.style.display = 'none';
-  USE_WEBRTC ? playVideoRTC(urlId) : playVideo(urlId);
+  playBtn.style.display = 'block';
+  playBtn.onclick = () => {
+    playBtn.style.display = 'none';
+    USE_WEBRTC ? playVideoRTC(urlId) : playVideo(urlId);
+  };
 } else {
   loadList();
 }
