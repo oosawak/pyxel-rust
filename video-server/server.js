@@ -249,13 +249,13 @@ app.post('/rtc/signal', express.json(), async (req, res) => {
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
-    // ICE収集が完了するまで待つ（LAN内は即座に完了、最大1500ms）
+    // ICE収集が完了するまで待つ（LAN内は即座に完了、最大2500ms）
     await new Promise(resolve => {
       if (pc.iceGatheringState === 'complete') return resolve();
       pc.onicegatheringstatechange = () => {
         if (pc.iceGatheringState === 'complete') resolve();
       };
-      setTimeout(resolve, 1500);
+      setTimeout(resolve, 2500);
     });
 
     res.json({ answer: pc.localDescription });

@@ -50,6 +50,40 @@
   #status.ok  { color: #4a8; }
   #status.err { color: #f66; }
   #no-videos { color: #446; font-size: 0.85rem; }
+
+  /* ──── ローディングオーバーレイ ──── */
+  #loading-overlay {
+    display: none;
+    position: absolute; inset: 0; z-index: 20;
+    background: rgba(5, 8, 20, 0.88);
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px;
+  }
+  #loading-overlay.active { display: flex; }
+  .loading-ring {
+    position: relative; width: 120px; height: 120px;
+  }
+  .loading-ring svg {
+    position: absolute; inset: 0;
+    animation: spin 1.4s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .slime-bounce {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    animation: bounce 0.7s ease-in-out infinite alternate;
+  }
+  .slime-bounce img { width: 72px; height: 72px; object-fit: contain; }
+  @keyframes bounce {
+    from { transform: translateY(-6px) scaleY(1.05) scaleX(0.96); }
+    to   { transform: translateY( 6px) scaleY(0.92) scaleX(1.06); }
+  }
+  .loading-text {
+    color: #88aaff; font-size: 0.78rem; letter-spacing: 1px;
+    text-align: center; line-height: 1.6;
+  }
 </style>
 </head>
 <body>
@@ -63,6 +97,26 @@
 <div id="player-wrap">
   <video id="video" controls muted playsinline></video>
   <button id="unmute-btn" title="音を出す">🔊</button>
+  <!-- ローディングオーバーレイ -->
+  <div id="loading-overlay">
+    <div class="loading-ring">
+      <!-- くるくるリング -->
+      <svg viewBox="0 0 120 120" width="120" height="120">
+        <circle cx="60" cy="60" r="52"
+          fill="none" stroke="#1a2540" stroke-width="8"/>
+        <circle cx="60" cy="60" r="52"
+          fill="none" stroke="#4466ff" stroke-width="8"
+          stroke-linecap="round"
+          stroke-dasharray="80 246"
+          stroke-dashoffset="0"/>
+      </svg>
+      <!-- ぴょこぴょこ猫スライム -->
+      <div class="slime-bounce">
+        <img src="./slime-chan.png" alt="loading">
+      </div>
+    </div>
+    <div class="loading-text" id="loading-text">📡 接続中...</div>
+  </div>
 </div>
 <div id="status"></div>
 
@@ -77,6 +131,17 @@ const videoEl    = document.getElementById('video');
 const statusEl   = document.getElementById('status');
 const playBtn    = document.getElementById('play-btn');
 const unmuteBtn  = document.getElementById('unmute-btn');
+const loadingOverlay = document.getElementById('loading-overlay');
+const loadingText    = document.getElementById('loading-text');
+
+function showLoading(msg = '📡 接続中...') {
+  playerWrap.style.display = 'block';
+  loadingOverlay.classList.add('active');
+  loadingText.textContent = msg;
+}
+function hideLoading() {
+  loadingOverlay.classList.remove('active');
+}
 
 // 🔊 アンミュートボタン
 unmuteBtn.addEventListener('click', () => {
@@ -87,6 +152,10 @@ unmuteBtn.addEventListener('click', () => {
 function setStatus(msg, type = '') {
   statusEl.textContent = msg;
   statusEl.className = type;
+  // ローディング中は猫スライムにもメッセージ反映
+  if (loadingOverlay.classList.contains('active')) {
+    loadingText.textContent = msg;
+  }
 }
 
 // WASMを先に初期化
@@ -216,6 +285,7 @@ async function playVideoRTC(id) {
   videoEl.src = '';
   videoEl.load();
   unmuteBtn.style.display = 'none';
+  showLoading('📡 WebRTC接続中...');
   setStatus('📡 WebRTC接続中...');
 
   // MSEストリーミング用状態
@@ -240,6 +310,7 @@ async function playVideoRTC(id) {
         playStarted = true;
         videoEl.muted = true;
         videoEl.play().catch(() => {});
+        hideLoading();
         setStatus('🔇 ストリーミング再生中 — 右下の 🔊 ボタンで音を出せます', 'ok');
         unmuteBtn.style.display = 'flex';
       }
@@ -351,7 +422,7 @@ async function playVideoRTC(id) {
         pc.onicegatheringstatechange = () => {
           if (pc.iceGatheringState === 'complete') r();
         };
-        setTimeout(r, 1500);
+        setTimeout(r, 2500);
       });
 
       const sigRes = await fetch('/rtc/signal', {
@@ -369,12 +440,14 @@ async function playVideoRTC(id) {
       videoEl.muted = true;
       videoEl.src = URL.createObjectURL(blob);
       await videoEl.play();
+      hideLoading();
       setStatus('🔇 消音で自動再生中 — 右下の 🔊 ボタンで音を出せます', 'ok');
       unmuteBtn.style.display = 'flex';
     }
 
     pc.close();
   } catch (e) {
+    hideLoading();
     setStatus(`❌ ${e.message}`, 'err');
     console.error('[rtc] playVideoRTC error:', e);
     playBtn.textContent = '🔄 再接続';
