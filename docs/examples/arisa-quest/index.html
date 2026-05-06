@@ -1917,6 +1917,19 @@
     <!-- ── Leaflet map + WASM integration ────────────────────────────────── -->
     <script>
 
+        // ── 動画サーバー設定 ─────────────────────────────────────────────
+        // 本番HTTPSサーバーに移行したら VIDEO_SERVER_URL にURLを設定し
+        // VIDEO_USE_STATIC を false にしてください
+        const VIDEO_USE_STATIC  = true;               // true=静的JSON(GitHub Pages), false=APIサーバー
+        const VIDEO_SERVER_URL  = 'https://your-server.example.com'; // 本番サーバーURL
+        const VIDEO_API_VIDEOS  = VIDEO_USE_STATIC
+            ? '../video-player/video-index.json'
+            : `${VIDEO_SERVER_URL}/api/videos`;
+        const VIDEO_PLAYER_BASE = VIDEO_USE_STATIC
+            ? '../video-player/'
+            : `${VIDEO_SERVER_URL}/`;
+        // ──────────────────────────────────────────────────────────────────
+
         // ── セーブデータ（localStorage永続化）────────────────────────────
         const SAVE_KEY = 'arisa-quest-save-v1';
         function loadSave() {
@@ -2533,8 +2546,8 @@
                         addLandmarkMarker(lmLat, lmLng, lm.name, lm.emoji, lm.callback);
                     });
 
-                    // 動画マーカーを静的JSONから取得（HTTPS対応）
-                    fetch('../video-player/video-index.json')
+                    // 動画マーカーを取得して地図に配置
+                    fetch(VIDEO_API_VIDEOS)
                         .then(r => r.json())
                         .then(videos => {
                             videos.forEach(v => {
@@ -2753,7 +2766,7 @@
             const frame   = document.getElementById('video-frame');
             const titleEl = document.getElementById('video-overlay-title');
             titleEl.textContent = `🎬 ${title}`;
-            frame.src = `http://i9:3700/?id=${id}`;
+            frame.src = `${VIDEO_PLAYER_BASE}?id=${id}`;
             overlay.classList.add('active');
         }
 
