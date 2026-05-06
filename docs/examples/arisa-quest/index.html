@@ -2533,8 +2533,8 @@
                         addLandmarkMarker(lmLat, lmLng, lm.name, lm.emoji, lm.callback);
                     });
 
-                    // 動画サーバーからマーカーを取得して地図に配置
-                    fetch('http://i9:3700/api/videos')
+                    // 動画マーカーを静的JSONから取得（HTTPS対応）
+                    fetch('../video-player/video-index.json')
                         .then(r => r.json())
                         .then(videos => {
                             videos.forEach(v => {
