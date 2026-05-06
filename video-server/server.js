@@ -17,6 +17,7 @@ const fs       = require('fs');
 const crypto   = require('crypto');
 const { spawnSync } = require('child_process');
 const os       = require('os');
+const { RTCPeerConnection } = require('werift');
 
 const app  = express();
 const PORT = 3700;
@@ -119,9 +120,77 @@ app.post('/api/upload', express.raw({ type: '*/*', limit: '200mb' }), (req, res)
 
 fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 
+// ── WebRTC DataChannel ───────────────────────────────────────────────────────
+// シグナリング: POST /rtc/signal  (SDPオファー受信 → アンサー返却)
+// データ転送:   DataChannel "video" 経由でバイナリチャンクをプッシュ
+//
+// クライアント側フロー:
+//   1. RTCPeerConnection作成 → DataChannel "video" 作成 → SDP offer生成
+//   2. POST /rtc/signal にofferを送信 → answerを受け取る
+//   3. DataChannelが開いたら "play:<videoId>" を送信
+//   4. サーバーが暗号化チャンクを順次バイナリで送信
+//   5. 最後に JSON文字列 {"done":true,...} を送信
+
+app.post('/rtc/signal', express.json(), async (req, res) => {
+  try {
+    const { offer } = req.body;
+    const pc = new RTCPeerConnection();
+
+    pc.ondatachannel = ({ channel }) => {
+      channel.onmessage = async ({ data }) => {
+        if (typeof data !== 'string' || !data.startsWith('play:')) return;
+        const id = data.slice(5);
+        const mPath = path.join(VIDEOS_DIR, id, 'manifest.json');
+        if (!fs.existsSync(mPath)) {
+          channel.send(JSON.stringify({ error: 'not found' }));
+          return;
+        }
+        const manifest = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+        // メタ情報（チャンク数・MIMEタイプ・キー・IV）を先に送信
+        channel.send(JSON.stringify({
+          type: 'meta',
+          chunkCount: manifest.chunks.length,
+          mimeType: manifest.mimeType,
+          key: manifest.key,
+          iv: manifest.iv,
+        }));
+        // 暗号化チャンクをバイナリで順次送信
+        for (let i = 0; i < manifest.chunks.length; i++) {
+          const chunkPath = path.join(VIDEOS_DIR, id,
+            `chunk_${String(i).padStart(3, '0')}.enc`);
+          const buf = fs.readFileSync(chunkPath);
+          channel.send(buf);
+          // DataChannelのバッファが詰まらないよう少し待つ
+          await new Promise(r => setTimeout(r, 20));
+        }
+        channel.send(JSON.stringify({ type: 'done' }));
+      };
+    };
+
+    await pc.setRemoteDescription(offer);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    // ICE収集が完了するまで待つ（最大3秒）
+    await new Promise(resolve => {
+      if (pc.iceGatheringState === 'complete') return resolve();
+      pc.onicegatheringstatechange = () => {
+        if (pc.iceGatheringState === 'complete') resolve();
+      };
+      setTimeout(resolve, 3000);
+    });
+
+    res.json({ answer: pc.localDescription });
+  } catch (e) {
+    console.error('[rtc] signal error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🎬 video-server running at http://localhost:${PORT}`);
   console.log(`   player:  http://localhost:${PORT}/`);
   console.log(`   admin:   http://localhost:${PORT}/admin.html`);
   console.log(`   API:     http://localhost:${PORT}/api/videos`);
+  console.log(`   WebRTC:  POST http://localhost:${PORT}/rtc/signal`);
 });

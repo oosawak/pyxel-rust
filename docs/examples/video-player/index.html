@@ -54,12 +54,12 @@
 <script type="module">
 import init, { decrypt_chunk_at } from './pkg/video_player.js';
 
-const videoList = document.getElementById('video-list');
+const videoList  = document.getElementById('video-list');
 const playerWrap = document.getElementById('player-wrap');
 const progressWrap = document.getElementById('progress-bar-wrap');
-const progressBar = document.getElementById('progress-bar');
-const videoEl = document.getElementById('video');
-const statusEl = document.getElementById('status');
+const progressBar  = document.getElementById('progress-bar');
+const videoEl    = document.getElementById('video');
+const statusEl   = document.getElementById('status');
 
 function setStatus(msg, type = '') {
   statusEl.textContent = msg;
@@ -71,11 +71,16 @@ await init('./pkg/video_player_bg.wasm');
 
 const API_BASE = '';  // 同オリジン（サーバー経由）
 
+// ── 再生モード選択 ────────────────────────────────────────────────────────
+// USE_WEBRTC=true  → WebRTC DataChannel経由でチャンク受信（DTLS暗号化）
+// USE_WEBRTC=false → 既存HTTP API経由（fetch）
+const USE_WEBRTC = true;
+
 // URLパラメータに ?id= があれば直接再生
 const urlId = new URLSearchParams(location.search).get('id');
 if (urlId) {
   videoList.style.display = 'none';
-  playVideo(urlId);
+  USE_WEBRTC ? playVideoRTC(urlId) : playVideo(urlId);
 } else {
   loadList();
 }
@@ -97,7 +102,8 @@ async function loadList() {
       <div class="meta">▶</div>
     </div>`).join('');
   videoList.querySelectorAll('.video-item').forEach(el => {
-    el.addEventListener('click', () => playVideo(el.dataset.id));
+    el.addEventListener('click', () =>
+      USE_WEBRTC ? playVideoRTC(el.dataset.id) : playVideo(el.dataset.id));
   });
 }
 
@@ -171,6 +177,121 @@ function hexToBytes(hex) {
   const arr = new Uint8Array(hex.length / 2);
   for (let i = 0; i < arr.length; i++) arr[i] = parseInt(hex.slice(i*2, i*2+2), 16);
   return arr;
+}
+
+// ── WebRTC DataChannel 再生 ───────────────────────────────────────────────
+// HTTP APIは使わず、DataChannel(DTLS暗号化)でチャンクを受信して復号・再生
+async function playVideoRTC(id) {
+  playerWrap.style.display = 'block';
+  progressWrap.style.display = 'block';
+  progressBar.style.width = '0%';
+  videoEl.src = '';
+  setStatus('📡 WebRTC接続中...');
+
+  try {
+    const pc = new RTCPeerConnection({ iceServers: [] }); // LAN内はSTUN不要
+    const channel = pc.createDataChannel('video', { ordered: true });
+    channel.binaryType = 'arraybuffer';
+
+    let meta = null;
+    const chunks = [];
+    let receivedCount = 0;
+
+    await new Promise(async (resolve, reject) => {
+      channel.onopen = () => {
+        setStatus('📡 DataChannel接続完了 — 再生リクエスト送信...');
+        channel.send(`play:${id}`);
+      };
+
+      channel.onmessage = async ({ data }) => {
+        // テキスト = メタ情報 or 完了通知
+        if (typeof data === 'string') {
+          const msg = JSON.parse(data);
+          if (msg.error) { reject(new Error(msg.error)); return; }
+          if (msg.type === 'meta') {
+            meta = msg;
+            setStatus(`📋 メタ情報受信 (${msg.chunkCount}チャンク)`);
+          }
+          if (msg.type === 'done') resolve();
+          return;
+        }
+        // バイナリ = 暗号化チャンク
+        chunks.push(new Uint8Array(data));
+        receivedCount++;
+        if (meta) {
+          progressBar.style.width = `${(receivedCount / meta.chunkCount) * 100}%`;
+          setStatus(`🔓 チャンク受信中... [${receivedCount}/${meta.chunkCount}]`);
+        }
+      };
+
+      channel.onerror = e => reject(e);
+
+      // SDP offer生成
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // ICE収集完了を待つ
+      await new Promise(r => {
+        if (pc.iceGatheringState === 'complete') return r();
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === 'complete') r();
+        };
+        setTimeout(r, 3000);
+      });
+
+      // シグナリング（SDPのみHTTP — 動画データはここを流れない）
+      const sigRes = await fetch('/rtc/signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ offer: pc.localDescription }),
+      });
+      const { answer } = await sigRes.json();
+      await pc.setRemoteDescription(answer);
+    });
+
+    // 全チャンク受信完了 → WASM復号
+    setStatus('🔓 全チャンク復号中...');
+    const key = hexToBytes(meta.key);
+    const iv  = hexToBytes(meta.iv);
+    const mime = `${meta.mimeType}; codecs="avc1.42E01E, mp4a.40.2"`;
+
+    if (MediaSource && MediaSource.isTypeSupported(mime)) {
+      const ms = new MediaSource();
+      videoEl.src = URL.createObjectURL(ms);
+      ms.addEventListener('sourceopen', async () => {
+        const sb = ms.addSourceBuffer(mime);
+        let byteOffset = 0;
+        for (let i = 0; i < chunks.length; i++) {
+          const dec = decrypt_chunk_at(chunks[i], key, iv, BigInt(byteOffset));
+          byteOffset += chunks[i].length;
+          await new Promise((res, rej) => {
+            sb.addEventListener('updateend', res, { once: true });
+            sb.addEventListener('error', rej, { once: true });
+            sb.appendBuffer(dec);
+          });
+          if (i === 0) videoEl.play();
+        }
+        ms.endOfStream();
+        setStatus('✅ WebRTC再生完了', 'ok');
+      });
+    } else {
+      // フォールバック: 全チャンク結合Blob
+      let byteOffset = 0;
+      const parts = chunks.map(c => {
+        const dec = decrypt_chunk_at(c, key, iv, BigInt(byteOffset));
+        byteOffset += c.length;
+        return dec.buffer;
+      });
+      videoEl.src = URL.createObjectURL(new Blob(parts, { type: 'video/mp4' }));
+      videoEl.play();
+      setStatus('✅ WebRTC再生完了（フォールバック）', 'ok');
+    }
+
+    pc.close();
+  } catch (e) {
+    setStatus(`❌ WebRTCエラー: ${e.message}`, 'err');
+    console.error('[rtc] playVideoRTC error:', e);
+  }
 }
 
 loadList();
