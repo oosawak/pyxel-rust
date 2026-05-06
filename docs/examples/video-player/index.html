@@ -298,13 +298,13 @@ async function playVideoRTC(id) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // ICE収集完了を待つ（LAN内は即座に完了、最大500ms）
+      // ICE収集完了を待つ（LAN内は即座に完了、最大1500ms）
       await new Promise(r => {
         if (pc.iceGatheringState === 'complete') return r();
         pc.onicegatheringstatechange = () => {
           if (pc.iceGatheringState === 'complete') r();
         };
-        setTimeout(r, 500);
+        setTimeout(r, 1500);
       });
 
       // シグナリング（SDPのみHTTP — 動画データはここを流れない）
