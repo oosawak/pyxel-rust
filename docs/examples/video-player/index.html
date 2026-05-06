@@ -226,9 +226,35 @@ async function playVideoRTC(id) {
     let currentChunkSize = 0;
 
     await new Promise(async (resolve, reject) => {
+      let settled = false;
+      const done = (fn) => { if (!settled) { settled = true; fn(); } };
+
+      // 接続タイムアウト（15秒）
+      const timer = setTimeout(() => {
+        done(() => reject(new Error('接続タイムアウト (15秒) — 再試行してください')));
+      }, 15000);
+
       channel.onopen = () => {
+        clearTimeout(timer);
         setStatus('📡 DataChannel接続完了 — 再生リクエスト送信...');
         channel.send(`play:${id}`);
+      };
+
+      // 接続状態を監視してエラーを早期検知
+      pc.onconnectionstatechange = () => {
+        const s = pc.connectionState;
+        if (s === 'connecting') setStatus('📡 WebRTC接続中 (DTLS)...');
+        if (s === 'connected') setStatus('📡 WebRTC接続確立');
+        if (s === 'failed' || s === 'disconnected') {
+          done(() => { clearTimeout(timer); reject(new Error(`接続失敗 (${s})`)); });
+        }
+      };
+      pc.oniceconnectionstatechange = () => {
+        const s = pc.iceConnectionState;
+        setStatus(`📡 WebRTC接続中 (ICE: ${s})...`);
+        if (s === 'failed') {
+          done(() => { clearTimeout(timer); reject(new Error('ICE接続失敗')); });
+        }
       };
 
       channel.onmessage = async ({ data }) => {
@@ -259,14 +285,14 @@ async function playVideoRTC(id) {
               setStatus(`📦 チャンク受信中... [${receivedCount}/${meta.chunkCount}]`);
             }
           }
-          if (msg.type === 'done') resolve();
+          if (msg.type === 'done') { done(resolve); return; }
           return;
         }
         // バイナリ = フラグメント
         currentFragBufs.push(new Uint8Array(data));
       };
 
-      channel.onerror = e => reject(e);
+      channel.onerror = e => { done(() => { clearTimeout(timer); reject(e); }); };
 
       // SDP offer生成
       const offer = await pc.createOffer();
@@ -313,8 +339,15 @@ async function playVideoRTC(id) {
 
     pc.close();
   } catch (e) {
-    setStatus(`❌ WebRTCエラー: ${e.message}`, 'err');
+    setStatus(`❌ ${e.message}`, 'err');
     console.error('[rtc] playVideoRTC error:', e);
+    // リトライボタンを表示
+    playBtn.textContent = '🔄 再接続';
+    playBtn.style.display = 'block';
+    playBtn.onclick = () => {
+      playBtn.style.display = 'none';
+      playVideoRTC(id);
+    };
   }
 }
 
