@@ -503,6 +503,40 @@
             border: none;
         }
 
+        /* ── 動画プレイヤーオーバーレイ ────────────────────────────────────── */
+        #video-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 46;
+            background: #000;
+            flex-direction: column;
+        }
+        #video-overlay.active { display: flex; }
+        #video-overlay-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px;
+            background: #0a0a0f;
+            border-bottom: 1px solid #334488;
+            flex-shrink: 0;
+        }
+        #video-overlay-title {
+            font-family: monospace; font-size: 0.85rem; color: #88aaff;
+        }
+        #video-overlay-close {
+            background: #0a0a20; border: 1px solid #334488; border-radius: 6px;
+            color: #88aaff; font-size: 0.8rem; padding: 4px 12px; cursor: pointer;
+        }
+        #video-overlay-close:active { background: #1a1a40; }
+        #video-overlay-frame-wrap {
+            flex: 1; min-height: 0; display: flex;
+            align-items: center; justify-content: center;
+            background: #000;
+        }
+        #video-frame {
+            width: 100%; height: 100%;
+            border: none;
+        }
+
         /* ── 大観音バトルオーバーレイ（アリサバトルと完全分離） ──────────── */
         #daikannon-overlay {
             display: none;
@@ -1466,6 +1500,16 @@
         </div>
         <div id="pxlineboy-overlay-frame-wrap">
             <iframe id="pxlineboy-frame" src="" title="Lineboy pyxel" allow="autoplay"></iframe>
+        </div>
+    </div>
+
+    <div id="video-overlay">
+        <div id="video-overlay-header">
+            <span id="video-overlay-title">🎬 動画</span>
+            <button id="video-overlay-close">← もどる</button>
+        </div>
+        <div id="video-overlay-frame-wrap">
+            <iframe id="video-frame" src="" title="Video Player" allow="autoplay"></iframe>
         </div>
     </div>
 
@@ -2488,6 +2532,19 @@
                         const lmLng = lng + dlng;
                         addLandmarkMarker(lmLat, lmLng, lm.name, lm.emoji, lm.callback);
                     });
+
+                    // 動画サーバーからマーカーを取得して地図に配置
+                    fetch('http://i9:3700/api/videos')
+                        .then(r => r.json())
+                        .then(videos => {
+                            videos.forEach(v => {
+                                if (v.lat && v.lng) {
+                                    addLandmarkMarker(v.lat, v.lng, v.title, '🎬',
+                                        () => startVideoPlayer(v.id, v.title));
+                                }
+                            });
+                        })
+                        .catch(() => {}); // サーバー未起動時は静かにスキップ
                     
                     showToast(toastMsg);
                     // フェードアウト完了後に非表示
@@ -2687,6 +2744,22 @@
         document.getElementById('pxlineboy-overlay-close').addEventListener('click', () => {
             const overlay = document.getElementById('pxlineboy-overlay');
             const frame   = document.getElementById('pxlineboy-frame');
+            overlay.classList.remove('active');
+            frame.src = '';
+        });
+
+        function startVideoPlayer(id, title) {
+            const overlay = document.getElementById('video-overlay');
+            const frame   = document.getElementById('video-frame');
+            const titleEl = document.getElementById('video-overlay-title');
+            titleEl.textContent = `🎬 ${title}`;
+            frame.src = `http://i9:3700/?id=${id}`;
+            overlay.classList.add('active');
+        }
+
+        document.getElementById('video-overlay-close').addEventListener('click', () => {
+            const overlay = document.getElementById('video-overlay');
+            const frame   = document.getElementById('video-frame');
             overlay.classList.remove('active');
             frame.src = '';
         });

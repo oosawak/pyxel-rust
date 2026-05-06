@@ -69,6 +69,17 @@ function setStatus(msg, type = '') {
 // WASMを先に初期化
 await init('./pkg/video_player_bg.wasm');
 
+const API_BASE = '';  // 同オリジン（サーバー経由）
+
+// URLパラメータに ?id= があれば直接再生
+const urlId = new URLSearchParams(location.search).get('id');
+if (urlId) {
+  videoList.style.display = 'none';
+  playVideo(urlId);
+} else {
+  loadList();
+}
+
 // 動画一覧取得
 async function loadList() {
   const res = await fetch('/api/videos');
