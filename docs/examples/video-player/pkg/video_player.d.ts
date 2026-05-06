@@ -2,20 +2,27 @@
 /* eslint-disable */
 
 /**
- * AES-256-CTR でデータを復号する（暗号化と復号は同じ操作）
- *
- * # Arguments
- * * `data` - 暗号化されたバイト列
- * * `key`  - 32バイトのAESキー
- * * `iv`   - 16バイトのIV（ノンス）
+ * AES-256-CTR でデータを復号する（先頭から）
  */
 export function decrypt_chunk(data: Uint8Array, key: Uint8Array, iv: Uint8Array): Uint8Array;
+
+/**
+ * AES-256-CTR でデータをオフセット指定で復号する（ストリーミング用）
+ *
+ * # Arguments
+ * * `data`        - 暗号化されたバイト列
+ * * `key`         - 32バイトのAESキー
+ * * `iv`          - 16バイトのIV（ノンス）
+ * * `byte_offset` - ストリーム上のバイトオフセット（前チャンクの合計バイト数）
+ */
+export function decrypt_chunk_at(data: Uint8Array, key: Uint8Array, iv: Uint8Array, byte_offset: bigint): Uint8Array;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly decrypt_chunk: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly decrypt_chunk_at: (a: number, b: number, c: number, d: number, e: number, f: number, g: bigint) => [number, number, number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __externref_table_dealloc: (a: number) => void;

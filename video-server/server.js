@@ -3,47 +3,125 @@
  * WASMプレイヤー用ローカル配信サーバー（PM2で起動）
  *
  * 起動: pm2 start video-server/server.js --name video-server
- * 停止: pm2 stop video-server
  * URL:  http://localhost:3700
+ *
+ * API:
+ *   GET /api/videos                    動画一覧
+ *   GET /api/video/:id/manifest        manifest.json（キー含む）
+ *   GET /api/video/:id/chunk/:n        暗号化チャンクバイナリ
+ *   POST /api/upload                   動画アップロード・暗号化・セグメント化
  */
-const express = require('express');
-const path    = require('path');
-const fs      = require('fs');
+const express  = require('express');
+const path     = require('path');
+const fs       = require('fs');
+const crypto   = require('crypto');
+const { spawnSync } = require('child_process');
+const os       = require('os');
 
 const app  = express();
 const PORT = 3700;
-const PLAYER_DIR = path.join(__dirname, '..', 'docs', 'examples', 'video-player');
+const ROOT        = path.join(__dirname, '..');
+const PLAYER_DIR  = path.join(ROOT, 'docs', 'examples', 'video-player');
+const VIDEOS_DIR  = path.join(PLAYER_DIR, 'videos');   // セグメント済み動画の格納先
 
-// WASMのContent-Typeを正しく設定（ブラウザが要求）
-app.use((req, res, next) => {
-  if (req.path.endsWith('.wasm')) {
-    res.setHeader('Content-Type', 'application/wasm');
-  }
-  next();
-});
+app.use(express.json());
 
-// CORSヘッダー（将来の外部サーバー移行時も安全に）
+// Content-Type / CORS / COOP ヘッダー
 app.use((req, res, next) => {
+  if (req.path.endsWith('.wasm')) res.setHeader('Content-Type', 'application/wasm');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
   next();
 });
 
-// 静的ファイル配信（video-player フォルダ全体）
+// 静的ファイル配信
 app.use(express.static(PLAYER_DIR));
 
-// /key エンドポイント: key.jsonを返す（本番ではSymbol認証に置き換え）
-app.get('/key', (req, res) => {
-  const keyPath = path.join(PLAYER_DIR, 'encrypted', 'key.json');
-  if (!fs.existsSync(keyPath)) {
-    return res.status(404).json({ error: 'key not found' });
-  }
-  res.json(JSON.parse(fs.readFileSync(keyPath, 'utf8')));
+// ── API ──────────────────────────────────────────────────────────────────────
+
+/** GET /api/videos — 動画一覧（manifest.jsonのtitle/createdAt） */
+app.get('/api/videos', (req, res) => {
+  if (!fs.existsSync(VIDEOS_DIR)) return res.json([]);
+  const list = fs.readdirSync(VIDEOS_DIR)
+    .filter(id => fs.existsSync(path.join(VIDEOS_DIR, id, 'manifest.json')))
+    .map(id => {
+      const m = JSON.parse(fs.readFileSync(path.join(VIDEOS_DIR, id, 'manifest.json'), 'utf8'));
+      return { id, title: m.title, chunkCount: m.chunks.length, createdAt: m.createdAt, lat: m.lat || null, lng: m.lng || null };
+    });
+  res.json(list);
 });
+
+/** GET /api/video/:id/manifest — manifest.json（キー含む、本番では認証必須） */
+app.get('/api/video/:id/manifest', (req, res) => {
+  const mPath = path.join(VIDEOS_DIR, req.params.id, 'manifest.json');
+  if (!fs.existsSync(mPath)) return res.status(404).json({ error: 'not found' });
+  res.json(JSON.parse(fs.readFileSync(mPath, 'utf8')));
+});
+
+/** GET /api/video/:id/chunk/:n — 暗号化チャンクバイナリ */
+app.get('/api/video/:id/chunk/:n', (req, res) => {
+  const chunkPath = path.join(VIDEOS_DIR, req.params.id,
+    `chunk_${String(req.params.n).padStart(3,'0')}.enc`);
+  if (!fs.existsSync(chunkPath)) return res.status(404).json({ error: 'chunk not found' });
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.sendFile(chunkPath);
+});
+
+/** POST /api/upload — multipart不使用、base64ボディで受け取りセグメント化 */
+app.post('/api/upload', express.raw({ type: '*/*', limit: '200mb' }), (req, res) => {
+  const title = req.headers['x-title'] || 'untitled';
+  const lat   = parseFloat(req.headers['x-lat'] || '0');
+  const lng   = parseFloat(req.headers['x-lng'] || '0');
+  const id    = crypto.randomBytes(8).toString('hex');
+  const tmpFile = path.join(os.tmpdir(), `${id}.mp4`);
+  const outDir  = path.join(VIDEOS_DIR, id);
+
+  try {
+    fs.writeFileSync(tmpFile, req.body);
+    fs.mkdirSync(outDir, { recursive: true });
+
+    // FFmpegでセグメント分割
+    const tmpChunkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seg-'));
+    const ff = spawnSync('ffmpeg', [
+      '-y', '-i', tmpFile, '-c', 'copy',
+      '-f', 'segment', '-segment_time', '2', '-reset_timestamps', '1',
+      path.join(tmpChunkDir, 'chunk_%03d.mp4')
+    ]);
+    if (ff.status !== 0) throw new Error('FFmpeg failed');
+
+    // 暗号化
+    const key = crypto.randomBytes(32);
+    const iv  = crypto.randomBytes(16);
+    const chunkFiles = fs.readdirSync(tmpChunkDir).filter(f => f.endsWith('.mp4')).sort();
+    const chunkMeta = chunkFiles.map((f, idx) => {
+      const raw  = fs.readFileSync(path.join(tmpChunkDir, f));
+      const ciph = crypto.createCipheriv('aes-256-ctr', key, iv);
+      const enc  = Buffer.concat([ciph.update(raw), ciph.final()]);
+      fs.writeFileSync(path.join(outDir, `chunk_${String(idx).padStart(3,'0')}.enc`), enc);
+      return { file: `chunk_${String(idx).padStart(3,'0')}.enc`, size: enc.length, originalSize: raw.length };
+    });
+
+    // manifest保存
+    const manifest = { title, lat, lng, mimeType: 'video/mp4', chunkDuration: 2,
+      chunks: chunkMeta, key: key.toString('hex'), iv: iv.toString('hex'),
+      createdAt: new Date().toISOString() };
+    fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+    fs.rmSync(tmpChunkDir, { recursive: true });
+    fs.unlinkSync(tmpFile);
+
+    res.json({ id, title, chunkCount: chunkMeta.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 
 app.listen(PORT, () => {
   console.log(`🎬 video-server running at http://localhost:${PORT}`);
-  console.log(`   player: http://localhost:${PORT}/index.html`);
-  console.log(`   key API: http://localhost:${PORT}/key`);
+  console.log(`   player:  http://localhost:${PORT}/`);
+  console.log(`   admin:   http://localhost:${PORT}/admin.html`);
+  console.log(`   API:     http://localhost:${PORT}/api/videos`);
 });

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎛 Video Admin</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0f0a; color: #ddd; font-family: monospace; padding: 20px; max-width: 700px; margin: 0 auto; }
+  h1 { color: #4c8; font-size: 1.1rem; margin-bottom: 20px; letter-spacing: 2px; }
+  h2 { color: #6a9; font-size: 0.9rem; margin: 20px 0 10px; border-bottom: 1px solid #224; padding-bottom: 6px; }
+  label { font-size: 0.8rem; color: #888; display: block; margin-bottom: 4px; }
+  input[type=text], input[type=number] {
+    background: #111; border: 1px solid #334; border-radius: 4px;
+    color: #ccc; font-family: monospace; font-size: 0.85rem;
+    padding: 6px 10px; width: 100%; margin-bottom: 10px;
+  }
+  input[type=file] { color: #8ac; font-size: 0.8rem; margin-bottom: 10px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  button {
+    background: #0a2a10; border: 1px solid #2a6a30; border-radius: 6px;
+    color: #4c8; font-family: monospace; font-size: 0.85rem;
+    padding: 8px 20px; cursor: pointer; width: 100%; margin-top: 4px;
+  }
+  button:hover { background: #143a1a; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #upload-status { font-size: 0.75rem; margin-top: 8px; min-height: 20px; }
+  #upload-status.ok  { color: #4c8; }
+  #upload-status.err { color: #f66; }
+  #progress { height: 4px; background: #1a3a20; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  #progress-fill { height: 100%; background: #4c8; width: 0%; transition: width 0.3s; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  th { color: #668; text-align: left; padding: 4px 8px; border-bottom: 1px solid #223; }
+  td { padding: 6px 8px; border-bottom: 1px solid #1a2a1a; color: #aac; vertical-align: top; }
+  td .del { color: #f66; cursor: pointer; font-size: 0.7rem; }
+  #player-link { color: #88aaff; font-size: 0.75rem; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>🎛 WASM VIDEO ADMIN</h1>
+
+<h2>📤 動画アップロード</h2>
+<label>タイトル</label>
+<input type="text" id="title" placeholder="動画タイトル" value="テスト動画">
+
+<label>座標（地図マーカー用）</label>
+<div class="row">
+  <div>
+    <label>緯度 (lat)</label>
+    <input type="number" id="lat" placeholder="38.2520" step="0.0001" value="38.2520">
+  </div>
+  <div>
+    <label>経度 (lng)</label>
+    <input type="number" id="lng" placeholder="140.8035" step="0.0001" value="140.8035">
+  </div>
+</div>
+
+<label>動画ファイル (MP4推奨)</label>
+<input type="file" id="file" accept="video/*">
+
+<button id="btn-upload">⬆ 暗号化してアップロード</button>
+<div id="progress"><div id="progress-fill"></div></div>
+<div id="upload-status"></div>
+
+<h2>📋 動画一覧</h2>
+<table>
+  <thead><tr><th>タイトル</th><th>チャンク</th><th>座標</th><th>登録日</th><th></th></tr></thead>
+  <tbody id="video-tbody"><tr><td colspan="5" style="color:#446">読み込み中...</td></tr></tbody>
+</table>
+
+<div id="player-link">▶ <a href="/" style="color:#88aaff">プレイヤーを開く</a></div>
+
+<script>
+const btnUpload  = document.getElementById('btn-upload');
+const uploadStat = document.getElementById('upload-status');
+const progressFill = document.getElementById('progress-fill');
+
+function setStatus(msg, type='') {
+  uploadStat.textContent = msg;
+  uploadStat.className = type;
+}
+
+btnUpload.addEventListener('click', async () => {
+  const file  = document.getElementById('file').files[0];
+  const title = document.getElementById('title').value.trim() || 'untitled';
+  const lat   = document.getElementById('lat').value;
+  const lng   = document.getElementById('lng').value;
+  if (!file) { setStatus('ファイルを選択してください', 'err'); return; }
+
+  btnUpload.disabled = true;
+  progressFill.style.width = '30%';
+  setStatus('📦 アップロード中...');
+
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': file.type || 'video/mp4',
+        'X-Title': title,
+        'X-Lat': lat,
+        'X-Lng': lng
+      },
+      body: file
+    });
+    progressFill.style.width = '100%';
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    setStatus(`✅ 完了: ${data.chunkCount}チャンク (ID: ${data.id})`, 'ok');
+    loadList();
+  } catch(e) {
+    setStatus(`❌ ${e.message}`, 'err');
+  } finally {
+    btnUpload.disabled = false;
+    setTimeout(() => progressFill.style.width = '0%', 2000);
+  }
+});
+
+async function loadList() {
+  const tbody = document.getElementById('video-tbody');
+  const videos = await (await fetch('/api/videos')).json();
+  if (videos.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#446">まだ動画がありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = videos.map(v => `
+    <tr>
+      <td>${v.title}</td>
+      <td>${v.chunkCount}</td>
+      <td>${v.lat ? `${v.lat},${v.lng}` : '—'}</td>
+      <td>${new Date(v.createdAt).toLocaleDateString('ja-JP')}</td>
+      <td><span class="del" data-id="${v.id}">🗑</span></td>
+    </tr>`).join('');
+}
+
+loadList();
+</script>
+</body>
+</html>

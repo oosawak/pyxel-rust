@@ -1,12 +1,7 @@
 /* @ts-self-types="./video_player.d.ts" */
 
 /**
- * AES-256-CTR でデータを復号する（暗号化と復号は同じ操作）
- *
- * # Arguments
- * * `data` - 暗号化されたバイト列
- * * `key`  - 32バイトのAESキー
- * * `iv`   - 16バイトのIV（ノンス）
+ * AES-256-CTR でデータを復号する（先頭から）
  * @param {Uint8Array} data
  * @param {Uint8Array} key
  * @param {Uint8Array} iv
@@ -20,6 +15,36 @@ export function decrypt_chunk(data, key, iv) {
     const ptr2 = passArray8ToWasm0(iv, wasm.__wbindgen_malloc);
     const len2 = WASM_VECTOR_LEN;
     const ret = wasm.decrypt_chunk(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v4 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v4;
+}
+
+/**
+ * AES-256-CTR でデータをオフセット指定で復号する（ストリーミング用）
+ *
+ * # Arguments
+ * * `data`        - 暗号化されたバイト列
+ * * `key`         - 32バイトのAESキー
+ * * `iv`          - 16バイトのIV（ノンス）
+ * * `byte_offset` - ストリーム上のバイトオフセット（前チャンクの合計バイト数）
+ * @param {Uint8Array} data
+ * @param {Uint8Array} key
+ * @param {Uint8Array} iv
+ * @param {bigint} byte_offset
+ * @returns {Uint8Array}
+ */
+export function decrypt_chunk_at(data, key, iv, byte_offset) {
+    const ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(key, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArray8ToWasm0(iv, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.decrypt_chunk_at(ptr0, len0, ptr1, len1, ptr2, len2, byte_offset);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }
