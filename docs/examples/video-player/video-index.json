@@ -3,7 +3,7 @@
     "id": "6e1044863aa4a702",
     "title": "テスト動画（FFmpeg生成）",
     "lat": 38.2675,
-    "lng": 140.8695,
+    "lng": 140.8675,
     "chunkCount": 2,
     "isFragmented": false,
     "createdAt": "2026-05-06T00:32:51.269Z"
@@ -12,7 +12,7 @@
     "id": "e483b749e9eba920",
     "title": "テスト動画 1080p 30秒",
     "lat": 38.2675,
-    "lng": 140.8695,
+    "lng": 140.8715,
     "chunkCount": 12,
     "isFragmented": true,
     "createdAt": "2026-05-06T02:07:21.244Z"
