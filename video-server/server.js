@@ -134,7 +134,11 @@ fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 app.post('/rtc/signal', express.json(), async (req, res) => {
   try {
     const { offer } = req.body;
-    const pc = new RTCPeerConnection();
+    const pc = new RTCPeerConnection({
+      iceServers: [],
+      // UDPポートを固定範囲に（ファイアウォール開放用: UDP 3701-3710）
+      icePortRange: [3701, 3710],
+    });
 
     pc.ondatachannel = ({ channel }) => {
       channel.onmessage = async ({ data }) => {
@@ -146,7 +150,9 @@ app.post('/rtc/signal', express.json(), async (req, res) => {
           return;
         }
         const manifest = JSON.parse(fs.readFileSync(mPath, 'utf8'));
-        // メタ情報（チャンク数・MIMEタイプ・キー・IV）を先に送信
+        const FRAG_SIZE = 16384; // 16KB — DataChannel安全サイズ
+
+        // メタ情報を先に送信
         channel.send(JSON.stringify({
           type: 'meta',
           chunkCount: manifest.chunks.length,
@@ -154,14 +160,26 @@ app.post('/rtc/signal', express.json(), async (req, res) => {
           key: manifest.key,
           iv: manifest.iv,
         }));
-        // 暗号化チャンクをバイナリで順次送信
+
+        // 暗号化チャンクをフラグメント分割して送信
         for (let i = 0; i < manifest.chunks.length; i++) {
           const chunkPath = path.join(VIDEOS_DIR, id,
             `chunk_${String(i).padStart(3, '0')}.enc`);
           const buf = fs.readFileSync(chunkPath);
-          channel.send(buf);
-          // DataChannelのバッファが詰まらないよう少し待つ
-          await new Promise(r => setTimeout(r, 20));
+          const fragCount = Math.ceil(buf.length / FRAG_SIZE);
+
+          // チャンク開始通知
+          channel.send(JSON.stringify({ type: 'chunk-start', index: i, size: buf.length, fragments: fragCount }));
+
+          for (let f = 0; f < fragCount; f++) {
+            const slice = buf.slice(f * FRAG_SIZE, (f + 1) * FRAG_SIZE);
+            channel.send(slice);
+            // バッファ詰まり防止
+            await new Promise(r => setTimeout(r, 5));
+          }
+
+          // チャンク終了通知
+          channel.send(JSON.stringify({ type: 'chunk-end', index: i }));
         }
         channel.send(JSON.stringify({ type: 'done' }));
       };
