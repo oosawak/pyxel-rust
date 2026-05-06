@@ -211,7 +211,11 @@ async function playVideoRTC(id) {
   playerWrap.style.display = 'block';
   progressWrap.style.display = 'block';
   progressBar.style.width = '0%';
+  // 前回の blob URL を解放してビデオ要素をリセット
+  if (videoEl.src && videoEl.src.startsWith('blob:')) URL.revokeObjectURL(videoEl.src);
   videoEl.src = '';
+  videoEl.load();
+  unmuteBtn.style.display = 'none';
   setStatus('📡 WebRTC接続中...');
 
   // MSEストリーミング用状態
@@ -294,8 +298,11 @@ async function playVideoRTC(id) {
             setStatus(`📋 メタ情報受信 (${msg.chunkCount}チャンク) ${label}`);
             if (meta.isFragmented && MediaSource.isTypeSupported(meta.mimeType)) {
               ms = new MediaSource();
-              videoEl.src = URL.createObjectURL(ms);
-              await new Promise(r => ms.addEventListener('sourceopen', r, {once:true}));
+              const msURL = URL.createObjectURL(ms);
+              const sourceOpenP = new Promise(r => ms.addEventListener('sourceopen', r, {once:true}));
+              videoEl.src = msURL;
+              videoEl.load();
+              await sourceOpenP;
               sb = ms.addSourceBuffer(meta.mimeType);
             }
           }
