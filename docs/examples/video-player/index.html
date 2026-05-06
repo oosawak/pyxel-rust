@@ -266,43 +266,22 @@ async function playVideoRTC(id) {
       await pc.setRemoteDescription(answer);
     });
 
-    // 全チャンク受信完了 → WASM復号
+    // 全チャンク受信完了 → WASM復号 → Blob再生
+    // ※ セグメントは通常MP4形式のため、全チャンク結合Blobで再生
     setStatus('🔓 全チャンク復号中...');
     const key = hexToBytes(meta.key);
     const iv  = hexToBytes(meta.iv);
-    const mime = `${meta.mimeType}; codecs="avc1.42E01E, mp4a.40.2"`;
-
-    if (MediaSource && MediaSource.isTypeSupported(mime)) {
-      const ms = new MediaSource();
-      videoEl.src = URL.createObjectURL(ms);
-      ms.addEventListener('sourceopen', async () => {
-        const sb = ms.addSourceBuffer(mime);
-        let byteOffset = 0;
-        for (let i = 0; i < chunks.length; i++) {
-          const dec = decrypt_chunk_at(chunks[i], key, iv, BigInt(byteOffset));
-          byteOffset += chunks[i].length;
-          await new Promise((res, rej) => {
-            sb.addEventListener('updateend', res, { once: true });
-            sb.addEventListener('error', rej, { once: true });
-            sb.appendBuffer(dec);
-          });
-          if (i === 0) videoEl.play();
-        }
-        ms.endOfStream();
-        setStatus('✅ WebRTC再生完了', 'ok');
-      });
-    } else {
-      // フォールバック: 全チャンク結合Blob
-      let byteOffset = 0;
-      const parts = chunks.map(c => {
-        const dec = decrypt_chunk_at(c, key, iv, BigInt(byteOffset));
-        byteOffset += c.length;
-        return dec.buffer;
-      });
-      videoEl.src = URL.createObjectURL(new Blob(parts, { type: 'video/mp4' }));
-      videoEl.play();
-      setStatus('✅ WebRTC再生完了（フォールバック）', 'ok');
+    let byteOffset = 0;
+    const parts = [];
+    for (const c of chunks) {
+      const dec = decrypt_chunk_at(c, key, iv, BigInt(byteOffset));
+      byteOffset += c.length;
+      parts.push(dec); // Uint8Array のまま Blob へ
     }
+    const blob = new Blob(parts, { type: meta.mimeType || 'video/mp4' });
+    videoEl.src = URL.createObjectURL(blob);
+    await videoEl.play();
+    setStatus('✅ WebRTC再生完了', 'ok');
 
     pc.close();
   } catch (e) {
