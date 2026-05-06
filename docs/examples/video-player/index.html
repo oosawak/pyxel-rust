@@ -163,16 +163,11 @@ await init('./pkg/video_player_bg.wasm');
 
 const API_BASE = '';  // 同オリジン（サーバー経由）
 
-// ── 再生モード選択 ────────────────────────────────────────────────────────
-// USE_WEBRTC=true  → WebRTC DataChannel経由でチャンク受信（DTLS暗号化）
-// USE_WEBRTC=false → 既存HTTP API経由（fetch）
-const USE_WEBRTC = true;
-
 // URLパラメータに ?id= があれば消音で自動再生
 const urlId = new URLSearchParams(location.search).get('id');
 if (urlId) {
   videoList.style.display = 'none';
-  USE_WEBRTC ? playVideoRTC(urlId) : playVideo(urlId);
+  playVideoWS(urlId);
 } else {
   loadList();
 }
@@ -194,8 +189,7 @@ async function loadList() {
       <div class="meta">▶</div>
     </div>`).join('');
   videoList.querySelectorAll('.video-item').forEach(el => {
-    el.addEventListener('click', () =>
-      USE_WEBRTC ? playVideoRTC(el.dataset.id) : playVideo(el.dataset.id));
+    el.addEventListener('click', () => playVideoWS(el.dataset.id));
   });
 }
 
@@ -273,25 +267,24 @@ function hexToBytes(hex) {
   return arr;
 }
 
-// ── WebRTC DataChannel 再生 ───────────────────────────────────────────────
-// HTTP APIは使わず、DataChannel(DTLS暗号化)でチャンクを受信して復号・再生
-// isFragmented=true の動画はMSEで逐次appendして早期再生開始
-async function playVideoRTC(id) {
+// ── WebSocket 再生 ───────────────────────────────────────────────────────────
+// ws://host:3700/ws に接続 → "play:<id>" 送信 → チャンク受信 → MSE/Blob再生
+async function playVideoWS(id) {
   playerWrap.style.display = 'block';
   progressWrap.style.display = 'block';
   progressBar.style.width = '0%';
-  // 前回の blob URL を解放してビデオ要素をリセット
   if (videoEl.src && videoEl.src.startsWith('blob:')) URL.revokeObjectURL(videoEl.src);
   videoEl.src = '';
   videoEl.load();
   unmuteBtn.style.display = 'none';
-  showLoading('📡 WebRTC接続中...');
-  setStatus('📡 WebRTC接続中...');
+  showLoading('🔌 接続中...');
+  setStatus('🔌 接続中...');
 
   // MSEストリーミング用状態
   let ms = null, sb = null;
   const appendQueue = [];
   let appending = false;
+  let appendedCount = 0;
   let playStarted = false;
   let receivedCount = 0;
 
@@ -305,8 +298,9 @@ async function playVideoRTC(id) {
       if (sb.updating) await new Promise(r => sb.addEventListener('updateend', r, {once:true}));
       sb.appendBuffer(item);
       await new Promise(r => sb.addEventListener('updateend', r, {once:true}));
-      // init(chunk0) + 最初のメディアセグメント(chunk1) 受信後に再生開始
-      if (!playStarted && receivedCount >= 2) {
+      appendedCount++;
+      // init(chunk0) + 最初のメディアセグメント(chunk1) append後に再生開始
+      if (!playStarted && appendedCount >= 2) {
         playStarted = true;
         videoEl.muted = true;
         videoEl.play().catch(() => {});
@@ -319,120 +313,77 @@ async function playVideoRTC(id) {
   }
 
   try {
-    const pc = new RTCPeerConnection({ iceServers: [] });
-    const channel = pc.createDataChannel('video', { ordered: true });
-    channel.binaryType = 'arraybuffer';
+    const wsUrl = `ws://${location.host}/ws`;
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
 
     let meta = null;
     const blobParts = [];
-    let currentFragBufs = [];
-    let currentChunkSize = 0;
+    let pendingBinary = null;  // chunk-start後に届くバイナリ1件を待つ
 
-    await new Promise(async (resolve, reject) => {
-      let settled = false;
-      const done = (fn) => { if (!settled) { settled = true; fn(); } };
-
-      const timer = setTimeout(() => {
-        done(() => reject(new Error('接続タイムアウト (15秒) — 再試行してください')));
-      }, 15000);
-
-      channel.onopen = () => {
-        clearTimeout(timer);
-        setStatus('📡 DataChannel接続完了 — 再生リクエスト送信...');
-        channel.send(`play:${id}`);
+    await new Promise((resolve, reject) => {
+      ws.onopen = () => {
+        setStatus('🔌 接続完了 — 再生リクエスト送信...');
+        ws.send(`play:${id}`);
       };
 
-      pc.onconnectionstatechange = () => {
-        const s = pc.connectionState;
-        if (s === 'connecting') setStatus('📡 WebRTC接続中 (DTLS)...');
-        if (s === 'connected') setStatus('📡 WebRTC接続確立');
-        if (s === 'failed' || s === 'disconnected') {
-          done(() => { clearTimeout(timer); reject(new Error(`接続失敗 (${s})`)); });
-        }
-      };
-      pc.oniceconnectionstatechange = () => {
-        const s = pc.iceConnectionState;
-        setStatus(`�� WebRTC接続中 (ICE: ${s})...`);
-        if (s === 'failed') {
-          done(() => { clearTimeout(timer); reject(new Error('ICE接続失敗')); });
-        }
-      };
-
-      channel.onmessage = async ({ data }) => {
-        if (typeof data === 'string') {
-          const msg = JSON.parse(data);
-          if (msg.error) { done(() => reject(new Error(msg.error))); return; }
-
-          if (msg.type === 'meta') {
-            meta = msg;
-            const label = meta.isFragmented ? '🎬 MSEストリーミング' : '📼 Blobモード';
-            setStatus(`📋 メタ情報受信 (${msg.chunkCount}チャンク) ${label}`);
-            if (meta.isFragmented && MediaSource.isTypeSupported(meta.mimeType)) {
-              ms = new MediaSource();
-              const msURL = URL.createObjectURL(ms);
-              const sourceOpenP = new Promise(r => ms.addEventListener('sourceopen', r, {once:true}));
-              videoEl.src = msURL;
-              videoEl.load();
-              await sourceOpenP;
-              sb = ms.addSourceBuffer(meta.mimeType);
-            }
-          }
-          if (msg.type === 'chunk-start') {
-            currentFragBufs = [];
-            currentChunkSize = msg.size;
-          }
-          if (msg.type === 'chunk-end') {
-            const full = new Uint8Array(currentChunkSize);
-            let off = 0;
-            for (const frag of currentFragBufs) { full.set(frag, off); off += frag.length; }
-            receivedCount++;
-            progressBar.style.width = `${(receivedCount / (meta?.chunkCount || 1)) * 100}%`;
-            if (!playStarted)
-              setStatus(`📦 受信中 [${receivedCount}/${meta?.chunkCount}]`);
-
-            // ★ 各チャンクは独立してCTR[0]で暗号化 → 常にoffset=0で復号
-            const key = hexToBytes(meta.key);
-            const iv  = hexToBytes(meta.iv);
-            const dec = decrypt_chunk_at(full, key, iv, BigInt(0));
-
-            if (ms && sb) {
-              appendQueue.push(dec);
-              flushMSE();
-            } else {
-              blobParts.push(dec);
-            }
-          }
-          if (msg.type === 'done') {
-            if (ms && sb) { appendQueue.push(null); flushMSE(); }
-            done(resolve);
-            return;
-          }
+      ws.onmessage = async ({ data }) => {
+        // バイナリメッセージ = 暗号化チャンク本体
+        if (data instanceof ArrayBuffer) {
+          pendingBinary = new Uint8Array(data);
           return;
         }
-        currentFragBufs.push(new Uint8Array(data));
+
+        const msg = JSON.parse(data);
+        if (msg.error) { reject(new Error(msg.error)); return; }
+
+        if (msg.type === 'meta') {
+          meta = msg;
+          const label = meta.isFragmented ? '🎬 MSEストリーミング' : '📼 Blobモード';
+          setStatus(`📋 メタ情報受信 (${msg.chunkCount}チャンク) ${label}`);
+          if (meta.isFragmented && MediaSource.isTypeSupported(meta.mimeType)) {
+            ms = new MediaSource();
+            const sourceOpenP = new Promise(r => ms.addEventListener('sourceopen', r, {once:true}));
+            videoEl.src = URL.createObjectURL(ms);
+            videoEl.load();
+            await sourceOpenP;
+            sb = ms.addSourceBuffer(meta.mimeType);
+          }
+        }
+
+        if (msg.type === 'chunk-end') {
+          const raw = pendingBinary;
+          pendingBinary = null;
+          receivedCount++;
+          progressBar.style.width = `${(receivedCount / (meta?.chunkCount || 1)) * 100}%`;
+          if (!playStarted)
+            setStatus(`📦 受信中 [${receivedCount}/${meta?.chunkCount}]`);
+
+          const key = hexToBytes(meta.key);
+          const iv  = hexToBytes(meta.iv);
+          const dec = decrypt_chunk_at(raw, key, iv, BigInt(0));
+
+          if (ms && sb) {
+            appendQueue.push(dec);
+            flushMSE();
+          } else {
+            blobParts.push(dec);
+          }
+        }
+
+        if (msg.type === 'done') {
+          if (ms && sb) { appendQueue.push(null); flushMSE(); }
+          resolve();
+        }
       };
 
-      channel.onerror = e => { done(() => { clearTimeout(timer); reject(e); }); };
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      await new Promise(r => {
-        if (pc.iceGatheringState === 'complete') return r();
-        pc.onicegatheringstatechange = () => {
-          if (pc.iceGatheringState === 'complete') r();
-        };
-        setTimeout(r, 2500);
-      });
-
-      const sigRes = await fetch('/rtc/signal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ offer: pc.localDescription }),
-      });
-      const { answer } = await sigRes.json();
-      await pc.setRemoteDescription(answer);
+      ws.onerror = () => reject(new Error('WebSocket接続エラー'));
+      ws.onclose = (e) => {
+        if (e.code !== 1000) reject(new Error(`切断 (code: ${e.code})`));
+      };
     });
+
+    ws.close(1000);
 
     // Blobフォールバック（非フラグメント動画 or MSE非対応）
     if (!ms) {
@@ -445,14 +396,13 @@ async function playVideoRTC(id) {
       unmuteBtn.style.display = 'flex';
     }
 
-    pc.close();
   } catch (e) {
     hideLoading();
     setStatus(`❌ ${e.message}`, 'err');
-    console.error('[rtc] playVideoRTC error:', e);
+    console.error('[ws] playVideoWS error:', e);
     playBtn.textContent = '🔄 再接続';
     playBtn.style.display = 'block';
-    playBtn.onclick = () => { playBtn.style.display = 'none'; playVideoRTC(id); };
+    playBtn.onclick = () => { playBtn.style.display = 'none'; playVideoWS(id); };
   }
 }
 

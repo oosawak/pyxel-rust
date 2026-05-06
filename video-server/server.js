@@ -10,6 +10,7 @@
  *   GET /api/video/:id/manifest        manifest.json（キー含む）
  *   GET /api/video/:id/chunk/:n        暗号化チャンクバイナリ
  *   POST /api/upload                   動画アップロード・暗号化・セグメント化
+ *   WS  /ws                            WebSocketでチャンク配信
  */
 const express  = require('express');
 const path     = require('path');
@@ -17,7 +18,8 @@ const fs       = require('fs');
 const crypto   = require('crypto');
 const { spawnSync } = require('child_process');
 const os       = require('os');
-const { RTCPeerConnection } = require('werift');
+const http     = require('http');
+const { WebSocketServer } = require('ws');
 
 const app  = express();
 const PORT = 3700;
@@ -180,95 +182,61 @@ app.post('/api/upload', express.raw({ type: '*/*', limit: '200mb' }), (req, res)
 
 fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 
-// ── WebRTC DataChannel ───────────────────────────────────────────────────────
-// シグナリング: POST /rtc/signal  (SDPオファー受信 → アンサー返却)
-// データ転送:   DataChannel "video" 経由でバイナリチャンクをプッシュ
+// ── WebSocket チャンク配信 ────────────────────────────────────────────────────
+// ws://host:3700/ws に接続後、"play:<id>" を送信すると暗号化チャンクをプッシュ
 //
 // クライアント側フロー:
-//   1. RTCPeerConnection作成 → DataChannel "video" 作成 → SDP offer生成
-//   2. POST /rtc/signal にofferを送信 → answerを受け取る
-//   3. DataChannelが開いたら "play:<videoId>" を送信
-//   4. サーバーが暗号化チャンクを順次バイナリで送信
-//   5. 最後に JSON文字列 {"done":true,...} を送信
+//   1. new WebSocket('ws://host:3700/ws') → 即接続
+//   2. onopen で "play:<videoId>" 送信
+//   3. meta(JSON) → chunk-start(JSON) → binary × N → chunk-end(JSON) → done(JSON)
 
-app.post('/rtc/signal', express.json(), async (req, res) => {
-  try {
-    const { offer } = req.body;
-    const pc = new RTCPeerConnection({
-      iceServers: [],
-      // UDPポートを固定範囲に（ファイアウォール開放用: UDP 3701-3710）
-      icePortRange: [3701, 3710],
-    });
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws' });
 
-    pc.ondatachannel = ({ channel }) => {
-      channel.onmessage = async ({ data }) => {
-        if (typeof data !== 'string' || !data.startsWith('play:')) return;
-        const id = data.slice(5);
-        const mPath = path.join(VIDEOS_DIR, id, 'manifest.json');
-        if (!fs.existsSync(mPath)) {
-          channel.send(JSON.stringify({ error: 'not found' }));
-          return;
-        }
-        const manifest = JSON.parse(fs.readFileSync(mPath, 'utf8'));
-        const FRAG_SIZE = 16384; // 16KB — DataChannel安全サイズ
+wss.on('connection', (ws) => {
+  ws.on('message', async (data) => {
+    const msg = data.toString();
+    if (!msg.startsWith('play:')) return;
+    const id = msg.slice(5);
+    const mPath = path.join(VIDEOS_DIR, id, 'manifest.json');
+    if (!fs.existsSync(mPath)) {
+      ws.send(JSON.stringify({ error: 'not found' }));
+      return;
+    }
+    const manifest = JSON.parse(fs.readFileSync(mPath, 'utf8'));
 
-        // メタ情報を先に送信
-        channel.send(JSON.stringify({
-          type: 'meta',
-          chunkCount: manifest.chunks.length,
-          mimeType: manifest.mimeType,
-          key: manifest.key,
-          iv: manifest.iv,
-        }));
+    // メタ情報を先に送信
+    ws.send(JSON.stringify({
+      type: 'meta',
+      chunkCount: manifest.chunks.length,
+      mimeType: manifest.mimeType,
+      isFragmented: manifest.isFragmented,
+      key: manifest.key,
+      iv: manifest.iv,
+    }));
 
-        // 暗号化チャンクをフラグメント分割して送信
-        for (let i = 0; i < manifest.chunks.length; i++) {
-          const chunkPath = path.join(VIDEOS_DIR, id,
-            `chunk_${String(i).padStart(3, '0')}.enc`);
-          const buf = fs.readFileSync(chunkPath);
-          const fragCount = Math.ceil(buf.length / FRAG_SIZE);
+    // 暗号化チャンクを順次送信（WebSocketはメッセージサイズ制限なし）
+    for (let i = 0; i < manifest.chunks.length; i++) {
+      if (ws.readyState !== ws.OPEN) break;
+      const chunkPath = path.join(VIDEOS_DIR, id,
+        `chunk_${String(i).padStart(3, '0')}.enc`);
+      const buf = fs.readFileSync(chunkPath);
 
-          // チャンク開始通知
-          channel.send(JSON.stringify({ type: 'chunk-start', index: i, size: buf.length, fragments: fragCount }));
+      ws.send(JSON.stringify({ type: 'chunk-start', index: i, size: buf.length }));
+      ws.send(buf);  // バイナリをそのまま送信
+      ws.send(JSON.stringify({ type: 'chunk-end', index: i }));
+    }
+    if (ws.readyState === ws.OPEN)
+      ws.send(JSON.stringify({ type: 'done' }));
+  });
 
-          for (let f = 0; f < fragCount; f++) {
-            const slice = buf.slice(f * FRAG_SIZE, (f + 1) * FRAG_SIZE);
-            channel.send(slice);
-            // バッファ詰まり防止
-            await new Promise(r => setTimeout(r, 5));
-          }
-
-          // チャンク終了通知
-          channel.send(JSON.stringify({ type: 'chunk-end', index: i }));
-        }
-        channel.send(JSON.stringify({ type: 'done' }));
-      };
-    };
-
-    await pc.setRemoteDescription(offer);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-
-    // ICE収集が完了するまで待つ（LAN内は即座に完了、最大2500ms）
-    await new Promise(resolve => {
-      if (pc.iceGatheringState === 'complete') return resolve();
-      pc.onicegatheringstatechange = () => {
-        if (pc.iceGatheringState === 'complete') resolve();
-      };
-      setTimeout(resolve, 2500);
-    });
-
-    res.json({ answer: pc.localDescription });
-  } catch (e) {
-    console.error('[rtc] signal error:', e);
-    res.status(500).json({ error: e.message });
-  }
+  ws.on('error', (e) => console.error('[ws] error:', e.message));
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🎬 video-server running at http://localhost:${PORT}`);
   console.log(`   player:  http://localhost:${PORT}/`);
   console.log(`   admin:   http://localhost:${PORT}/admin.html`);
   console.log(`   API:     http://localhost:${PORT}/api/videos`);
-  console.log(`   WebRTC:  POST http://localhost:${PORT}/rtc/signal`);
+  console.log(`   WS:      ws://localhost:${PORT}/ws`);
 });
