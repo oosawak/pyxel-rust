@@ -343,11 +343,13 @@ async function playVideoWS(id) {
           setStatus(`📋 メタ情報受信 (${msg.chunkCount}チャンク) ${label}`);
           if (meta.isFragmented && MediaSource.isTypeSupported(meta.mimeType)) {
             ms = new MediaSource();
-            const sourceOpenP = new Promise(r => ms.addEventListener('sourceopen', r, {once:true}));
+            // awaitしない → チャンクをappendQueueに貯めながら並行してMSE初期化
+            ms.addEventListener('sourceopen', () => {
+              sb = ms.addSourceBuffer(meta.mimeType);
+              flushMSE(); // 既に貯まっているチャンクを即処理
+            }, { once: true });
             videoEl.src = URL.createObjectURL(ms);
             videoEl.load();
-            await sourceOpenP;
-            sb = ms.addSourceBuffer(meta.mimeType);
           }
         }
 
@@ -363,7 +365,8 @@ async function playVideoWS(id) {
           const iv  = hexToBytes(meta.iv);
           const dec = decrypt_chunk_at(raw, key, iv, BigInt(0));
 
-          if (ms && sb) {
+          if (ms) {
+            // sb未初期化でもappendQueueに積む → sourceopen後にflushMSEが処理
             appendQueue.push(dec);
             flushMSE();
           } else {
@@ -372,7 +375,7 @@ async function playVideoWS(id) {
         }
 
         if (msg.type === 'done') {
-          if (ms && sb) { appendQueue.push(null); flushMSE(); }
+          if (ms) { appendQueue.push(null); flushMSE(); }
           resolve();
         }
       };
