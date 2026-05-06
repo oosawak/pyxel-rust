@@ -37,3 +37,7 @@ env/
 *.log
 .env
 .env.local
+
+# video-player
+docs/examples/video-player/encrypted/key.json
+docs/examples/video-player/encrypted/test_source.mp4

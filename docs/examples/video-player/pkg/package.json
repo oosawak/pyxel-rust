@@ -1,0 +1,16 @@
+{
+  "name": "video-player",
+  "type": "module",
+  "description": "AES-256-CTR WASM video decryption player",
+  "version": "0.1.0",
+  "files": [
+    "video_player_bg.wasm",
+    "video_player.js",
+    "video_player.d.ts"
+  ],
+  "main": "video_player.js",
+  "types": "video_player.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

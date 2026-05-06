@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎬 WASM Video Player</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    color: #eee;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100svh;
+    gap: 16px;
+    padding: 16px;
+  }
+  h1 { font-size: 1rem; color: #88aaff; letter-spacing: 2px; }
+  #player-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    background: #111;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #334;
+  }
+  video {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  #status {
+    font-size: 0.75rem;
+    color: #668;
+    width: 100%;
+    max-width: 640px;
+    padding: 4px 0;
+  }
+  #status.ok  { color: #4a8; }
+  #status.err { color: #f66; }
+  #btn-play {
+    background: #1a2a4a;
+    border: 1px solid #334a8a;
+    color: #88aaff;
+    font-family: monospace;
+    font-size: 0.9rem;
+    padding: 10px 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  #btn-play:hover { background: #243a6a; }
+  #btn-play:disabled { opacity: 0.4; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<h1>🎬 WASM ENCRYPTED VIDEO PLAYER</h1>
+
+<div id="player-wrap">
+  <video id="video" controls></video>
+</div>
+
+<div id="status">待機中...</div>
+<button id="btn-play">▶ 復号して再生</button>
+
+<script type="module">
+import init, { decrypt_chunk } from './pkg/video_player.js';
+
+const video   = document.getElementById('video');
+const status  = document.getElementById('status');
+const btnPlay = document.getElementById('btn-play');
+
+function setStatus(msg, type = '') {
+  status.textContent = msg;
+  status.className = type;
+}
+
+async function loadAndPlay() {
+  btnPlay.disabled = true;
+  try {
+    // 1. WASMモジュール初期化
+    setStatus('⚙️ WASM初期化中...');
+    await init('./pkg/video_player_bg.wasm');
+
+    // 2. キー取得（/key エンドポイント）
+    setStatus('🔑 キー取得中...');
+    const keyRes = await fetch('/key');
+    if (!keyRes.ok) throw new Error('キーの取得に失敗しました');
+    const { key: keyHex, iv: ivHex } = await keyRes.json();
+    const key = hexToBytes(keyHex);
+    const iv  = hexToBytes(ivHex);
+
+    // 3. 暗号化動画を取得
+    setStatus('📦 暗号化動画を取得中...');
+    const encRes = await fetch('./encrypted/video.enc');
+    if (!encRes.ok) throw new Error('動画ファイルの取得に失敗しました');
+    const encData = new Uint8Array(await encRes.arrayBuffer());
+
+    // 4. WASM復号
+    setStatus('🔓 WASMで復号中...');
+    const decrypted = decrypt_chunk(encData, key, iv);
+
+    // 5. Blob URLで再生
+    setStatus('▶ 再生準備中...');
+    const blob    = new Blob([decrypted], { type: 'video/mp4' });
+    const blobUrl = URL.createObjectURL(blob);
+    video.src = blobUrl;
+    video.play();
+
+    setStatus(`✅ 復号完了（${(decrypted.length / 1024).toFixed(1)} KB）`, 'ok');
+  } catch (e) {
+    setStatus(`❌ エラー: ${e.message}`, 'err');
+    btnPlay.disabled = false;
+  }
+}
+
+function hexToBytes(hex) {
+  const arr = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return arr;
+}
+
+btnPlay.addEventListener('click', loadAndPlay);
+</script>
+</body>
+</html>
