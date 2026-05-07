@@ -4,15 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>アリサクエスト — Pyxel-Rust</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
     <link rel="stylesheet" href="games/arisa-battle/battle-ui.css">
     <style>
+        @font-face {
+            font-family: 'GenInterfaceJP';
+            src: url('../../assets/fonts/GenInterfaceJP-Regular.woff2') format('woff2');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'GenInterfaceJP';
+            src: url('../../assets/fonts/GenInterfaceJP-Bold.woff2') format('woff2');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; overflow: hidden; background: #0a0a1a; font-family: 'DotGothic16', monospace; color: #eee; }
+        html, body { height: 100%; overflow: hidden; background: #0a0a1a; font-family: 'GenInterfaceJP', 'DotGothic16', monospace; color: #eee; }
         body { display: flex; flex-direction: column; }
 
         /* ── Status bar (always visible) ────────────────────────── */
