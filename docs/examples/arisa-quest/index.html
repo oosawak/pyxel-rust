@@ -1972,7 +1972,7 @@
         mapEl.style.height = mainEl.clientHeight + 'px';
         window.addEventListener('resize', () => { mapEl.style.height = mainEl.clientHeight + 'px'; map.invalidateSize(); });
 
-        const map = L.map('map', { zoomControl: true }).setView([38.2627, 141.0447], 15);
+        const map = L.map('map', { zoomControl: true }).setView([38.2521, 140.8619], 15);
 
         // タイルスタイル定義
         const OSM_JP_OPTS = { attribution: '© <a href="https://www.openmaptiles.org/">OpenMapTiles</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 20, tileSize: 512, zoomOffset: -1 };
@@ -2568,12 +2568,12 @@
                 }, 1200);
             }
 
-            // GPS タイムアウト（12秒）→ 仙台駅フォールバック
+            // GPS タイムアウト（12秒）→ 仙台城フォールバック
             const fallbackTimer = setTimeout(() => {
-                cyberText.textContent = '仙台駅にワープ中...';
-                cyberSub.textContent  = 'GPS TIMEOUT — WARP TO SENDAI STATION';
+                cyberText.textContent = '仙台城にワープ中...';
+                cyberSub.textContent  = 'GPS TIMEOUT — WARP TO SENDAI CASTLE';
                 cyberScope.classList.add('locked');
-                setTimeout(() => revealMap(38.2627, 141.0447, '⚡ 仙台駅にワープしました'), 800);
+                setTimeout(() => revealMap(38.2521, 140.8619, '⚡ 仙台城にワープしました'), 800);
             }, 12000);
 
             // GPS取得
