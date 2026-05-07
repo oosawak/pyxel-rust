@@ -32,7 +32,7 @@
     background: rgba(0,0,0,0.82); border: 1px solid #555;
     border-radius: 6px; padding: 6px 10px;
     font-size: 0.6rem; color: #0f0; line-height: 1.7;
-    font-family: monospace; pointer-events: none;
+    font-family: 'GenInterfaceJP', monospace; pointer-events: none;
     white-space: pre;
 }
 #debug-overlay.visible { display: block; }
@@ -40,7 +40,7 @@
     position: absolute; top: 4px; left: 28px; z-index: 100;
     background: rgba(0,0,0,0.7); border: 1px solid #555;
     border-radius: 4px; color: #888; font-size: 0.55rem;
-    font-family: monospace; padding: 3px 6px; cursor: pointer;
+    font-family: 'GenInterfaceJP', monospace; padding: 3px 6px; cursor: pointer;
 }
 #btn-debug.on { color: #0f0; border-color: #0f0; }
 
@@ -49,7 +49,7 @@
     position: absolute; top: 4px; left: 64px; z-index: 100;
     background: rgba(0,0,0,0.7); border: 1px solid #555;
     border-radius: 4px; color: #888; font-size: 0.55rem;
-    font-family: monospace; padding: 3px 6px; cursor: pointer;
+    font-family: 'GenInterfaceJP', monospace; padding: 3px 6px; cursor: pointer;
 }
 #btn-hud.on { color: #ffcc66; border-color: #ffcc66; }
 
@@ -60,7 +60,7 @@
     align-items: center; gap: 5px;
     background: rgba(0,0,20,0.72); border: 1px solid #446;
     border-radius: 20px; padding: 3px 10px;
-    font-family: 'DotGothic16', monospace; font-size: 0.72rem;
+    font-family: 'GenInterfaceJP', 'DotGothic16', monospace; font-size: 0.72rem;
     color: #c8d8ff; pointer-events: none;
 }
 #battle-overlay.active #battle-dist-badge { display: flex; }
@@ -94,7 +94,7 @@
 #battle-hud.active { display: block; }
 .hud-row {
     display: flex; align-items: center; gap: 12px;
-    font-family: 'DotGothic16', monospace; font-size: 0.7rem;
+    font-family: 'GenInterfaceJP', 'DotGothic16', monospace; font-size: 0.7rem;
 }
 .hud-item {
     display: flex; align-items: center; gap: 5px;
@@ -156,7 +156,7 @@
     content: '▼発動'; position: absolute;
     bottom: 3px; left: 0; right: 0;
     font-size: 0.4rem; color: rgba(255,255,255,0.3);
-    font-family: 'DotGothic16', monospace; text-align: center;
+    font-family: 'GenInterfaceJP', 'DotGothic16', monospace; text-align: center;
 }
 /* クールダウンバー */
 .tl-bar-track {
@@ -229,7 +229,7 @@
 }
 #clash-banner {
     position: absolute; left: 50%; top: 40%; transform: translate(-50%,-50%) scale(0);
-    z-index: 50; font-family: 'DotGothic16', monospace;
+    z-index: 50; font-family: 'GenInterfaceJP', 'DotGothic16', monospace;
     font-size: 1.6rem; color: #fff; text-shadow: 0 0 12px #ff0, 0 0 24px #f80;
     pointer-events: none; white-space: nowrap;
     animation: none;
@@ -262,7 +262,7 @@
 .battle-cmd {
     background: linear-gradient(160deg, #15082e, #22104a);
     border: 2px solid #5533aa; border-radius: 10px;
-    color: #e8d8ff; font-family: 'DotGothic16', monospace;
+    color: #e8d8ff; font-family: 'GenInterfaceJP', 'DotGothic16', monospace;
     font-size: 0.75rem; padding: 10px 2px; cursor: pointer;
     text-align: center; transition: all 0.1s;
     -webkit-tap-highlight-color: transparent; user-select: none;
@@ -306,10 +306,10 @@
     background: rgba(0,0,20,0.6);
     border-bottom: 1px solid #1a0a44;
 }
-.sp-label { color: #66aaff; font-family: 'DotGothic16', monospace; font-size: 0.7rem; white-space: nowrap; }
+.sp-label { color: #66aaff; font-family: 'GenInterfaceJP', 'DotGothic16', monospace; font-size: 0.7rem; white-space: nowrap; }
 #sp-bar-track { flex: 1; height: 8px; background: rgba(0,0,60,0.9); border-radius: 4px; overflow: hidden; border: 1px solid #224; }
 #sp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #1144cc, #44aaff); transition: width 0.12s linear; border-radius: 3px; }
-#sp-val { color: #88ccff; font-size: 0.65rem; font-family: monospace; min-width: 28px; text-align: right; }
+#sp-val { color: #88ccff; font-size: 0.65rem; font-family: 'GenInterfaceJP', monospace; min-width: 28px; text-align: right; }
 .sp-cost { display: block; font-size: 0.58rem; color: #88aaff; opacity: 0.75; margin-top: 1px; }
 .battle-cmd:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; filter: grayscale(50%); }
 
@@ -346,7 +346,7 @@
     backdrop-filter: blur(4px);
     border-left: 3px solid #00ffcc;
     border-radius: 0 7px 7px 0;
-    font-family: 'DotGothic16', monospace;
+    font-family: 'GenInterfaceJP', 'DotGothic16', monospace;
     font-size: 0.75rem; color: #d8f8ff;
     letter-spacing: 0.04em;
     text-shadow: 0 0 10px rgba(0,255,200,0.45);
