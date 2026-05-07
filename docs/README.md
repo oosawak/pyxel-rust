@@ -27,6 +27,12 @@ This will:
 4. Enable GitHub Pages in repository settings (set source to `docs/` folder)
 5. Access your game at `https://<username>.github.io/pyxel-rust/<game_name>/`
 
+## ドキュメント
+
+- **[VIDEO_SERVER.md](./VIDEO_SERVER.md)** - 暗号化動画配信サーバー（video-server）の仕様・起動方法
+- **[GUIDE.md](./GUIDE.md)** - pyxel-rust 開発ガイド
+- **[WASM_GAMES.md](./WASM_GAMES.md)** - WASM ゲーム一覧
+
 ## Current Status
 
 - [ ] Cubeboy WASM build
