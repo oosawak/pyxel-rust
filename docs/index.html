@@ -158,8 +158,37 @@
     </div>
 
     <div class="section">
+        <h2>🎬 暗号化動画配信システム（video-server）</h2>
+        <p>
+            ローカル i9 マシンで動作する動画配信サーバーです。<br>
+            動画を <strong>AES-256-CTR</strong> で暗号化・fMP4セグメント分割し、<strong>WebSocket</strong> でブラウザへ配信します。<br>
+            ブラウザ側では <strong>WASM</strong> で復号しながら <strong>MSE（Media Source Extensions）</strong> で早期再生（全受信待ち不要）します。
+        </p>
+        <table>
+            <tr><th>項目</th><th>内容</th></tr>
+            <tr><td>サーバー</td><td>Node.js + Express + WebSocket（<code>ws</code> パッケージ）</td></tr>
+            <tr><td>暗号化</td><td>AES-256-CTR（チャンクごと独立）</td></tr>
+            <tr><td>動画形式</td><td>fMP4（FFmpeg 変換）</td></tr>
+            <tr><td>配信</td><td>WebSocket バイナリストリーミング</td></tr>
+            <tr><td>再生</td><td>WASM 復号 → MSE appendBuffer（2チャンク目で再生開始）</td></tr>
+            <tr><td>起動</td><td><code>pm2 start video-server/server.js --name video-server</code></td></tr>
+            <tr><td>ポート</td><td>3700（LAN 内 <code>http://i9:3700/</code>）</td></tr>
+        </table>
+        <p style="margin-top:12px; font-size:0.9em;">
+            アリサクエストの地図マーカーから <code>window.open</code> で動画プレイヤーを起動し、
+            GPS 撮影地点と動画を紐づけて再生します。
+        </p>
+        <p style="margin-top:8px;">
+            <a href="https://github.com/oosawak/pyxel-rust/blob/master/docs/VIDEO_SERVER.md">📄 詳細ドキュメント（VIDEO_SERVER.md）</a>
+            ／
+            <a href="examples/video-player/">▶ 動画プレイヤー（LAN接続時のみ）</a>
+        </p>
+    </div>
+
+    <div class="section">
         <h2>📚 リンク</h2>
         <ul>
+            <li><a href="https://github.com/oosawak/pyxel-rust/blob/master/docs/VIDEO_SERVER.md">🎬 暗号化動画配信システム（VIDEO_SERVER.md）</a></li>
             <li><a href="https://github.com/oosawak/pyxel-rust">📦 GitHub リポジトリ</a></li>
             <li><a href="https://github.com/oosawak/pyxel-rust/blob/master/README.md">📄 README（ビルド方法・セットアップ）</a></li>
             <li><a href="https://github.com/oosawak/pyxel-rust/blob/master/ROADMAP.md">🗺️ ロードマップ</a></li>
