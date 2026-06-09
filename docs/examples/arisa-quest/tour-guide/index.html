@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gemma4 観光案内 (WASM)</title>
+<title>Gemma4 観光案内 (rullama)</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -11,38 +11,28 @@
     margin: 0;
     min-height: 100svh;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: radial-gradient(circle at top, #14213d, #050816 70%);
-    color: #e6f1ff;
+    background: radial-gradient(circle at top, #17254a, #040712 72%);
+    color: #eaf2ff;
     padding: 20px;
   }
   .wrap {
-    max-width: 1100px;
+    max-width: 1180px;
     margin: 0 auto;
     display: grid;
     gap: 16px;
   }
   header, .panel, .hint {
-    background: rgba(10, 16, 35, 0.78);
+    background: rgba(10, 16, 35, 0.82);
     border: 1px solid rgba(120, 160, 255, 0.18);
     border-radius: 16px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
   }
-  header {
-    padding: 18px 20px;
-  }
+  header { padding: 18px 20px; }
   h1 { margin: 0 0 6px; font-size: 1.15rem; }
   .sub { margin: 0; color: #9bb1d1; font-size: 0.85rem; line-height: 1.6; }
-  .grid {
-    display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 16px;
-  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .panel { padding: 16px; }
-  .panel h2 {
-    margin: 0 0 10px;
-    font-size: 0.95rem;
-    color: #8ec5ff;
-  }
+  .panel h2 { margin: 0 0 10px; font-size: 0.95rem; color: #8ec5ff; }
   label { display: block; margin: 10px 0 6px; font-size: 0.78rem; color: #9cb3d5; }
   textarea, input {
     width: 100%;
@@ -54,7 +44,7 @@
     font: inherit;
   }
   textarea { min-height: 170px; resize: vertical; }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   button, .link {
     border: 1px solid rgba(120, 160, 255, 0.24);
     background: linear-gradient(180deg, rgba(78, 116, 255, 0.28), rgba(33, 57, 137, 0.28));
@@ -68,6 +58,7 @@
     gap: 6px;
   }
   button:hover, .link:hover { border-color: rgba(150, 190, 255, 0.5); }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
   .meta { font-size: 0.78rem; color: #9cb3d5; }
   .result {
     white-space: pre-wrap;
@@ -77,10 +68,7 @@
     padding: 12px;
     min-height: 120px;
   }
-  .matches {
-    display: grid;
-    gap: 10px;
-  }
+  .matches { display: grid; gap: 10px; }
   .match {
     background: rgba(7, 12, 30, 0.82);
     border: 1px solid rgba(120, 160, 255, 0.16);
@@ -99,17 +87,45 @@
     font-size: 0.72rem;
   }
   .hint { padding: 14px 16px; }
-  @media (max-width: 900px) {
-    .grid { grid-template-columns: 1fr; }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(86, 125, 255, 0.12);
+    color: #b8cbff;
+    font-size: 0.8rem;
   }
+  .status[data-state="ready"] { background: rgba(53, 168, 83, 0.18); color: #bbf0c4; }
+  .status[data-state="loading"] { background: rgba(220, 170, 20, 0.18); color: #ffe58b; }
+  .status[data-state="error"] { background: rgba(220, 70, 70, 0.18); color: #ffb5b5; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>🧭 Gemma4 観光案内 (WASM scaffold)</h1>
-    <p class="sub">RAG のデータ投入・検索・結果表示を WASM 側に寄せた土台です。Gemma4 本体は後で差し込めるようにしてあります。</p>
+    <h1>🧭 Gemma4 観光案内 (rullama)</h1>
+    <p class="sub">Gemma4 の推論は Rust/WASM の <code>rullama</code> に任せ、ここでは観光データの組み立てと UI を扱います。モデルはローカルの GGUF を選んで読み込んでください。</p>
   </header>
+
+  <div class="panel">
+    <h2>0. モデルを読み込む</h2>
+    <div class="row">
+      <input id="model-file" type="file" accept=".gguf,.bin,.gguf.gz,application/octet-stream" hidden>
+      <button id="pick-model-btn" type="button">📦 GGUF を選ぶ</button>
+      <span class="meta" id="model-file-name">未選択</span>
+      <label class="link" for="text-only"><input id="text-only" type="checkbox" checked style="margin:0 6px 0 0"> text only</label>
+      <label style="min-width:240px; flex:1">
+        <span class="meta">max context</span>
+        <input id="max-context" type="number" min="128" step="128" value="512">
+      </label>
+      <button id="load-model-btn">⚙ 読み込む</button>
+      <span class="status" id="model-status" data-state="idle">未読込</span>
+    </div>
+    <p class="meta" id="model-meta">Gemma4:e2b を選んでください。</p>
+  </div>
 
   <div class="grid">
     <section class="panel">
@@ -118,13 +134,14 @@
       <label for="corpus">RAG corpus</label>
       <textarea id="corpus" spellcheck="false">[
   {"title":"観光案内所","body":"駅前から歩いて5分の観光案内所。地図、バス、飲食店の案内をまとめています。","source":"access-guide.md","tags":["access","bus","food"]},
-  {"title":"展望台","body":"展望台は夕方が見どころ。夜景、写真スポット、トイレの情報が必要です。","source":"sightseeing.md","tags":["view","photo","night"]}
+  {"title":"展望台","body":"展望台は夕方が見どころ。夜景、写真スポット、トイレの情報が必要です。","source":"sightseeing.md","tags":["view","photo","night"]},
+  {"title":"港の売店","body":"港の売店では船の発着時刻と予約案内を扱っています。","source":"port.md","tags":["ship","reservation"]}
 ]</textarea>
       <div class="row" style="margin-top:10px">
         <button id="load-btn">📥 読み込む</button>
         <button id="clear-btn">🧹 クリア</button>
-        <label class="link" for="file">📄 JSON ファイル</label>
-        <input id="file" type="file" accept="application/json" hidden>
+        <label class="link" for="corpus-file">📄 JSON ファイル</label>
+        <input id="corpus-file" type="file" accept="application/json" hidden>
       </div>
       <p class="meta" id="doc-count">0 件</p>
     </section>
@@ -134,7 +151,7 @@
       <label for="query">質問</label>
       <input id="query" placeholder="例: 駅から近い観光案内は？">
       <label for="system-prompt">システムプロンプト</label>
-      <textarea id="system-prompt" style="min-height:90px">あなたは観光案内のアシスタントです。与えられた観光データだけを優先して簡潔に答えてください。</textarea>
+      <textarea id="system-prompt" style="min-height:90px">あなたは観光案内のアシスタントです。与えられた観光データと質問の文脈を優先して、短く自然な日本語で答えてください。推測は最小限にしてください。</textarea>
       <label for="context-limit">コンテキスト上限（文字）</label>
       <input id="context-limit" type="number" min="200" step="50" value="1200">
       <div class="row" style="margin-top:10px">
@@ -144,8 +161,12 @@
       </div>
       <label>回答</label>
       <div class="result" id="answer">まだ質問されていません。</div>
-      <label>Gemma4 入力用 prompt</label>
+      <label>context</label>
+      <div class="result" id="context">まだ生成されていません。</div>
+      <label>prompt</label>
       <div class="result" id="prompt">まだ生成されていません。</div>
+      <label>request JSON</label>
+      <div class="result" id="request">まだ生成されていません。</div>
     </section>
   </div>
 
@@ -155,35 +176,147 @@
   </section>
 
   <div class="hint">
-    <p>このページは WASM で RAG の土台を動かします。後から Gemma4 の推論レイヤーを組み込めるよう、データ投入と検索結果の受け渡しを先に固めています。</p>
+    <p>このページは <code>rullama</code> を Dedicated Worker で動かし、ローカル GGUF から直接ロードします。観光データの検索・要約は JS 側、LLM 推論は Rust/WASM 側です。</p>
   </div>
 </div>
 
 <script type="module">
-import init, { clear_documents, load_documents, document_count, query_guide, set_system_prompt, set_context_limit } from './wasm/tour_guide_wasm.js';
-
 const corpusEl = document.getElementById('corpus');
 const queryEl = document.getElementById('query');
 const systemPromptEl = document.getElementById('system-prompt');
 const contextLimitEl = document.getElementById('context-limit');
 const answerEl = document.getElementById('answer');
 const promptEl = document.getElementById('prompt');
+const contextEl = document.getElementById('context');
+const requestEl = document.getElementById('request');
 const matchesEl = document.getElementById('matches');
 const countEl = document.getElementById('doc-count');
+const statusEl = document.getElementById('model-status');
+const metaEl = document.getElementById('model-meta');
+const modelFileNameEl = document.getElementById('model-file-name');
 
-const STORAGE_KEY = 'arisa-quest-tour-guide-corpus-v1';
-const PROMPT_KEY = 'arisa-quest-tour-guide-system-prompt-v1';
-const CONTEXT_KEY = 'arisa-quest-tour-guide-context-limit-v1';
+const STORAGE_KEY = 'arisa-quest-tour-guide-corpus-v2';
+const PROMPT_KEY = 'arisa-quest-tour-guide-system-prompt-v2';
+const CONTEXT_KEY = 'arisa-quest-tour-guide-context-limit-v2';
 
-function setCount() {
-  countEl.textContent = `${document_count()} 件`;
+const worker = new Worker('./worker.js', { type: 'module' });
+let modelInfo = null;
+let currentModelFile = null;
+let requestSeq = 0;
+const pending = new Map();
+
+function rpc(type, payload = {}) {
+  const requestId = ++requestSeq;
+  return new Promise((resolve, reject) => {
+    pending.set(requestId, { resolve, reject });
+    worker.postMessage({ requestId, type, ...payload });
+  });
 }
 
-function renderResult(raw) {
-  const data = JSON.parse(raw);
-  answerEl.textContent = data.answer;
-  promptEl.textContent = data.prompt || '';
-  matchesEl.innerHTML = (data.matches || []).map(item => `
+worker.addEventListener('message', (ev) => {
+  const msg = ev.data || {};
+  if (msg.type === 'status') {
+    setStatus(msg.state, msg.text);
+    return;
+  }
+  if (msg.type === 'log') {
+    console.log('[tour-guide]', ...(msg.args || []));
+    return;
+  }
+  if (typeof msg.requestId === 'number') {
+    const p = pending.get(msg.requestId);
+    if (!p) return;
+    pending.delete(msg.requestId);
+    if (msg.ok) p.resolve(msg.result);
+    else p.reject(new Error(msg.error || 'worker error'));
+  }
+});
+
+worker.addEventListener('error', (ev) => {
+  setStatus('error', ev.message || 'worker error');
+});
+
+function setStatus(state, text) {
+  statusEl.dataset.state = state;
+  statusEl.textContent = text;
+}
+
+function normalize(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize('NFKC')
+    .replace(/\s+/g, '');
+}
+
+function ngrams(text, n) {
+  const chars = [...normalize(text)];
+  if (chars.length === 0) return [];
+  if (chars.length <= n) return [chars.join('')];
+  const out = [];
+  for (let i = 0; i <= chars.length - n; i += 1) out.push(chars.slice(i, i + n).join(''));
+  return out;
+}
+
+function uniqueTokens(text) {
+  return [...new Set(String(text).match(/[0-9A-Za-zぁ-んァ-ヶ一-龠]+/g) || [])];
+}
+
+function score(query, body) {
+  const qg = ngrams(query, 2);
+  const bg = ngrams(body, 2);
+  const gram = qg.length ? qg.filter((g) => bg.includes(g)).length / qg.length : 0;
+  const qt = uniqueTokens(query);
+  const bt = uniqueTokens(body);
+  const hit = qt.length ? qt.filter((q) => bt.some((b) => b.includes(q) || q.includes(b))).length / qt.length : 0;
+  return gram * 0.65 + hit * 0.35;
+}
+
+function snippet(text, maxChars = 96) {
+  const chars = [...String(text)];
+  return chars.length > maxChars ? `${chars.slice(0, maxChars).join('')}…` : chars.join('');
+}
+
+function parseCorpus() {
+  const parsed = JSON.parse(corpusEl.value);
+  if (!Array.isArray(parsed)) throw new Error('corpus JSON must be an array');
+  return parsed.map((item) => ({
+    title: String(item.title || ''),
+    body: String(item.body || ''),
+    source: item.source ? String(item.source) : null,
+    tags: Array.isArray(item.tags) ? item.tags.map(String) : [],
+  }));
+}
+
+function rankDocuments(query) {
+  const corpus = parseCorpus();
+  return corpus
+    .map((doc) => ({
+      ...doc,
+      score: score(query, doc.body),
+      snippet: snippet(doc.body),
+    }))
+    .filter((doc) => doc.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+}
+
+function buildContext(matches) {
+  const limit = Number(contextLimitEl.value || 1200);
+  let out = '';
+  for (const [i, item] of matches.entries()) {
+    const block = `[${i + 1}] ${item.title}${item.source ? ` (${item.source})` : ''}\n${item.snippet}\n\n`;
+    if (out.length + block.length > limit) break;
+    out += block;
+  }
+  return out;
+}
+
+function buildUserPrompt(query, context) {
+  return `### 観光コンテキスト\n${context || '（参照候補なし）'}\n\n### 質問\n${query}\n\n### 回答方針\n- 簡潔に答える\n- 断定しすぎない\n- コンテキストにないことは推測しすぎない`;
+}
+
+function renderMatches(matches) {
+  matchesEl.innerHTML = matches.length ? matches.map((item) => `
     <article class="match">
       <h3>${escapeHtml(item.title)}</h3>
       <p>${escapeHtml(item.snippet)}</p>
@@ -191,7 +324,7 @@ function renderResult(raw) {
       ${item.tags?.length ? `<p class="meta">タグ: ${item.tags.map(escapeHtml).join(', ')}</p>` : ''}
       <span class="pill">score: ${Number(item.score || 0).toFixed(3)}</span>
     </article>
-  `).join('') || '<div class="meta">一致候補はありません。</div>';
+  `).join('') : '<div class="meta">一致候補はありません。</div>';
 }
 
 function escapeHtml(s) {
@@ -203,74 +336,151 @@ function escapeHtml(s) {
     .replaceAll("'", '&#39;');
 }
 
-await init('./wasm/tour_guide_wasm_bg.wasm');
-
 function syncCorpus(text) {
-  load_documents(text);
+  const parsed = JSON.parse(text);
+  if (!Array.isArray(parsed)) throw new Error('corpus JSON must be an array');
   localStorage.setItem(STORAGE_KEY, text);
-  setCount();
+  countEl.textContent = `${parsed.length} 件`;
 }
 
 function applyPromptSettings() {
-  set_system_prompt(systemPromptEl.value);
-  set_context_limit(Number(contextLimitEl.value || 1200));
   localStorage.setItem(PROMPT_KEY, systemPromptEl.value);
   localStorage.setItem(CONTEXT_KEY, String(contextLimitEl.value || 1200));
 }
 
-const saved = localStorage.getItem(STORAGE_KEY);
-if (saved) {
-  corpusEl.value = saved;
-}
-const savedPrompt = localStorage.getItem(PROMPT_KEY);
-if (savedPrompt) {
-  systemPromptEl.value = savedPrompt;
-}
-const savedContextLimit = localStorage.getItem(CONTEXT_KEY);
-if (savedContextLimit) {
-  contextLimitEl.value = savedContextLimit;
+function updateDocCount() {
+  try {
+    countEl.textContent = `${parseCorpus().length} 件`;
+  } catch {
+    countEl.textContent = '0 件';
+  }
 }
 
-try {
-  syncCorpus(corpusEl.value);
-} catch (e) {
-  answerEl.textContent = `corpus の読み込みに失敗しました: ${e.message}`;
+function readFormState() {
+  const query = queryEl.value.trim();
+  const matches = query ? rankDocuments(query) : [];
+  const context = buildContext(matches);
+  const prompt = buildUserPrompt(query, context);
+  return { query, matches, context, prompt };
 }
-applyPromptSettings();
+
+async function loadModel() {
+  const file = document.getElementById('model-file').files?.[0];
+  if (!file) {
+    throw new Error('GGUF ファイルを選んでください');
+  }
+  currentModelFile = file;
+  setStatus('loading', '読み込み中');
+  metaEl.textContent = `${file.name} (${Math.round(file.size / (1024 * 1024))} MiB)`;
+  const result = await rpc('load-model', {
+    file,
+    maxContext: Number(contextLimitEl.value || 512),
+    textOnly: document.getElementById('text-only').checked,
+  });
+  modelInfo = result;
+  setStatus('ready', '準備完了');
+  metaEl.textContent = `${file.name} / vocab=${result.vocabSize} / max_ctx=${result.maxContext} / vision=${result.hasVision ? 'yes' : 'no'} / audio=${result.hasAudio ? 'yes' : 'no'}`;
+}
+
+await rpc('init');
+
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) corpusEl.value = saved;
+const savedPrompt = localStorage.getItem(PROMPT_KEY);
+if (savedPrompt) systemPromptEl.value = savedPrompt;
+const savedContextLimit = localStorage.getItem(CONTEXT_KEY);
+if (savedContextLimit) contextLimitEl.value = savedContextLimit;
+updateDocCount();
+setStatus('idle', '未読込');
+metaEl.textContent = 'Gemma4:e2b の GGUF を選んでください。';
+modelFileNameEl.textContent = '未選択';
+
+document.getElementById('pick-model-btn').addEventListener('click', () => {
+  document.getElementById('model-file').click();
+});
+
+document.getElementById('model-file').addEventListener('change', () => {
+  const file = document.getElementById('model-file').files?.[0] || null;
+  modelFileNameEl.textContent = file ? file.name : '未選択';
+});
+
+document.getElementById('load-model-btn').addEventListener('click', async () => {
+  try {
+    document.getElementById('load-model-btn').disabled = true;
+    await loadModel();
+    answerEl.textContent = 'モデルを読み込みました。質問してください。';
+  } catch (e) {
+    setStatus('error', '失敗');
+    answerEl.textContent = `モデル読み込みに失敗しました: ${e.message}`;
+  } finally {
+    document.getElementById('load-model-btn').disabled = false;
+  }
+});
 
 document.getElementById('load-btn').addEventListener('click', () => {
   try {
     syncCorpus(corpusEl.value);
-    answerEl.textContent = '読み込みました。質問してください。';
+    updateDocCount();
+    answerEl.textContent = '観光データを読み込みました。';
   } catch (e) {
     answerEl.textContent = `corpus の読み込みに失敗しました: ${e.message}`;
   }
 });
 
-document.getElementById('apply-btn').addEventListener('click', () => {
-  applyPromptSettings();
-});
-
 document.getElementById('clear-btn').addEventListener('click', () => {
-  clear_documents();
+  corpusEl.value = '[]';
   localStorage.removeItem(STORAGE_KEY);
-  setCount();
-  answerEl.textContent = 'データを消去しました。';
+  updateDocCount();
   matchesEl.innerHTML = '';
+  answerEl.textContent = 'データを消去しました。';
+  promptEl.textContent = '';
+  contextEl.textContent = '';
+  requestEl.textContent = '';
 });
 
-document.getElementById('file').addEventListener('change', async (ev) => {
+document.getElementById('corpus-file').addEventListener('change', async (ev) => {
   const file = ev.target.files?.[0];
   if (!file) return;
   corpusEl.value = await file.text();
   document.getElementById('load-btn').click();
 });
 
-document.getElementById('ask-btn').addEventListener('click', () => {
-  const query = queryEl.value.trim();
-  if (!query) return;
+document.getElementById('apply-btn').addEventListener('click', () => {
   applyPromptSettings();
-  renderResult(query_guide(query));
+});
+
+document.getElementById('ask-btn').addEventListener('click', async () => {
+  const { query, matches, context, prompt } = readFormState();
+  if (!query) return;
+  if (!modelInfo) {
+    answerEl.textContent = '先にモデルを読み込んでください。';
+    return;
+  }
+  try {
+    applyPromptSettings();
+    renderMatches(matches);
+    contextEl.textContent = context || '（参照候補なし）';
+    promptEl.textContent = prompt;
+    requestEl.textContent = JSON.stringify({
+      system_prompt: systemPromptEl.value,
+      query,
+      context,
+      model: currentModelFile?.name || null,
+      text_only: document.getElementById('text-only').checked,
+      max_context: Number(contextLimitEl.value || 512),
+    }, null, 2);
+    answerEl.textContent = '生成中...';
+    const result = await rpc('generate', {
+      systemPrompt: systemPromptEl.value,
+      query,
+      context,
+      prompt,
+      maxTokens: 128,
+    });
+    answerEl.textContent = result.answer;
+  } catch (e) {
+    answerEl.textContent = `生成に失敗しました: ${e.message}`;
+  }
 });
 
 queryEl.addEventListener('keydown', (ev) => {
@@ -279,6 +489,8 @@ queryEl.addEventListener('keydown', (ev) => {
     document.getElementById('ask-btn').click();
   }
 });
+
+corpusEl.addEventListener('input', updateDocCount);
 </script>
 </body>
 </html>

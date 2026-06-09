@@ -1,0 +1,32 @@
+{
+  "name": "rullama",
+  "type": "module",
+  "collaborators": [
+    "Brainwires <brainwires.net@gmail.com>"
+  ],
+  "description": "Browser-resident Gemma 4 inference: pure Rust → WebAssembly + WebGPU. Loads Ollama's on-disk GGUF blobs and runs the forward pass on the local GPU via hand-written WGSL.",
+  "version": "0.4.0",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Brainwires/rullama"
+  },
+  "files": [
+    "rullama_bg.wasm",
+    "rullama.js",
+    "rullama.d.ts"
+  ],
+  "main": "rullama.js",
+  "homepage": "https://github.com/Brainwires/rullama",
+  "types": "rullama.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "gemma",
+    "webgpu",
+    "wasm",
+    "inference",
+    "llm"
+  ]
+}

@@ -17,7 +17,7 @@
 - 📍 **距離感応エンカウント** — 敵との実距離に応じて遠近感のある表示
 - 👆 **タッチ対応** — スマートフォンでのプレイに対応
 - 🏯 **山形城フォールバック** — GPS取得不可時は山形城（霞城公園）を起点
-- 🗺️ **追加マーカー** — 観光案内 (WASM) と船予約の入口を地図上に追加
+- 🗺️ **追加マーカー** — 観光案内 (rullama/WASM) と船予約の入口を地図上に追加
 
 ---
 
@@ -68,7 +68,8 @@ arisa-quest/
 wasm-pack build . --target web --out-dir docs/examples/arisa-quest/pkg -- -p arisa_quest
 
 # 観光案内 WASM を更新する場合
-wasm-pack build tour_guide_wasm --target web --out-dir docs/examples/arisa-quest/tour-guide/wasm
+# local rullama checkout で wasm-pack build したあと、
+# 出力された pkg/ を docs/examples/arisa-quest/tour-guide/pkg/ にコピーする
 ```
 
 ## ローカル確認
