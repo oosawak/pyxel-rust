@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemma4 観光案内 (WASM)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100svh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top, #14213d, #050816 70%);
+    color: #e6f1ff;
+    padding: 20px;
+  }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    gap: 16px;
+  }
+  header, .panel, .hint {
+    background: rgba(10, 16, 35, 0.78);
+    border: 1px solid rgba(120, 160, 255, 0.18);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  }
+  header {
+    padding: 18px 20px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.15rem; }
+  .sub { margin: 0; color: #9bb1d1; font-size: 0.85rem; line-height: 1.6; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 16px;
+  }
+  .panel { padding: 16px; }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+    color: #8ec5ff;
+  }
+  label { display: block; margin: 10px 0 6px; font-size: 0.78rem; color: #9cb3d5; }
+  textarea, input {
+    width: 100%;
+    border: 1px solid rgba(120, 160, 255, 0.22);
+    border-radius: 10px;
+    background: rgba(4, 8, 20, 0.9);
+    color: #eef4ff;
+    padding: 10px 12px;
+    font: inherit;
+  }
+  textarea { min-height: 170px; resize: vertical; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  button, .link {
+    border: 1px solid rgba(120, 160, 255, 0.24);
+    background: linear-gradient(180deg, rgba(78, 116, 255, 0.28), rgba(33, 57, 137, 0.28));
+    color: #e8f2ff;
+    border-radius: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  button:hover, .link:hover { border-color: rgba(150, 190, 255, 0.5); }
+  .meta { font-size: 0.78rem; color: #9cb3d5; }
+  .result {
+    white-space: pre-wrap;
+    line-height: 1.7;
+    background: rgba(4, 8, 20, 0.72);
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 120px;
+  }
+  .matches {
+    display: grid;
+    gap: 10px;
+  }
+  .match {
+    background: rgba(7, 12, 30, 0.82);
+    border: 1px solid rgba(120, 160, 255, 0.16);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .match h3 { margin: 0 0 6px; font-size: 0.9rem; color: #d8e6ff; }
+  .match p, .hint p { margin: 0; color: #a9b9d7; line-height: 1.6; font-size: 0.82rem; }
+  .pill {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(86, 125, 255, 0.2);
+    color: #acc2ff;
+    font-size: 0.72rem;
+  }
+  .hint { padding: 14px 16px; }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🧭 Gemma4 観光案内 (WASM scaffold)</h1>
+    <p class="sub">RAG のデータ投入・検索・結果表示を WASM 側に寄せた土台です。Gemma4 本体は後で差し込めるようにしてあります。</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>1. 観光データを読み込む</h2>
+      <p class="meta">JSON 配列で投入します。各項目は <code>{"title":"...", "body":"..."}</code> です。</p>
+      <label for="corpus">RAG corpus</label>
+      <textarea id="corpus" spellcheck="false">[
+  {"title":"サンプル1","body":"駅前から歩いて5分の観光案内所。地図、バス、飲食店の案内をまとめています。"},
+  {"title":"サンプル2","body":"展望台は夕方が見どころ。夜景、写真スポット、トイレの情報が必要です。"}
+]</textarea>
+      <div class="row" style="margin-top:10px">
+        <button id="load-btn">📥 読み込む</button>
+        <button id="clear-btn">🧹 クリア</button>
+        <label class="link" for="file">📄 JSON ファイル</label>
+        <input id="file" type="file" accept="application/json" hidden>
+      </div>
+      <p class="meta" id="doc-count">0 件</p>
+    </section>
+
+    <section class="panel">
+      <h2>2. 質問する</h2>
+      <label for="query">質問</label>
+      <input id="query" placeholder="例: 駅から近い観光案内は？">
+      <div class="row" style="margin-top:10px">
+        <button id="ask-btn">💬 送信</button>
+        <a class="link" href="../">← アリサクエストに戻る</a>
+      </div>
+      <label>回答</label>
+      <div class="result" id="answer">まだ質問されていません。</div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>3. 参照候補</h2>
+    <div class="matches" id="matches"></div>
+  </section>
+
+  <div class="hint">
+    <p>このページは WASM で RAG の土台を動かします。後から Gemma4 の推論レイヤーを組み込めるよう、データ投入と検索結果の受け渡しを先に固めています。</p>
+  </div>
+</div>
+
+<script type="module">
+import init, { clear_documents, load_documents, document_count, query_guide } from './wasm/tour_guide_wasm.js';
+
+const corpusEl = document.getElementById('corpus');
+const queryEl = document.getElementById('query');
+const answerEl = document.getElementById('answer');
+const matchesEl = document.getElementById('matches');
+const countEl = document.getElementById('doc-count');
+
+const STORAGE_KEY = 'arisa-quest-tour-guide-corpus-v1';
+
+function setCount() {
+  countEl.textContent = `${document_count()} 件`;
+}
+
+function renderResult(raw) {
+  const data = JSON.parse(raw);
+  answerEl.textContent = data.answer;
+  matchesEl.innerHTML = (data.matches || []).map(item => `
+    <article class="match">
+      <h3>${escapeHtml(item.title)}</h3>
+      <p>${escapeHtml(item.snippet)}</p>
+      <span class="pill">score: ${Number(item.score || 0).toFixed(3)}</span>
+    </article>
+  `).join('') || '<div class="meta">一致候補はありません。</div>';
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+await init('./wasm/tour_guide_wasm_bg.wasm');
+
+function syncCorpus(text) {
+  load_documents(text);
+  localStorage.setItem(STORAGE_KEY, text);
+  setCount();
+}
+
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) {
+  corpusEl.value = saved;
+}
+
+try {
+  syncCorpus(corpusEl.value);
+} catch (e) {
+  answerEl.textContent = `corpus の読み込みに失敗しました: ${e.message}`;
+}
+
+document.getElementById('load-btn').addEventListener('click', () => {
+  try {
+    syncCorpus(corpusEl.value);
+    answerEl.textContent = '読み込みました。質問してください。';
+  } catch (e) {
+    answerEl.textContent = `corpus の読み込みに失敗しました: ${e.message}`;
+  }
+});
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  clear_documents();
+  localStorage.removeItem(STORAGE_KEY);
+  setCount();
+  answerEl.textContent = 'データを消去しました。';
+  matchesEl.innerHTML = '';
+});
+
+document.getElementById('file').addEventListener('change', async (ev) => {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  corpusEl.value = await file.text();
+  document.getElementById('load-btn').click();
+});
+
+document.getElementById('ask-btn').addEventListener('click', () => {
+  const query = queryEl.value.trim();
+  if (!query) return;
+  renderResult(query_guide(query));
+});
+
+queryEl.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') {
+    ev.preventDefault();
+    document.getElementById('ask-btn').click();
+  }
+});
+</script>
+</body>
+</html>

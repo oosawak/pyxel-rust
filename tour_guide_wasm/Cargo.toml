@@ -1,0 +1,25 @@
+[package]
+name = "tour_guide_wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WASM tourism guide scaffold for Arisa Quest"
+license = "MIT"
+repository = "https://github.com/oosawak/pyxel-rust"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

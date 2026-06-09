@@ -2588,7 +2588,9 @@
                         { name: 'Lineboy', emoji: '🚂', callback: startLineboyGame },
                         { name: 'CubeBoy(Rust)', emoji: '🟣', callback: startPxCubeboyGame },
                         { name: 'Lineboy(Rust)', emoji: '🟦', callback: startPxLineboyGame },
-                        { name: 'Maze 3D', emoji: '🌀', callback: startMaze3dGame }
+                        { name: 'Maze 3D', emoji: '🌀', callback: startMaze3dGame },
+                        { name: '観光案内 (WASM)', emoji: '🤖', callback: () => window.open('./tour-guide/', '_blank') },
+                        { name: '船の予約', emoji: '⛴', callback: () => window.open('./ship-reservation/', '_blank') }
                     ];
                     landmarks.forEach((lm, idx) => {
                         // GPS位置から±0.008度のランダムオフセット（約900m以内）

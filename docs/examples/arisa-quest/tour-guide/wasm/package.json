@@ -1,0 +1,15 @@
+{
+  "name": "tour_guide_wasm",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "tour_guide_wasm_bg.wasm",
+    "tour_guide_wasm.js",
+    "tour_guide_wasm.d.ts"
+  ],
+  "main": "tour_guide_wasm.js",
+  "types": "tour_guide_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

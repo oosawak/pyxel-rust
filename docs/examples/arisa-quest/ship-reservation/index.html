@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>船の予約</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100svh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: linear-gradient(180deg, #07111f, #03060d);
+    color: #edf4ff;
+    padding: 20px;
+  }
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    gap: 16px;
+  }
+  .panel {
+    background: rgba(8, 14, 28, 0.84);
+    border: 1px solid rgba(120, 160, 255, 0.15);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  h1, h2 { margin: 0 0 10px; }
+  p, label { color: #9cb3d5; }
+  input, textarea, select {
+    width: 100%;
+    margin-top: 6px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(120, 160, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(4, 8, 20, 0.92);
+    color: #eef4ff;
+    padding: 10px 12px;
+    font: inherit;
+  }
+  .row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  button, a {
+    border: 1px solid rgba(120, 160, 255, 0.22);
+    background: linear-gradient(180deg, rgba(78, 116, 255, 0.28), rgba(33, 57, 137, 0.28));
+    color: #edf4ff;
+    border-radius: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .list {
+    display: grid;
+    gap: 10px;
+  }
+  .item {
+    background: rgba(4, 8, 20, 0.74);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .meta { font-size: 0.78rem; color: #9cb3d5; }
+  @media (max-width: 760px) {
+    .row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="panel">
+    <h1>⛴ 船の予約</h1>
+    <p>WASM ではなく、まずは Arisa Quest 内の予約デモとして動かします。</p>
+    <div class="row">
+      <div>
+        <label>出発地<input id="from" placeholder="港名"></label>
+      </div>
+      <div>
+        <label>到着地<input id="to" placeholder="港名"></label>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>日時<input id="date" type="datetime-local"></label>
+      </div>
+      <div>
+        <label>人数<input id="passengers" type="number" min="1" value="1"></label>
+      </div>
+    </div>
+    <label>名前<input id="name" placeholder="予約者名"></label>
+    <label>備考<textarea id="note" rows="3" placeholder="送迎や荷物の希望など"></textarea></label>
+    <div class="row">
+      <button id="reserve-btn">📘 予約する</button>
+      <a href="../">← アリサクエストに戻る</a>
+    </div>
+    <p class="meta" id="status"></p>
+  </section>
+
+  <section class="panel">
+    <h2>予約一覧</h2>
+    <div class="list" id="list"></div>
+  </section>
+</div>
+
+<script>
+const STORAGE_KEY = 'arisa-quest-ship-reservations-v1';
+const statusEl = document.getElementById('status');
+const listEl = document.getElementById('list');
+
+function loadItems() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveItems(items) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+function render() {
+  const items = loadItems();
+  if (!items.length) {
+    listEl.innerHTML = '<div class="meta">まだ予約はありません。</div>';
+    return;
+  }
+  listEl.innerHTML = items.map(item => `
+    <div class="item">
+      <div><strong>${escapeHtml(item.from)} → ${escapeHtml(item.to)}</strong></div>
+      <div class="meta">${escapeHtml(item.date)} / ${escapeHtml(item.passengers)} 名 / ${escapeHtml(item.name)}</div>
+      <div class="meta">${escapeHtml(item.note || 'メモなし')}</div>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+document.getElementById('reserve-btn').addEventListener('click', () => {
+  const from = document.getElementById('from').value.trim();
+  const to = document.getElementById('to').value.trim();
+  const date = document.getElementById('date').value;
+  const passengers = Number(document.getElementById('passengers').value || 1);
+  const name = document.getElementById('name').value.trim();
+  const note = document.getElementById('note').value.trim();
+
+  if (!from || !to || !date || !name) {
+    statusEl.textContent = '出発地・到着地・日時・名前を入力してください。';
+    return;
+  }
+
+  const items = loadItems();
+  items.unshift({ from, to, date, passengers, name, note, createdAt: new Date().toISOString() });
+  saveItems(items);
+  statusEl.textContent = '予約を保存しました。';
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
