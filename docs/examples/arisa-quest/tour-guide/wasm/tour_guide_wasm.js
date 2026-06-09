@@ -12,8 +12,39 @@ export function add_document(title, body) {
     wasm.add_document(ptr0, len0, ptr1, len1);
 }
 
+/**
+ * @param {string} query
+ * @returns {string}
+ */
+export function build_prompt_text(query) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(query, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.build_prompt_text(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        deferred2_0 = r0;
+        deferred2_1 = r1;
+        return getStringFromWasm0(r0, r1);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
+    }
+}
+
 export function clear_documents() {
     wasm.clear_documents();
+}
+
+/**
+ * @returns {number}
+ */
+export function context_limit() {
+    const ret = wasm.context_limit();
+    return ret >>> 0;
 }
 
 /**
@@ -63,6 +94,42 @@ export function query_guide(query) {
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
         wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * @param {number} limit
+ */
+export function set_context_limit(limit) {
+    wasm.set_context_limit(limit);
+}
+
+/**
+ * @param {string} prompt
+ */
+export function set_system_prompt(prompt) {
+    const ptr0 = passStringToWasm0(prompt, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+    const len0 = WASM_VECTOR_LEN;
+    wasm.set_system_prompt(ptr0, len0);
+}
+
+/**
+ * @returns {string}
+ */
+export function system_prompt_text() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.system_prompt_text(retptr);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        deferred1_0 = r0;
+        deferred1_1 = r1;
+        return getStringFromWasm0(r0, r1);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export3(deferred1_0, deferred1_1, 1);
     }
 }
 function __wbg_get_imports() {

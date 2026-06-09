@@ -114,11 +114,11 @@
   <div class="grid">
     <section class="panel">
       <h2>1. 観光データを読み込む</h2>
-      <p class="meta">JSON 配列で投入します。各項目は <code>{"title":"...", "body":"..."}</code> です。</p>
+      <p class="meta">JSON 配列で投入します。各項目は <code>{"title":"...", "body":"...", "source":"...", "tags":["..."]}</code> です。</p>
       <label for="corpus">RAG corpus</label>
       <textarea id="corpus" spellcheck="false">[
-  {"title":"サンプル1","body":"駅前から歩いて5分の観光案内所。地図、バス、飲食店の案内をまとめています。"},
-  {"title":"サンプル2","body":"展望台は夕方が見どころ。夜景、写真スポット、トイレの情報が必要です。"}
+  {"title":"観光案内所","body":"駅前から歩いて5分の観光案内所。地図、バス、飲食店の案内をまとめています。","source":"access-guide.md","tags":["access","bus","food"]},
+  {"title":"展望台","body":"展望台は夕方が見どころ。夜景、写真スポット、トイレの情報が必要です。","source":"sightseeing.md","tags":["view","photo","night"]}
 ]</textarea>
       <div class="row" style="margin-top:10px">
         <button id="load-btn">📥 読み込む</button>
@@ -133,12 +133,19 @@
       <h2>2. 質問する</h2>
       <label for="query">質問</label>
       <input id="query" placeholder="例: 駅から近い観光案内は？">
+      <label for="system-prompt">システムプロンプト</label>
+      <textarea id="system-prompt" style="min-height:90px">あなたは観光案内のアシスタントです。与えられた観光データだけを優先して簡潔に答えてください。</textarea>
+      <label for="context-limit">コンテキスト上限（文字）</label>
+      <input id="context-limit" type="number" min="200" step="50" value="1200">
       <div class="row" style="margin-top:10px">
+        <button id="apply-btn">⚙ 適用</button>
         <button id="ask-btn">💬 送信</button>
         <a class="link" href="../">← アリサクエストに戻る</a>
       </div>
       <label>回答</label>
       <div class="result" id="answer">まだ質問されていません。</div>
+      <label>Gemma4 入力用 prompt</label>
+      <div class="result" id="prompt">まだ生成されていません。</div>
     </section>
   </div>
 
@@ -153,15 +160,20 @@
 </div>
 
 <script type="module">
-import init, { clear_documents, load_documents, document_count, query_guide } from './wasm/tour_guide_wasm.js';
+import init, { clear_documents, load_documents, document_count, query_guide, set_system_prompt, set_context_limit } from './wasm/tour_guide_wasm.js';
 
 const corpusEl = document.getElementById('corpus');
 const queryEl = document.getElementById('query');
+const systemPromptEl = document.getElementById('system-prompt');
+const contextLimitEl = document.getElementById('context-limit');
 const answerEl = document.getElementById('answer');
+const promptEl = document.getElementById('prompt');
 const matchesEl = document.getElementById('matches');
 const countEl = document.getElementById('doc-count');
 
 const STORAGE_KEY = 'arisa-quest-tour-guide-corpus-v1';
+const PROMPT_KEY = 'arisa-quest-tour-guide-system-prompt-v1';
+const CONTEXT_KEY = 'arisa-quest-tour-guide-context-limit-v1';
 
 function setCount() {
   countEl.textContent = `${document_count()} 件`;
@@ -170,10 +182,13 @@ function setCount() {
 function renderResult(raw) {
   const data = JSON.parse(raw);
   answerEl.textContent = data.answer;
+  promptEl.textContent = data.prompt || '';
   matchesEl.innerHTML = (data.matches || []).map(item => `
     <article class="match">
       <h3>${escapeHtml(item.title)}</h3>
       <p>${escapeHtml(item.snippet)}</p>
+      ${item.source ? `<p class="meta">出典: ${escapeHtml(item.source)}</p>` : ''}
+      ${item.tags?.length ? `<p class="meta">タグ: ${item.tags.map(escapeHtml).join(', ')}</p>` : ''}
       <span class="pill">score: ${Number(item.score || 0).toFixed(3)}</span>
     </article>
   `).join('') || '<div class="meta">一致候補はありません。</div>';
@@ -196,9 +211,24 @@ function syncCorpus(text) {
   setCount();
 }
 
+function applyPromptSettings() {
+  set_system_prompt(systemPromptEl.value);
+  set_context_limit(Number(contextLimitEl.value || 1200));
+  localStorage.setItem(PROMPT_KEY, systemPromptEl.value);
+  localStorage.setItem(CONTEXT_KEY, String(contextLimitEl.value || 1200));
+}
+
 const saved = localStorage.getItem(STORAGE_KEY);
 if (saved) {
   corpusEl.value = saved;
+}
+const savedPrompt = localStorage.getItem(PROMPT_KEY);
+if (savedPrompt) {
+  systemPromptEl.value = savedPrompt;
+}
+const savedContextLimit = localStorage.getItem(CONTEXT_KEY);
+if (savedContextLimit) {
+  contextLimitEl.value = savedContextLimit;
 }
 
 try {
@@ -206,6 +236,7 @@ try {
 } catch (e) {
   answerEl.textContent = `corpus の読み込みに失敗しました: ${e.message}`;
 }
+applyPromptSettings();
 
 document.getElementById('load-btn').addEventListener('click', () => {
   try {
@@ -214,6 +245,10 @@ document.getElementById('load-btn').addEventListener('click', () => {
   } catch (e) {
     answerEl.textContent = `corpus の読み込みに失敗しました: ${e.message}`;
   }
+});
+
+document.getElementById('apply-btn').addEventListener('click', () => {
+  applyPromptSettings();
 });
 
 document.getElementById('clear-btn').addEventListener('click', () => {
@@ -234,6 +269,7 @@ document.getElementById('file').addEventListener('change', async (ev) => {
 document.getElementById('ask-btn').addEventListener('click', () => {
   const query = queryEl.value.trim();
   if (!query) return;
+  applyPromptSettings();
   renderResult(query_guide(query));
 });
 

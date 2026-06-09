@@ -3,7 +3,11 @@
 
 export function add_document(title: string, body: string): void;
 
+export function build_prompt_text(query: string): string;
+
 export function clear_documents(): void;
+
+export function context_limit(): number;
 
 export function document_count(): number;
 
@@ -11,15 +15,26 @@ export function load_documents(json_text: string): void;
 
 export function query_guide(query: string): string;
 
+export function set_context_limit(limit: number): void;
+
+export function set_system_prompt(prompt: string): void;
+
+export function system_prompt_text(): string;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly add_document: (a: number, b: number, c: number, d: number) => void;
+    readonly build_prompt_text: (a: number, b: number, c: number) => void;
     readonly clear_documents: () => void;
+    readonly context_limit: () => number;
     readonly document_count: () => number;
     readonly load_documents: (a: number, b: number, c: number) => void;
     readonly query_guide: (a: number, b: number, c: number) => void;
+    readonly set_context_limit: (a: number) => void;
+    readonly set_system_prompt: (a: number, b: number) => void;
+    readonly system_prompt_text: (a: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;

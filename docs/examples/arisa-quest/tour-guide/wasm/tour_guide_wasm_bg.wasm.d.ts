@@ -2,10 +2,15 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const add_document: (a: number, b: number, c: number, d: number) => void;
+export const build_prompt_text: (a: number, b: number, c: number) => void;
 export const clear_documents: () => void;
+export const context_limit: () => number;
 export const document_count: () => number;
 export const load_documents: (a: number, b: number, c: number) => void;
 export const query_guide: (a: number, b: number, c: number) => void;
+export const set_context_limit: (a: number) => void;
+export const set_system_prompt: (a: number, b: number) => void;
+export const system_prompt_text: (a: number) => void;
 export const __wbindgen_export: (a: number, b: number) => number;
 export const __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_add_to_stack_pointer: (a: number) => number;

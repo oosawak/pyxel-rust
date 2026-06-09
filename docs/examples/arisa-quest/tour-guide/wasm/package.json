@@ -1,7 +1,13 @@
 {
   "name": "tour_guide_wasm",
   "type": "module",
+  "description": "WASM tourism guide scaffold for Arisa Quest",
   "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oosawak/pyxel-rust"
+  },
   "files": [
     "tour_guide_wasm_bg.wasm",
     "tour_guide_wasm.js",
