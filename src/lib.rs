@@ -11,6 +11,11 @@ pub mod backend;
 pub mod api;
 pub mod games;
 
+/// Official Pyxel 3.0 Cube types, scene graph, collisions, and software renderer.
+/// Available on the SDL2 desktop backend.
+#[cfg(feature = "pyxel-core-backend")]
+pub use pyxel::{cube, screen};
+
 // Re-export pyxel-core types when using pyxel-core-backend
 #[cfg(feature = "pyxel-core-backend")]
 pub use pyxel::{Color, Image, Tilemap, Sound, Music, Channel};
