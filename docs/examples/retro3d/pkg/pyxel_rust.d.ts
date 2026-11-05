@@ -80,6 +80,18 @@ export function reset_retro3d(): void;
 
 export function retro3d_angle(): number;
 
+export function retro3d_animation_duration(): number;
+
+export function retro3d_animation_index(): number;
+
+export function retro3d_animation_names(): string;
+
+export function retro3d_animation_playing(): boolean;
+
+export function retro3d_animation_time(): number;
+
+export function retro3d_auto_rotate(): boolean;
+
 export function retro3d_distance(): number;
 
 export function retro3d_has_model(): boolean;
@@ -88,10 +100,22 @@ export function retro3d_paused(): boolean;
 
 export function rotate_retro3d(degrees: number): void;
 
+export function seek_retro3d_animation(seconds: number): void;
+
+export function select_retro3d_animation(index: number): void;
+
 /**
  * タッチ UI から直接呼べるキー状態セット関数
  */
 export function set_key(idx: number, down: boolean): void;
+
+export function set_retro3d_animation_loop(looping: boolean): void;
+
+export function set_retro3d_animation_playing(playing: boolean): void;
+
+export function set_retro3d_animation_speed(speed: number): void;
+
+export function set_retro3d_auto_rotate(enabled: boolean): void;
 
 export function set_retro3d_distance(distance: number): void;
 
@@ -129,17 +153,29 @@ export interface InitOutput {
     readonly main_nanoteras: () => void;
     readonly reset_retro3d: () => void;
     readonly retro3d_angle: () => number;
+    readonly retro3d_animation_duration: () => number;
+    readonly retro3d_animation_index: () => number;
+    readonly retro3d_animation_names: () => [number, number];
+    readonly retro3d_animation_playing: () => number;
+    readonly retro3d_animation_time: () => number;
+    readonly retro3d_auto_rotate: () => number;
     readonly retro3d_distance: () => number;
     readonly retro3d_has_model: () => number;
     readonly retro3d_paused: () => number;
     readonly rotate_retro3d: (a: number) => void;
+    readonly seek_retro3d_animation: (a: number) => [number, number];
+    readonly select_retro3d_animation: (a: number) => [number, number];
     readonly set_key: (a: number, b: number) => void;
+    readonly set_retro3d_animation_loop: (a: number) => void;
+    readonly set_retro3d_animation_playing: (a: number) => void;
+    readonly set_retro3d_animation_speed: (a: number) => [number, number];
+    readonly set_retro3d_auto_rotate: (a: number) => void;
     readonly set_retro3d_distance: (a: number) => void;
     readonly set_retro3d_paused: (a: number) => void;
     readonly start_battle_from_js: (a: number) => void;
     readonly start_retro3d: () => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__30: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__42: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

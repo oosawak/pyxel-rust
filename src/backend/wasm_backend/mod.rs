@@ -546,6 +546,12 @@ fn register_keyboard_events() {
     let window = match web_sys::window() { Some(w) => w, None => return };
 
     let keydown = Closure::<dyn FnMut(KeyboardEvent)>::new(|e: KeyboardEvent| {
+        // Form controls retain native arrow/space behavior for timeline and clip UI.
+        if e.target().and_then(|target| target.dyn_into::<web_sys::Element>().ok())
+            .and_then(|target| target.closest("input, select, textarea, button, [contenteditable]").ok().flatten())
+            .is_some() {
+            return;
+        }
         let idx = code_to_idx(&e.code());
         state().input.set_key(idx, true);
         // Prevent default for arrow keys and space to avoid page scroll

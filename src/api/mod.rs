@@ -24,3 +24,8 @@ pub use constants::*;
 pub mod graphics3d;
 #[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
 pub use graphics3d::{render_3d, blit_3d, draw_mesh_3d};
+
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub mod animation3d;
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub use animation3d::MeshAnimationPlayer;

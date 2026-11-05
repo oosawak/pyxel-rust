@@ -19,7 +19,7 @@
     .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; align-items: center; }
     button { color: inherit; font: inherit; background: #222b40; border: 1px solid #495477; border-radius: 8px; padding: 10px 16px; cursor: pointer; min-height: 44px; }
     button:hover { background: #33415f; }
-    button:focus-visible, input:focus-visible, canvas:focus-visible { outline: 3px solid #70c6a9; outline-offset: 3px; }
+    button:focus-visible, input:focus-visible, select:focus-visible, canvas:focus-visible { outline: 3px solid #70c6a9; outline-offset: 3px; }
     button:disabled { opacity: .4; cursor: wait; }
     label { display: flex; align-items: center; gap: 12px; margin-left: auto; }
     input[type="range"] { width: 110px; accent-color: #70c6a9; }
@@ -29,6 +29,12 @@
     .model-row label { margin: 0; display: block; }
     input[type="file"] { max-width: 100%; width: 320px; font: inherit; font-size: 13px; }
     input::file-selector-button { color: #eef0f7; background: #222b40; border: 1px solid #495477; border-radius: 8px; padding: 12px; margin-right: 8px; cursor: pointer; }
+    .animation-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; }
+    .animation-controls[hidden] { display: none; }
+    .animation-controls label { margin: 0; font-size: 13px; }
+    select { color: inherit; background: #222b40; border: 1px solid #495477; border-radius: 8px; padding: 10px; min-height: 44px; max-width: 100%; }
+    #animation-time { color: #aeb8ce; font-size: 13px; font-variant-numeric: tabular-nums; }
+    #auto-rotate-label { margin-left: 0; font-size: 13px; }
     #model-status { color: #aeb8ce; font-size: 13px; line-height: 1.7; margin-top: 12px; overflow-wrap: anywhere; }
     #model-status[role="alert"] { color: #ff9798; }
     #status { font-size: 13px; color: #70c6a9; }
@@ -50,6 +56,7 @@
       <button id="left" aria-label="左に回転" disabled>←</button>
       <button id="right" aria-label="右に回転" disabled>→</button>
       <button id="reset" disabled>リセット</button>
+      <label id="auto-rotate-label"><input id="auto-rotate" type="checkbox" checked disabled>自動回転</label>
       <label for="distance">距離 <input id="distance" type="range" min="5" max="10" value="7" step="0.1" disabled></label>
     </div>
     <div id="status" role="status">読み込み中…</div>
@@ -58,9 +65,19 @@
       <div class="model-row">
         <label for="model-file">ファイルを選ぶ <input id="model-file" type="file" accept=".glb,model/gltf-binary" disabled></label>
         <button id="load-sample" disabled>サンプルを表示</button>
+        <button id="load-animated-sample" disabled>動くサンプル</button>
         <button id="clear-model" disabled>立方体に戻す</button>
       </div>
       <div id="model-status" role="status">テクスチャを埋め込んだGLBファイルに対応（最大16 MiB）。ファイルはブラウザ内で処理します。</div>
+      <div id="animation-panel" class="animation-controls" hidden>
+        <label for="animation-clip">アニメーション <select id="animation-clip" disabled></select></label>
+        <button id="animation-play" disabled>アニメーション再生</button>
+        <button id="animation-rewind" disabled>先頭へ</button>
+        <label><input id="animation-loop" type="checkbox" checked disabled>ループ</label>
+        <label for="animation-speed">速度 <select id="animation-speed" disabled><option value="0.5">0.5倍</option><option value="1" selected>1倍</option><option value="2">2倍</option></select></label>
+        <label for="animation-seek">再生位置 <input id="animation-seek" type="range" min="0" max="1" step="0.01" value="0" disabled></label>
+        <output id="animation-time" for="animation-seek">0.00 / 0.00 秒</output>
+      </div>
     </section>
     <p class="hint">キーボード：← → 回転 / Space 一時停止 / R リセット<br>スマートフォンでは画面下のボタンで操作できます。</p>
   </main>
@@ -71,10 +88,13 @@
     try {
       const { default: init, start_retro3d, set_retro3d_paused, retro3d_paused, retro3d_distance,
         rotate_retro3d, reset_retro3d, set_retro3d_distance, load_retro3d_glb,
-        clear_retro3d_model, retro3d_has_model } = await import('./pkg/pyxel_rust.js');
+        clear_retro3d_model, retro3d_has_model, retro3d_animation_names, select_retro3d_animation,
+        retro3d_animation_index, retro3d_animation_time, retro3d_animation_duration, retro3d_animation_playing,
+        set_retro3d_animation_playing, seek_retro3d_animation, set_retro3d_animation_loop,
+        set_retro3d_animation_speed, set_retro3d_auto_rotate, retro3d_auto_rotate } = await import('./pkg/pyxel_rust.js');
       await init();
       start_retro3d();
-      document.querySelectorAll('.toolbar button, .toolbar input, #model-file, #load-sample').forEach(el => { el.disabled = false; });
+      document.querySelectorAll('.toolbar button, .toolbar input, #model-file, #load-sample, #load-animated-sample').forEach(el => { el.disabled = false; });
       pause.onclick = () => set_retro3d_paused(!retro3d_paused());
       document.getElementById('left').onclick = () => rotate_retro3d(-15);
       document.getElementById('right').onclick = () => rotate_retro3d(15);
@@ -83,13 +103,43 @@
       const fileInput = document.getElementById('model-file');
       const sampleButton = document.getElementById('load-sample');
       const clearButton = document.getElementById('clear-model');
+      const animatedSample = document.getElementById('load-animated-sample');
+      const autoRotate = document.getElementById('auto-rotate');
+      const animationPanel = document.getElementById('animation-panel');
+      const animationClip = document.getElementById('animation-clip');
+      const animationPlay = document.getElementById('animation-play');
+      const animationSeek = document.getElementById('animation-seek');
+      const animationLoop = document.getElementById('animation-loop');
+      const animationSpeed = document.getElementById('animation-speed');
       const modelStatus = document.getElementById('model-status');
       const canvas = document.getElementById('pyxel_canvas');
       let loadId = 0;
       const setLoading = loading => {
         fileInput.disabled = loading;
         sampleButton.disabled = loading;
+        animatedSample.disabled = loading;
       };
+      const refreshAnimations = () => {
+        const names = JSON.parse(retro3d_animation_names());
+        animationPanel.hidden = names.length === 0;
+        animationClip.replaceChildren(new Option('元の姿勢', '-1'));
+        names.forEach((name, i) => animationClip.add(new Option(name || `アニメーション ${i + 1}`, String(i))));
+        animationClip.value = String(retro3d_animation_index());
+        animationPanel.querySelectorAll('input, select, button').forEach(el => { el.disabled = names.length === 0; });
+        animationLoop.checked = true;
+        animationSpeed.value = '1';
+        sync();
+      };
+      autoRotate.onchange = () => set_retro3d_auto_rotate(autoRotate.checked);
+      animationClip.onchange = () => { select_retro3d_animation(Number(animationClip.value)); sync(); };
+      animationPlay.onclick = () => set_retro3d_animation_playing(!retro3d_animation_playing());
+      document.getElementById('animation-rewind').onclick = () => seek_retro3d_animation(0);
+      animationSeek.oninput = () => {
+        set_retro3d_animation_playing(false);
+        seek_retro3d_animation(Number(animationSeek.value));
+      };
+      animationLoop.onchange = () => set_retro3d_animation_loop(animationLoop.checked);
+      animationSpeed.onchange = () => set_retro3d_animation_speed(Number(animationSpeed.value));
       const loadModel = async (read, name) => {
         const id = ++loadId;
         setLoading(true);
@@ -101,6 +151,7 @@
           const triangles = load_retro3d_glb(new Uint8Array(buffer));
           modelStatus.textContent = `${name} — ${triangles} 三角形。表示位置と大きさを自動調整しました。`;
           clearButton.disabled = false;
+          refreshAnimations();
           canvas.setAttribute('aria-label', '読み込んだGLBモデル。左右キーで回転、スペースで一時停止、Rで表示をリセット。');
         } catch (error) {
           if (id !== loadId) return;
@@ -127,9 +178,15 @@
         if (!response.ok) throw new Error('サンプルファイルを取得できませんでした');
         return response.arrayBuffer();
       }, 'テクスチャ付きピラミッド');
+      animatedSample.onclick = () => loadModel(async () => {
+        const response = await fetch('./assets/animated-pyramid.glb');
+        if (!response.ok) throw new Error('サンプルファイルを取得できませんでした');
+        return response.arrayBuffer();
+      }, '動くピラミッド');
       clearButton.onclick = () => {
         ++loadId;
         clear_retro3d_model();
+        refreshAnimations();
         setLoading(false);
         clearButton.disabled = true;
         fileInput.value = '';
@@ -143,6 +200,20 @@
         distance.value = retro3d_distance();
         pause.setAttribute('aria-pressed', String(paused));
         status.textContent = paused ? '一時停止中' : '実行中';
+        autoRotate.checked = retro3d_auto_rotate();
+        if (!animationPanel.hidden) {
+          const duration = retro3d_animation_duration();
+          const elapsed = retro3d_animation_time();
+          const active = retro3d_animation_index() >= 0 && duration > 0;
+          animationPlay.disabled = !active;
+          animationSeek.disabled = !active;
+          document.getElementById('animation-rewind').disabled = !active;
+          animationPlay.textContent = retro3d_animation_playing() ? 'アニメーション停止' : 'アニメーション再生';
+          animationPlay.setAttribute('aria-pressed', String(retro3d_animation_playing()));
+          animationSeek.max = String(duration || 1);
+          if (document.activeElement !== animationSeek) animationSeek.value = String(elapsed);
+          document.getElementById('animation-time').textContent = `${elapsed.toFixed(2)} / ${duration.toFixed(2)} 秒`;
+        }
       };
       sync();
       setInterval(sync, 100);

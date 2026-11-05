@@ -3,6 +3,7 @@ use crate::cube::{draw, Camera, Mat4, Mesh, RcMesh, Vec3};
 use crate::prelude::*;
 use crate::Image;
 use std::cell::RefCell;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Copy)]
@@ -11,6 +12,7 @@ struct Controls {
     distance: f32,
     paused: bool,
     started: bool,
+    auto_rotate: bool,
 }
 
 impl Default for Controls {
@@ -20,6 +22,7 @@ impl Default for Controls {
             distance: 7.0,
             paused: false,
             started: false,
+            auto_rotate: true,
         }
     }
 }
@@ -28,6 +31,7 @@ impl Default for Controls {
 struct LoadedModel {
     mesh: RcMesh,
     fit: crate::cube::RcMat4,
+    player: Rc<RefCell<MeshAnimationPlayer>>,
 }
 
 thread_local! {
@@ -84,7 +88,21 @@ pub fn load_retro3d_glb(bytes: &[u8]) -> Result<u32, JsValue> {
         [0.0, 0.0, scale, -center[2] * scale],
         [0.0, 0.0, 0.0, 1.0],
     ]);
-    MODEL.with(|model| *model.borrow_mut() = Some(LoadedModel { mesh, fit }));
+    let mut player =
+        MeshAnimationPlayer::new(mesh.clone(), 30.0).map_err(|e| JsValue::from_str(&e))?;
+    if !player.clips().is_empty() {
+        player
+            .select_clip(Some(0))
+            .map_err(|e| JsValue::from_str(&e))?;
+        CONTROLS.with(|c| c.borrow_mut().auto_rotate = false);
+    }
+    MODEL.with(|model| {
+        *model.borrow_mut() = Some(LoadedModel {
+            mesh,
+            fit,
+            player: Rc::new(RefCell::new(player)),
+        })
+    });
     Ok(triangles as u32)
 }
 
@@ -96,6 +114,141 @@ pub fn clear_retro3d_model() {
 #[wasm_bindgen]
 pub fn retro3d_has_model() -> bool {
     MODEL.with(|model| model.borrow().is_some())
+}
+
+#[wasm_bindgen]
+pub fn retro3d_animation_names() -> String {
+    MODEL.with(|m| {
+        let names: Vec<String> = m
+            .borrow()
+            .as_ref()
+            .map(|m| {
+                m.player
+                    .borrow()
+                    .clips()
+                    .into_iter()
+                    .map(|(name, _)| name)
+                    .collect()
+            })
+            .unwrap_or_default();
+        serde_json::to_string(&names).expect("Animation names are strings")
+    })
+}
+
+#[wasm_bindgen]
+pub fn select_retro3d_animation(index: i32) -> Result<(), JsValue> {
+    MODEL.with(|m| {
+        let model = m.borrow();
+        let model = model
+            .as_ref()
+            .ok_or_else(|| JsValue::from_str("Load a GLB model first"))?;
+        let clip = match index {
+            -1 => None,
+            i if i >= 0 => Some(i as usize),
+            _ => return Err(JsValue::from_str("Animation clip is out of range")),
+        };
+        let result = model
+            .player
+            .borrow_mut()
+            .select_clip(clip)
+            .map_err(|e| JsValue::from_str(&e));
+        result
+    })
+}
+
+#[wasm_bindgen]
+pub fn retro3d_animation_index() -> i32 {
+    MODEL.with(|m| {
+        m.borrow()
+            .as_ref()
+            .and_then(|m| m.player.borrow().selected_clip())
+            .map_or(-1, |i| i as i32)
+    })
+}
+
+#[wasm_bindgen]
+pub fn retro3d_animation_time() -> f32 {
+    MODEL.with(|m| {
+        m.borrow()
+            .as_ref()
+            .map_or(0.0, |m| m.player.borrow().elapsed())
+    })
+}
+
+#[wasm_bindgen]
+pub fn retro3d_animation_duration() -> f32 {
+    MODEL.with(|m| {
+        m.borrow()
+            .as_ref()
+            .map_or(0.0, |m| m.player.borrow().duration())
+    })
+}
+
+#[wasm_bindgen]
+pub fn retro3d_animation_playing() -> bool {
+    !retro3d_paused()
+        && MODEL.with(|m| {
+            m.borrow()
+                .as_ref()
+                .is_some_and(|m| m.player.borrow().is_playing())
+        })
+}
+
+#[wasm_bindgen]
+pub fn set_retro3d_animation_playing(playing: bool) {
+    MODEL.with(|m| {
+        if let Some(m) = m.borrow().as_ref() {
+            m.player.borrow_mut().set_playing(playing);
+        }
+    });
+    if playing {
+        set_retro3d_paused(false);
+    }
+}
+
+#[wasm_bindgen]
+pub fn seek_retro3d_animation(seconds: f32) -> Result<(), JsValue> {
+    MODEL.with(|m| {
+        if let Some(m) = m.borrow().as_ref() {
+            m.player
+                .borrow_mut()
+                .seek(seconds)
+                .map_err(|e| JsValue::from_str(&e))?;
+        }
+        Ok(())
+    })
+}
+
+#[wasm_bindgen]
+pub fn set_retro3d_animation_loop(looping: bool) {
+    MODEL.with(|m| {
+        if let Some(m) = m.borrow().as_ref() {
+            m.player.borrow_mut().set_looping(looping);
+        }
+    });
+}
+
+#[wasm_bindgen]
+pub fn set_retro3d_animation_speed(speed: f32) -> Result<(), JsValue> {
+    MODEL.with(|m| {
+        if let Some(m) = m.borrow().as_ref() {
+            m.player
+                .borrow_mut()
+                .set_speed(speed)
+                .map_err(|e| JsValue::from_str(&e))?;
+        }
+        Ok(())
+    })
+}
+
+#[wasm_bindgen]
+pub fn set_retro3d_auto_rotate(enabled: bool) {
+    CONTROLS.with(|c| c.borrow_mut().auto_rotate = enabled);
+}
+
+#[wasm_bindgen]
+pub fn retro3d_auto_rotate() -> bool {
+    CONTROLS.with(|c| c.borrow().auto_rotate)
 }
 
 #[wasm_bindgen]
@@ -138,9 +291,10 @@ pub fn set_retro3d_distance(distance: f32) {
 #[wasm_bindgen]
 pub fn reset_retro3d() {
     CONTROLS.with(|c| {
-        let started = c.borrow().started;
+        let previous = *c.borrow();
         *c.borrow_mut() = Controls {
-            started,
+            started: previous.started,
+            auto_rotate: previous.auto_rotate,
             ..Controls::default()
         };
     });
@@ -171,6 +325,7 @@ pub fn start_retro3d() {
                 if btnp(KEY_R) {
                     *controls = Controls {
                         started: true,
+                        auto_rotate: controls.auto_rotate,
                         ..Controls::default()
                     };
                 }
@@ -181,11 +336,21 @@ pub fn start_retro3d() {
                 } else {
                     0.0
                 };
-                if !controls.paused || manual != 0.0 {
+                if (!controls.paused && controls.auto_rotate) || manual != 0.0 {
                     controls.angle = (controls.angle + if manual != 0.0 { manual } else { 1.0 })
                         .rem_euclid(360.0);
                 }
             });
+            if !retro3d_paused() {
+                MODEL.with(|m| {
+                    if let Some(m) = m.borrow().as_ref() {
+                        m.player
+                            .borrow_mut()
+                            .advance(1.0 / 30.0)
+                            .expect("Fixed animation delta is valid");
+                    }
+                });
+            }
         },
         move || {
             let controls = CONTROLS.with(|c| *c.borrow());

@@ -110,13 +110,73 @@ async function pixels(page) {
     await mobile.screenshot({ path: path.join(output, 'mobile-model.png'), fullPage: true });
     assert.deepEqual(errors, [], 'Browser runtime errors');
 
+    // Animation must move mesh vertices while automatic model rotation is off.
+    await page.locator('#load-animated-sample').click();
+    await page.waitForFunction(() => !document.querySelector('#animation-panel').hidden);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(demo.retro3d_animation_names())), ['Bounce', 'Turn']);
+    assert.equal(await page.evaluate(() => demo.retro3d_auto_rotate()), false);
+    await page.locator('#animation-play').click();
+    await page.waitForFunction(() => demo.retro3d_animation_playing());
+    const animationStart = await page.evaluate(() => demo.retro3d_animation_time());
+    await page.waitForFunction(start => demo.retro3d_animation_time() !== start, animationStart);
+    await page.waitForFunction(() => document.querySelector('#animation-play').textContent === 'アニメーション停止');
+    await page.locator('#animation-play').click();
+    await page.waitForFunction(() => !demo.retro3d_animation_playing());
+    const stoppedTime = await page.evaluate(() => demo.retro3d_animation_time());
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => demo.retro3d_animation_time()), stoppedTime);
+    const seek = async seconds => {
+      await page.locator('#animation-seek').evaluate((input, value) => {
+        input.value = String(value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }, seconds);
+      await page.waitForFunction(value => Math.abs(demo.retro3d_animation_time() - value) < 0.001, seconds);
+      await page.waitForTimeout(100);
+    };
+    await seek(0);
+    const restFrame = await pixels(page);
+    await seek(1);
+    await page.locator('#animation-seek').focus();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(() => demo.retro3d_animation_time() > 1);
+    await seek(1);
+    assert.notEqual((await pixels(page)).hash, restFrame.hash, 'Clip sampling must move the rendered mesh');
+    await page.screenshot({ path: path.join(output, 'desktop-animation.png'), fullPage: true });
+    await page.locator('#animation-clip').selectOption('1');
+    await page.waitForFunction(() => demo.retro3d_animation_index() === 1);
+    await seek(1);
+    await page.locator('#animation-clip').selectOption('-1');
+    await page.waitForFunction(() => demo.retro3d_animation_index() === -1);
+    await page.waitForTimeout(100);
+    assert.equal((await pixels(page)).hash, restFrame.hash, 'Rest pose must clear previous clip transforms');
+    await page.locator('#animation-clip').selectOption('0');
+    await page.locator('#animation-loop').uncheck();
+    await page.locator('#animation-speed').selectOption('2');
+    await seek(1.9);
+    await page.waitForFunction(() => !document.querySelector('#animation-play').disabled);
+    await page.locator('#animation-play').click();
+    await page.waitForFunction(() => demo.retro3d_animation_time() === 2 && !demo.retro3d_animation_playing());
+    await page.locator('#clear-model').click();
+    assert.ok(await page.locator('#animation-panel').isHidden());
+
+    await mobile.locator('#load-animated-sample').tap();
+    await mobile.waitForFunction(() => !document.querySelector('#animation-panel').hidden);
+    await mobile.locator('#animation-play').tap();
+    await mobile.waitForFunction(() => demo.retro3d_animation_playing());
+    await mobile.waitForTimeout(200);
+    await mobile.waitForFunction(() => document.querySelector('#animation-play').textContent === 'アニメーション停止');
+    await mobile.locator('#animation-play').tap();
+    await mobile.waitForFunction(() => !demo.retro3d_animation_playing());
+    assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await mobile.screenshot({ path: path.join(output, 'mobile-animation.png'), fullPage: true });
+
     // An unavailable WASM binary must display a recoverable error, not hang on loading.
     const failurePage = await browser.newPage();
     await failurePage.route('**/pyxel_rust_bg.wasm', route => route.abort());
     await failurePage.goto(`${base}/examples/retro3d/`);
     await failurePage.waitForFunction(() => document.querySelector('#status').getAttribute('role') === 'alert');
     assert.ok(await failurePage.locator('#pause').isDisabled());
-    console.log(JSON.stringify({ result: 'passed', checks: ['load', 'canvas colors', 'animation', 'pause', 'rotation', 'zoom', 'keyboard reset', 'keyboard input', 'mobile touch and layout', 'GLB sample', 'embedded textures', 'GLB file selection', 'failed import preserves model', 'clear model', 'mobile model', 'load error'], screenshots: output }));
+    console.log(JSON.stringify({ result: 'passed', checks: ['load', 'canvas colors', 'animation', 'pause', 'rotation', 'zoom', 'keyboard reset', 'keyboard input', 'mobile touch and layout', 'GLB sample', 'embedded textures', 'GLB file selection', 'failed import preserves model', 'clear model', 'mobile model', 'animation playback/pause', 'animation seek', 'clip switch/rest pose', 'nonloop endpoint', 'mobile animation', 'load error'], screenshots: output }));
   } finally {
     await browser.close();
   }

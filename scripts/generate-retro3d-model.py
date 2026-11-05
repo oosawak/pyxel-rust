@@ -1,5 +1,6 @@
 """Generate the self-contained, textured GLB demo/fixture without external assets."""
 import json
+import math
 from pathlib import Path
 import struct
 import zlib
@@ -9,7 +10,7 @@ def png_chunk(kind, data):
     return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
 
 
-def build_glb():
+def build_glb(animated=False):
     positions = [(-1, 0, -1), (1, 0, -1), (1, 0, 1), (-1, 0, 1), (0, 2, 0)]
     indices = [0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 0, 0, 1, 2, 0, 2, 3]
     uv = [(0, 0), (1, 0), (1, 1), (0, 1), (0.5, 0.5)]
@@ -55,6 +56,22 @@ def build_glb():
             {'bufferView': idx_view, 'componentType': 5123, 'count': 18, 'type': 'SCALAR'},
         ],
     }
+    if animated:
+        time_view = append(struct.pack('<3f', 0, 1, 2))
+        bounce_view = append(struct.pack('<9f', 0, 3, 0, 0, 3.8, 0, 0, 3, 0))
+        turn_view = append(struct.pack('<12f', 0, 0, 0, 1, 0, math.sqrt(0.5), 0, math.sqrt(0.5), 0, 1, 0, 0))
+        document['accessors'].extend([
+            {'bufferView': time_view, 'componentType': 5126, 'count': 3, 'type': 'SCALAR', 'min': [0], 'max': [2]},
+            {'bufferView': bounce_view, 'componentType': 5126, 'count': 3, 'type': 'VEC3'},
+            {'bufferView': turn_view, 'componentType': 5126, 'count': 3, 'type': 'VEC4'},
+        ])
+        document['animations'] = [
+            {'name': 'Bounce', 'samplers': [{'input': 3, 'output': 4, 'interpolation': 'LINEAR'}],
+             'channels': [{'sampler': 0, 'target': {'node': 1, 'path': 'translation'}}]},
+            {'name': 'Turn', 'samplers': [{'input': 3, 'output': 5, 'interpolation': 'LINEAR'}],
+             'channels': [{'sampler': 0, 'target': {'node': 0, 'path': 'rotation'}}]},
+        ]
+        document['buffers'][0]['byteLength'] = len(binary)
     encoded = json.dumps(document, separators=(',', ':')).encode()
     encoded += b' ' * (-len(encoded) % 4)
     binary += b'\0' * (-len(binary) % 4)
@@ -64,7 +81,9 @@ def build_glb():
 
 
 if __name__ == '__main__':
-    output = Path(__file__).resolve().parent.parent / 'docs/examples/retro3d/assets/pyramid.glb'
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_bytes(build_glb())
-    print(f'Generated {output.name}: {output.stat().st_size} bytes')
+    folder = Path(__file__).resolve().parent.parent / 'docs/examples/retro3d/assets'
+    folder.mkdir(parents=True, exist_ok=True)
+    for name, animated in [('pyramid.glb', False), ('animated-pyramid.glb', True)]:
+        output = folder / name
+        output.write_bytes(build_glb(animated))
+        print(f'Generated {output.name}: {output.stat().st_size} bytes')

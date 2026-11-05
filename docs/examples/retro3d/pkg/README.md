@@ -177,18 +177,37 @@ Cubeの描画・数学・衝突判定を維持し、SDL2との接続を切り離
 ファイルシステムやPythonのNodeコールバックは使用しません。
 
 デモ下部の「ファイルを選ぶ」で自分のGLBを表示できます。「サンプルを表示」では
-テクスチャ付きピラミッドを読み込みます。選択したファイルはブラウザ内で処理します。
+テクスチャ付きピラミッドを読み込みます。「動くサンプル」には上下移動と回転の2クリップを用意しています。
+選択したファイルはブラウザ内で処理します。
 表示位置と倍率は自動調整し、読み込みに失敗しても現在のモデルを保持します。
 
 対応範囲：
 - デモのファイル上限は16 MiB。画像・バッファをGLBのBINチャンクに埋め込んでください。
 - 埋め込みテクスチャ、ノードの親子変換、パートごとのマテリアルに対応します。
-- ビューワーは静止した三角形メッシュを表示します。アニメーション再生、スキニング、外部画像/バッファは未対応です。
+- ノードの移動・回転・拡大縮小アニメーションを、クリップ選択・再生/停止・シーク・ループ・速度変更で確認できます。
+- スキニング、モーフターゲット、外部画像/バッファは未対応です。表示位置と倍率は初期姿勢を基準に調整します。
 - サンプルは外部アセットを使わず生成しています。`python3 scripts/generate-retro3d-model.py` で再生成できます。
+
+`MeshAnimationPlayer` はSDL2とWASMの共通APIです。GLB読込時と同じFPSを指定し、
+ゲームの `update` から `advance(経過秒)` を呼び出します。選択時に元の姿勢を復元するため、
+異なるノードを動かすクリップに切り替えても前の姿勢が残りません。
+
+```rust
+let mut player = MeshAnimationPlayer::new(mesh.clone(), 30.0)?;
+player.select_clip(Some(0))?;
+player.advance(1.0 / 30.0)?; // ゲーム更新ごとのシミュレーション時間
+player.set_playing(false);
+player.seek(1.0)?;          // 秒単位でシーク
+player.select_clip(None)?;  // 元の姿勢へ戻す
+```
+
+デモの「一時停止」は自動回転とアニメーションを両方停止します。
+アニメーション欄の再生ボタンはモデルの動きを再開し、シークはアニメーションを停止して指定位置を表示します。
+アニメーション付きモデルの読込時は、動きを見やすくするため自動回転をオフにします。
 
 ```bash
 # ブラウザ用のプラットフォーム非依存レンダラーも同じ描画テストを実行
-cargo test --locked --no-default-features --features wasm-backend --test retro3d --test glb_browser
+cargo test --locked --no-default-features --features wasm-backend --test retro3d --test glb_browser --test animation_browser
 
 # ブラウザで表示・操作・モバイルレイアウトを検証（HTTPサーバーを起動した状態）
 npm install --no-save playwright@1.62.1
