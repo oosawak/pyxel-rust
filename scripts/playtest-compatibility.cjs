@@ -1,0 +1,102 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const { chromium } = require('playwright');
+const base = process.env.PYXEL_TEST_URL || 'http://127.0.0.1:8765';
+const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibility-smoke';
+
+(async () => {
+  await fs.mkdir(output, { recursive: true });
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1040, height: 980 } });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(`${base}/examples/retro3d/`);
+    await page.waitForFunction(() => document.querySelector('#status').textContent === '実行中');
+    await page.waitForSelector('#compat-backend', { state: 'attached' });
+    assert.equal(await page.locator('#compatibility').getAttribute('open'), null);
+    await page.locator('#open-compatibility').click();
+    assert.match(await page.locator('#compat-verdict').textContent(), /全機能対応ではありません/);
+    assert.match(await page.locator('#compat-count').textContent(), /741/);
+    assert.equal(await page.locator('.compat-row[data-api]').count(), 30);
+    await page.locator('#compat-next').click();
+    assert.equal(await page.locator('#compat-page').textContent(), '2 / 25 ページ');
+    await page.locator('#compat-search').fill('playm');
+    const row = page.locator('[data-api="playm"]');
+    assert.equal(await row.locator('.compat-badge').textContent(), '未対応');
+    assert.match(await row.textContent(), /処理が空/);
+    await page.locator('#compat-backend').selectOption('sdl2');
+    assert.equal(await row.locator('.compat-badge').textContent(), '実装あり');
+    await page.locator('#compat-backend').selectOption('wgpu');
+    assert.equal(await row.locator('.compat-badge').textContent(), '未対応');
+    await page.locator('#compat-backend').selectOption('wasm');
+    await page.locator('#compat-search').fill('NO_SUCH_API_12345');
+    assert.match(await page.locator('#compat-rows').textContent(), /一致する機能はありません/);
+    await page.locator('#compat-search').fill('');
+    await page.locator('#compat-category').selectOption('Audio');
+    await page.locator('#compat-status').selectOption('missing');
+    assert.ok(await page.locator('.compat-row[data-api]').count() > 0);
+    assert.equal(await page.locator('.compat-row .compat-badge:not([data-support="missing"])').count(), 0);
+    await page.locator('#compat-category').selectOption('all');
+    await page.locator('#compat-status').selectOption('all');
+    await page.locator('#compat-kind').selectOption('constants');
+    assert.match(await page.locator('#compat-count').textContent(), /363/);
+    await page.locator('#compat-kind').selectOption('api');
+    assert.match(await page.locator('#compat-count').textContent(), /375/);
+    await page.locator('#compat-search').fill('playm');
+    // Live checks must not replace or reset the loaded model or pause state.
+    await page.locator('#load-animated-sample').click();
+    await page.waitForFunction(() => document.querySelector('#model-status').textContent.includes('6 三角形'));
+    await page.locator('#pause').click();
+    await page.waitForFunction(() => document.querySelector('#status').textContent === '一時停止中');
+    await page.locator('#compat-run').click();
+    await page.waitForFunction(() => document.querySelector('#compat-live-result').textContent.startsWith('4 / 4'));
+    assert.equal(await page.locator('#status').textContent(), '一時停止中');
+    assert.match(await page.locator('#model-status').textContent(), /動くピラミッド/);
+    assert.equal(await page.locator('#animation-panel').isVisible(), true);
+    assert.equal(await row.locator('.compat-badge').textContent(), '未対応');
+    await page.locator('#compatibility').screenshot({ path: `${output}/desktop-panel.png` });
+    // An unreadable Canvas must be reported as a failed check, not a full pass.
+    await page.evaluate(() => {
+      const canvas = document.querySelector('canvas');
+      canvas.getContext('2d').getImageData = () => { throw new Error('Canvas blocked for test'); };
+    });
+    await page.locator('#compat-run').click();
+    await page.waitForFunction(() => document.querySelector('#compat-live-result').textContent.startsWith('3 / 4'));
+    const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    mobile.on('pageerror', error => errors.push(error.message));
+    await mobile.goto(`${base}/examples/retro3d/#compatibility`);
+    await mobile.waitForSelector('#compat-search');
+    await mobile.locator('#compat-search').fill('mouse_wheel');
+    assert.match(await mobile.locator('[data-api="mouse_wheel"]').textContent(), /常に0/);
+    assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await mobile.locator('#compatibility').screenshot({ path: `${output}/mobile-panel.png` });
+    // API report failures must remain independent of the running game.
+    const broken = await browser.newPage();
+    broken.on('pageerror', error => errors.push(error.message));
+    await broken.route('**/assets/compatibility/data.json', route => route.fulfill({ status: 503, body: 'unavailable' }));
+    await broken.goto(`${base}/examples/retro3d/#compatibility`);
+    await broken.waitForSelector('#compatibility-loading[role="alert"]');
+    assert.match(await broken.locator('#compatibility-loading').textContent(), /対応済みとは判定していません/);
+    await broken.waitForFunction(() => document.querySelector('#status').textContent === '実行中');
+    await broken.unroute('**/assets/compatibility/data.json');
+    await broken.getByRole('button', { name: '読み込み直す' }).click();
+    await broken.waitForSelector('#compat-backend');
+    await broken.route('**/assets/compatibility/data.json', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ schema: 1, entries: [{}] }) }));
+    await broken.reload();
+    await broken.waitForSelector('#compatibility-loading[role="alert"]');
+    assert.match(await broken.locator('#compatibility-loading').textContent(), /データが不正/);
+    // The inventory still works if the game itself cannot load WASM.
+    const noWasm = await browser.newPage();
+    noWasm.on('pageerror', error => errors.push(error.message));
+    await noWasm.route('**/*.wasm', route => route.abort());
+    await noWasm.goto(`${base}/examples/retro3d/#compatibility`);
+    await noWasm.waitForSelector('#status[role="alert"]');
+    await noWasm.waitForSelector('#compat-run');
+    await noWasm.locator('#compat-run').click();
+    await noWasm.waitForFunction(() => document.querySelector('#compat-live-result').textContent.includes('/ 4 件を確認しました'));
+    assert.doesNotMatch(await noWasm.locator('#compat-live-result').textContent(), /^4 \/ 4/);
+    assert.deepEqual(errors, []);
+    console.log(JSON.stringify({ result: 'passed', checks: ['closed initially', 'open from link/hash', '741 inventory entries', 'pagination', 'search', 'backend-specific audio stubs', 'category/status filters', 'constants/API scopes', 'no results', 'live checks', 'model/pause preservation', 'failed live check', 'mobile layout', 'data error/retry', 'malformed report error', 'WASM failure independence', 'no runtime errors'], screenshots: output }));
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

@@ -17,6 +17,7 @@
 - Pyxel CubeのRust API公開・`render_3d`・回転立方体サンプル・オフスクリーン描画テスト（SDL2 / WASM）
 - ブラウザ3Dデモ — 回転・一時停止・ズーム、キーボードとタッチ操作、Playwrightでの表示/操作確認
 - GLBブラウザ読込 — バイト列API、埋め込みテクスチャと階層変換、ファイル選択、自動フィット、サンプルモデル
+- 全API対応確認パネル — 公式3.0.0のAPI・定数一覧、バックエンド別の実装状況・制限・根拠、検索、ブラウザ確認
 - GLBアニメーション — クリップ選択、再生/停止、シーク、ループ、速度変更、元の姿勢の復元、動くサンプル
 - System API: `init` / `run` / `quit` / `width` / `height` / `frame_count`
 - Graphics API: `cls` / `pset` / `pget` / `line` / `rect` / `rectfill` / `circ` / `circfill` / `text` / `blt` / `bltm` / `clip` / `camera` / `pal` / `dither`
