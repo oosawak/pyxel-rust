@@ -1,0 +1,7 @@
+site/
+chrome-*/
+node_modules/
+results.json
+shot-*.png
+server.log
+*.zip
