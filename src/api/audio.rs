@@ -8,7 +8,8 @@ pub fn play(ch: u32, sound: u32, _sec: Option<f32>, _loop_: Option<bool>, _resum
     {
         let loop_val = _loop_.unwrap_or(false);
         let resume_val = _resume.unwrap_or(false);
-        pyxel::pyxel().play_sound(ch, sound, _sec, loop_val, resume_val);
+        pyxel::pyxel().play_sound(ch, sound, _sec, loop_val, resume_val)
+            .expect("Failed to play sound");
     }
     #[cfg(feature = "wasm-backend")]
     {
@@ -33,7 +34,8 @@ pub fn play(ch: u32, sound: u32, _sec: Option<f32>, _loop_: Option<bool>, _resum
 pub fn playm(_msc: u32, _sec: Option<f32>, _loop_: Option<bool>) {
     #[cfg(feature = "pyxel-core-backend")]
     {
-        pyxel::pyxel().play_music(_msc, _sec, _loop_.unwrap_or(false));
+        pyxel::pyxel().play_music(_msc, _sec, _loop_.unwrap_or(false))
+            .expect("Failed to play music");
     }
 }
 

@@ -19,3 +19,13 @@ pub use input::{btn, btnp, btnr, btnp_hold, mouse_x, mouse_y, set_mouse_visible}
 pub use math::{sgn, abs, rnd, rnd_int, rndf, clamp, mid, max, min, sin, cos, sqrt, floor, rseed};
 pub use audio::{play, playm, stop, is_playing};
 pub use constants::*;
+
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub mod graphics3d;
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub use graphics3d::{render_3d, blit_3d, draw_mesh_3d};
+
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub mod animation3d;
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub use animation3d::MeshAnimationPlayer;

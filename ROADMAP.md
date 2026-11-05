@@ -13,7 +13,11 @@
 
 **コア実装**
 - Rust プロジェクト基盤・Cargo.toml 設定
-- Pyxel フォーク（pyxel-core）統合
+- 公式 Pyxel 3.0.0（pyxel-core）の固定コミットをCargoのGit依存で統合
+- Pyxel CubeのRust API公開・`render_3d`・回転立方体サンプル・オフスクリーン描画テスト（SDL2 / WASM）
+- ブラウザ3Dデモ — 回転・一時停止・ズーム、キーボードとタッチ操作、Playwrightでの表示/操作確認
+- GLBブラウザ読込 — バイト列API、埋め込みテクスチャと階層変換、ファイル選択、自動フィット、サンプルモデル
+- GLBアニメーション — クリップ選択、再生/停止、シーク、ループ、速度変更、元の姿勢の復元、動くサンプル
 - System API: `init` / `run` / `quit` / `width` / `height` / `frame_count`
 - Graphics API: `cls` / `pset` / `pget` / `line` / `rect` / `rectfill` / `circ` / `circfill` / `text` / `blt` / `bltm` / `clip` / `camera` / `pal` / `dither`
 - Input API: `btn` / `btnp` / `btnr` / `mouse_x` / `mouse_y` / `mouse_wheel`
@@ -49,6 +53,7 @@
 - **GitHub Actions** — CI / GitHub Pages 自動デプロイのワークフロー未設定
 - **Audio（WASM）** — ブラウザでのオーディオ再生は未検証
 - **Tilemap / Image ロード** — `.pyxres` リソースファイルの WASM 対応
+- **Cube連携拡充** — wgpuへの接続、Nodeライフサイクル、スキニング/モーフ、ブラウザ用リソース読込は今後対応
 - **API カバレッジ拡充** — Pyxel 全 API との差分を埋める
 
 ### 🎮 ゲーム・デモ
@@ -65,7 +70,7 @@
 
 ## リソース・参考
 
-- **Pyxel-core**: `./pyxel_fork/crates/pyxel-core/`
+- **Pyxel-core**: 公式 [Pyxel v3.0.0](https://github.com/kitao/pyxel/tree/v3.0.0/crates/pyxel-core)（Cargo.tomlのGit依存で固定）
 - **参考**: [Pyxel 公式](https://github.com/kitao/pyxel)
 - **WASM ビルド**: [wasm-pack](https://rustwasm.github.io/docs/wasm-pack/)
 - **関連プロジェクト**: [nQuad](https://github.com/oosawak/nQuad) — pyxel-rust とは独立した別プロジェクト

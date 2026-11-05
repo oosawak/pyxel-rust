@@ -6,33 +6,33 @@
 #[cfg(feature = "pyxel-core-backend")]
 mod pyxel_core_impl {
     use pyxel::{Pyxel, PyxelCallback};
-    use std::sync::{Arc, Mutex};
 
     pub fn init(width: u32, height: u32, title: &str, fps: u32) {
-        pyxel::init(width, height, Some(title), Some(fps), None, None, None, None, None);
+        pyxel::init(width, height, Some(title), Some(fps), None, None, None, None, None)
+            .expect("Failed to initialize Pyxel");
     }
 
     pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
         struct GameCallback {
-            update: Arc<Mutex<Box<dyn FnMut()>>>,
-            draw: Arc<Mutex<Box<dyn FnMut()>>>,
+            update: Box<dyn FnMut()>,
+            draw: Box<dyn FnMut()>,
         }
         impl PyxelCallback for GameCallback {
-            fn update(&mut self, _: &mut Pyxel) {
-                if let Ok(mut f) = self.update.try_lock() { f(); }
+            fn update(&mut self) {
+                (self.update)();
             }
-            fn draw(&mut self, _: &mut Pyxel) {
-                if let Ok(mut f) = self.draw.try_lock() { f(); }
+            fn draw(&mut self) {
+                (self.draw)();
             }
         }
         let callback = GameCallback {
-            update: Arc::new(Mutex::new(Box::new(update))),
-            draw: Arc::new(Mutex::new(Box::new(draw))),
+            update: Box::new(update),
+            draw: Box::new(draw),
         };
-        pyxel::pyxel().run(callback);
+        Pyxel::run(callback);
     }
 
-    pub fn quit() { pyxel::pyxel().quit(); }
+    pub fn quit() { Pyxel::quit(); }
     pub fn width() -> u32 { *pyxel::width() }
     pub fn height() -> u32 { *pyxel::height() }
     pub fn frame_count() -> u32 { *pyxel::frame_count() }

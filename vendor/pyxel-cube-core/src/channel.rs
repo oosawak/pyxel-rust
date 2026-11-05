@@ -1,0 +1,1183 @@
+use std::sync::Arc;
+
+use blip_buf::BlipBuf;
+
+use crate::mml_command::MmlCommand;
+use crate::mml_parser::total_duration_clocks;
+use crate::pyxel;
+use crate::settings::{
+    AUDIO_CLOCK_RATE, AUDIO_GAIN_SCALE, AUDIO_GAIN_SHIFT, AUDIO_SAMPLE_RATE, DEFAULT_CHANNEL_GAIN,
+    NOTE_INTERP_CLOCKS, VOICE_CONTROL_RATE,
+};
+use crate::sound::{RcSound, Sound};
+use crate::voice::Voice;
+
+pub type ChannelGain = f32;
+pub type ChannelDetune = i32;
+
+// Bias negative fixed-point products so the right shift truncates toward zero.
+const PCM_MIX_TRUNC_BIAS: i64 = AUDIO_GAIN_SCALE - 1;
+
+struct SequenceFrame {
+    commands: Arc<[MmlCommand]>,
+    return_index: usize,
+    remaining: u32,
+    iteration_start_clock: u64,
+}
+
+pub struct Channel {
+    pub sounds: Vec<RcSound>,
+    pub gain: ChannelGain,
+    pub detune: ChannelDetune,
+
+    voice: Voice,
+    is_playing: bool,
+    should_loop: bool,
+    should_resume: bool,
+    sound_index: usize,
+    note_duration_clocks: u64,
+    sound_elapsed_clocks: u64,
+    total_elapsed_clocks: u64,
+
+    commands: Arc<[MmlCommand]>,
+    command_index: usize,
+    repeat_points: Vec<(usize, u32, u64)>,
+    sequence_frames: Vec<SequenceFrame>,
+    clocks_per_tick: u32,
+    gate_ratio: f32,
+    volume_level: f32,
+    transpose_semitones: f32,
+    detune_semitones: f32,
+    glide_pending_params: Option<(Option<f32>, Option<u32>)>,
+    last_midi_note: Option<f32>,
+    envelope_slots: Vec<(u32, MmlCommand)>,
+    vibrato_slots: Vec<(u32, MmlCommand)>,
+    glide_slots: Vec<(u32, MmlCommand)>,
+
+    resume_sounds: Vec<RcSound>,
+    resume_should_loop: bool,
+
+    playing_pcm: bool,
+    pcm_position: usize,
+}
+
+define_audio_type!(RcChannel, Channel);
+
+impl Channel {
+    pub fn new() -> RcChannel {
+        new_audio_type!(Self {
+            sounds: Vec::new(),
+            gain: DEFAULT_CHANNEL_GAIN,
+            detune: 0,
+
+            voice: Voice::new(AUDIO_CLOCK_RATE, VOICE_CONTROL_RATE, NOTE_INTERP_CLOCKS),
+            is_playing: false,
+            should_loop: false,
+            should_resume: false,
+            sound_index: 0,
+            note_duration_clocks: 0,
+            sound_elapsed_clocks: 0,
+            total_elapsed_clocks: 0,
+
+            commands: Arc::from([]),
+            command_index: 0,
+            repeat_points: Vec::new(),
+            sequence_frames: Vec::new(),
+            clocks_per_tick: 0,
+            gate_ratio: 1.0,
+            volume_level: 1.0,
+            transpose_semitones: 0.0,
+            detune_semitones: 0.0,
+            glide_pending_params: None,
+            last_midi_note: None,
+            envelope_slots: Vec::new(),
+            vibrato_slots: Vec::new(),
+            glide_slots: Vec::new(),
+
+            resume_sounds: Vec::new(),
+            resume_should_loop: false,
+
+            playing_pcm: false,
+            pcm_position: 0,
+        })
+    }
+
+    // Playback start
+
+    pub fn play(
+        &mut self,
+        sounds: Vec<RcSound>,
+        start_sec: Option<f32>,
+        should_loop: bool,
+        should_resume: bool,
+    ) -> Result<(), String> {
+        let start_clock = Self::sec_to_clocks(start_sec)?;
+        Self::validate_tones(&sounds)?;
+        self.play_from_clock(sounds, start_clock, should_loop, should_resume);
+        Ok(())
+    }
+
+    pub fn play_sound(
+        &mut self,
+        sound: RcSound,
+        start_sec: Option<f32>,
+        should_loop: bool,
+        should_resume: bool,
+    ) -> Result<(), String> {
+        let start_clock = Self::sec_to_clocks(start_sec)?;
+        Self::validate_tones(std::slice::from_ref(&sound))?;
+        self.play_from_clock(vec![sound], start_clock, should_loop, should_resume);
+        Ok(())
+    }
+
+    pub fn play_mml(
+        &mut self,
+        code: &str,
+        start_sec: Option<f32>,
+        should_loop: bool,
+        should_resume: bool,
+    ) -> Result<(), String> {
+        let start_clock = Self::sec_to_clocks(start_sec)?;
+        let sound = Sound::new();
+        audio_mut!(sound).set_mml(code)?;
+        Self::validate_tones(std::slice::from_ref(&sound))?;
+        self.play_from_clock(vec![sound], start_clock, should_loop, should_resume);
+        Ok(())
+    }
+
+    pub fn validate_sec(sec: Option<f32>) -> Result<(), String> {
+        let sec = sec.unwrap_or(0.0);
+        if !sec.is_finite() {
+            return Err("sec must be finite".to_string());
+        }
+        if sec < 0.0 {
+            return Err("sec must be greater than or equal to 0".to_string());
+        }
+        Ok(())
+    }
+
+    fn sec_to_clocks(sec: Option<f32>) -> Result<u64, String> {
+        Self::validate_sec(sec)?;
+        Ok((sec.unwrap_or(0.0) * AUDIO_CLOCK_RATE as f32).round() as u64)
+    }
+
+    fn samples_to_clocks(samples: usize) -> u64 {
+        samples as u64 * u64::from(AUDIO_CLOCK_RATE) / u64::from(AUDIO_SAMPLE_RATE)
+    }
+
+    pub(crate) fn validate_tones(sounds: &[RcSound]) -> Result<(), String> {
+        if pyxel::tones().is_empty() && sounds.iter().any(|sound| audio_mut!(sound).requires_tone())
+        {
+            return Err("tones must not be empty".to_string());
+        }
+        Ok(())
+    }
+
+    fn play_from_clock(
+        &mut self,
+        sounds: Vec<RcSound>,
+        start_clock: u64,
+        should_loop: bool,
+        should_resume: bool,
+    ) {
+        if sounds.is_empty()
+            || sounds.iter().all(|sound| {
+                let sound = audio_ref!(sound);
+                sound.notes.is_empty() && sound.commands.is_empty() && sound.pcm.is_none()
+            })
+        {
+            self.is_playing = false;
+            self.playing_pcm = false;
+            return;
+        }
+
+        let resume_previous = should_resume && self.is_playing;
+        if !resume_previous {
+            self.total_elapsed_clocks = 0;
+            self.resume_sounds.clear();
+        } else if !self.should_resume {
+            self.resume_sounds = self.sounds.clone();
+            self.resume_should_loop = self.should_loop;
+        }
+
+        self.sounds = sounds;
+        self.is_playing = true;
+        self.should_loop = should_loop;
+        self.should_resume = resume_previous;
+        self.sound_index = 0;
+        self.note_duration_clocks = 0;
+        self.sound_elapsed_clocks = 0;
+        self.command_index = 0;
+        self.sequence_frames.clear();
+        self.last_midi_note = None;
+        self.pcm_position = 0;
+
+        self.voice.reset_playback_clock();
+        self.update_playing_pcm();
+        if self.playing_pcm {
+            self.voice.cancel_note();
+        }
+
+        if start_clock > 0 {
+            let seek_clock = self.wrap_loop_clock(start_clock);
+            self.seek(seek_clock);
+            if seek_clock != start_clock {
+                self.total_elapsed_clocks = start_clock;
+            }
+        }
+    }
+
+    fn wrap_loop_clock(&self, start_clock: u64) -> u64 {
+        if !self.should_loop {
+            return start_clock;
+        }
+
+        let Some(loop_clocks) = self.sounds.iter().try_fold(0_u128, |total, sound| {
+            let mut sound = audio_mut!(sound);
+            if sound.pcm.is_some() {
+                return None;
+            }
+            total.checked_add(total_duration_clocks(&sound.command_snapshot())?)
+        }) else {
+            return start_clock;
+        };
+        if loop_clocks == 0 {
+            return start_clock;
+        }
+
+        (u128::from(start_clock) % loop_clocks) as u64
+    }
+
+    fn seek(&mut self, mut clocks: u64) {
+        while clocks > 0 && self.is_playing {
+            if self.playing_pcm {
+                clocks = self.seek_pcm(clocks);
+            } else {
+                // Processing stops early when a PCM sound begins within the chunk.
+                let chunk = clocks.min(1 << 30) as u32;
+                let before = self.total_elapsed_clocks;
+                self.process(None, chunk);
+
+                let consumed = self.total_elapsed_clocks.saturating_sub(before);
+                if consumed == 0 {
+                    return;
+                }
+                clocks -= consumed.min(u64::from(chunk));
+            }
+        }
+    }
+
+    // Playback control
+
+    pub fn stop(&mut self) {
+        self.is_playing = false;
+        self.playing_pcm = false;
+        self.voice.cancel_note();
+    }
+
+    pub fn play_position(&self) -> Option<(u32, f32)> {
+        if self.is_playing {
+            let elapsed_sec = self.sound_elapsed_clocks as f32 / AUDIO_CLOCK_RATE as f32;
+            Some((self.sound_index as u32, elapsed_sec))
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn process(&mut self, blip_buf: Option<&mut BlipBuf>, clock_count: u32) {
+        if self.playing_pcm {
+            if self.voice.needs_processing() {
+                self.voice.process(blip_buf, 0, clock_count);
+            }
+            return;
+        }
+
+        let mut blip_buf = blip_buf;
+        let start_clock_count = clock_count;
+        let mut clock_count = clock_count;
+        let mut clock_offset = 0;
+
+        while clock_count > 0 {
+            if !self.is_playing {
+                self.voice
+                    .process(blip_buf.as_deref_mut(), clock_offset, clock_count);
+                return;
+            }
+
+            // Reached a PCM sound mid-chunk: flush the voice and hand the
+            // remaining playback over to the PCM mixer
+            if self.playing_pcm {
+                if self.voice.needs_processing() {
+                    self.voice
+                        .process(blip_buf.as_deref_mut(), clock_offset, clock_count);
+                }
+                return;
+            }
+
+            if self.sound_elapsed_clocks == 0 {
+                self.note_duration_clocks = 0;
+                self.command_index = 0;
+                self.repeat_points.clear();
+                self.sequence_frames.clear();
+                {
+                    let mut sound = audio_mut!(self.sounds[self.sound_index]);
+                    self.commands = sound.command_snapshot();
+                }
+                self.advance_command();
+                if !self.is_playing {
+                    continue;
+                }
+            }
+
+            let process_clocks = u64::from(clock_count).min(self.note_duration_clocks) as u32;
+            self.voice
+                .process(blip_buf.as_deref_mut(), clock_offset, process_clocks);
+            clock_offset += process_clocks;
+            clock_count -= process_clocks;
+            self.note_duration_clocks -= u64::from(process_clocks);
+            self.sound_elapsed_clocks += u64::from(process_clocks);
+            self.total_elapsed_clocks += u64::from(process_clocks);
+
+            if self.note_duration_clocks == 0 {
+                self.advance_command();
+                if !self.is_playing {
+                    continue;
+                }
+            }
+
+            if self.note_duration_clocks == 0 {
+                self.sound_index += 1;
+                self.sound_elapsed_clocks = 0;
+                if self.sound_index < self.sounds.len() {
+                    self.update_playing_pcm();
+                } else if self.should_loop && clock_count < start_clock_count {
+                    self.sound_index = 0;
+                    self.update_playing_pcm();
+                } else if self.should_resume {
+                    let resume_sounds = std::mem::take(&mut self.resume_sounds);
+                    self.play_from_clock(
+                        resume_sounds,
+                        self.total_elapsed_clocks,
+                        self.resume_should_loop,
+                        false,
+                    );
+                } else {
+                    self.is_playing = false;
+                    self.playing_pcm = false;
+                }
+            }
+        }
+    }
+
+    // MML command processing
+
+    fn effect_slot(slots: &[(u32, MmlCommand)], slot: u32) -> Option<&MmlCommand> {
+        slots
+            .iter()
+            .find_map(|(stored_slot, command)| (*stored_slot == slot).then_some(command))
+    }
+
+    fn store_effect_slot(
+        slots: &mut Vec<(u32, MmlCommand)>,
+        slot: u32,
+        command: &MmlCommand,
+        name: &str,
+    ) {
+        assert!(slot > 0, "{name} slot 0 is reserved for disable");
+        if let Some((_, stored)) = slots
+            .iter_mut()
+            .find(|(stored_slot, _)| *stored_slot == slot)
+        {
+            stored.clone_from(command);
+        } else {
+            slots.push((slot, command.clone()));
+        }
+    }
+
+    fn advance_command(&mut self) {
+        let tones = pyxel::tones();
+
+        // Execute MML commands until the next note, rest, or end of stream
+        loop {
+            if self.command_index == self.commands.len() {
+                let Some(frame) = self.sequence_frames.last_mut() else {
+                    break;
+                };
+                if self.sound_elapsed_clocks == frame.iteration_start_clock && frame.remaining == 0
+                {
+                    self.sequence_frames.clear();
+                    break;
+                }
+                if self.sound_elapsed_clocks != frame.iteration_start_clock
+                    && (frame.remaining == 0 || frame.remaining > 1)
+                {
+                    frame.remaining = frame.remaining.saturating_sub(1);
+                    frame.iteration_start_clock = self.sound_elapsed_clocks;
+                    self.command_index = 0;
+                } else {
+                    let frame = self.sequence_frames.pop().unwrap();
+                    self.commands = frame.commands;
+                    self.command_index = frame.return_index;
+                }
+                continue;
+            }
+            let command = &self.commands[self.command_index];
+            self.command_index += 1;
+            match command {
+                MmlCommand::Tempo { clocks_per_tick } => {
+                    self.clocks_per_tick = *clocks_per_tick;
+                    self.voice.set_clocks_per_tick(*clocks_per_tick);
+                }
+                MmlCommand::Quantize { gate_ratio } => {
+                    self.gate_ratio = *gate_ratio;
+                }
+
+                MmlCommand::Tone { tone } => {
+                    let Some(tone) = tones.get(*tone as usize).or_else(|| tones.first()) else {
+                        self.is_playing = false;
+                        self.playing_pcm = false;
+                        self.voice.cancel_note();
+                        self.command_index = self.commands.len();
+                        return;
+                    };
+                    self.voice.set_tone(tone.clone());
+                }
+                MmlCommand::Volume { level } => {
+                    self.volume_level = *level;
+                }
+
+                MmlCommand::Transpose { semitone_offset } => {
+                    self.transpose_semitones = *semitone_offset;
+                }
+                MmlCommand::Detune { semitone_offset } => {
+                    self.detune_semitones = *semitone_offset;
+                }
+
+                MmlCommand::Envelope { slot } => {
+                    if let Some(MmlCommand::EnvelopeSet {
+                        initial_level,
+                        segments,
+                        ..
+                    }) = Self::effect_slot(&self.envelope_slots, *slot)
+                    {
+                        self.voice.envelope.set(*initial_level, segments);
+                        self.voice.envelope.enable();
+                    } else {
+                        self.voice.envelope.disable();
+                    }
+                }
+                command @ MmlCommand::EnvelopeSet {
+                    slot,
+                    initial_level,
+                    segments,
+                } => {
+                    Self::store_effect_slot(&mut self.envelope_slots, *slot, command, "Envelope");
+                    self.voice.envelope.set(*initial_level, segments);
+                    self.voice.envelope.enable();
+                }
+
+                MmlCommand::Vibrato { slot } => {
+                    if let Some(MmlCommand::VibratoSet {
+                        delay_ticks,
+                        period_ticks,
+                        semitone_depth,
+                        ..
+                    }) = Self::effect_slot(&self.vibrato_slots, *slot)
+                    {
+                        self.voice
+                            .vibrato
+                            .set(*delay_ticks, *period_ticks, *semitone_depth);
+                        self.voice.vibrato.enable();
+                    } else {
+                        self.voice.vibrato.disable();
+                    }
+                }
+                command @ MmlCommand::VibratoSet {
+                    slot,
+                    delay_ticks,
+                    period_ticks,
+                    semitone_depth,
+                } => {
+                    Self::store_effect_slot(&mut self.vibrato_slots, *slot, command, "Vibrato");
+                    self.voice
+                        .vibrato
+                        .set(*delay_ticks, *period_ticks, *semitone_depth);
+                    self.voice.vibrato.enable();
+                }
+
+                MmlCommand::Glide { slot } => {
+                    if let Some(MmlCommand::GlideSet {
+                        semitone_offset,
+                        duration_ticks,
+                        ..
+                    }) = Self::effect_slot(&self.glide_slots, *slot)
+                    {
+                        if let (Some(semitone_offset), Some(duration_ticks)) =
+                            (semitone_offset, duration_ticks)
+                        {
+                            self.glide_pending_params = None;
+                            self.voice.glide.set(*semitone_offset, *duration_ticks);
+                        } else {
+                            self.glide_pending_params = Some((*semitone_offset, *duration_ticks));
+                        }
+                        self.voice.glide.enable();
+                    } else {
+                        self.glide_pending_params = None;
+                        self.voice.glide.disable();
+                    }
+                }
+                command @ MmlCommand::GlideSet {
+                    slot,
+                    semitone_offset,
+                    duration_ticks,
+                } => {
+                    Self::store_effect_slot(&mut self.glide_slots, *slot, command, "Glide");
+                    if let (Some(semitone_offset), Some(duration_ticks)) =
+                        (semitone_offset, duration_ticks)
+                    {
+                        self.glide_pending_params = None;
+                        self.voice.glide.set(*semitone_offset, *duration_ticks);
+                    } else {
+                        self.glide_pending_params = Some((*semitone_offset, *duration_ticks));
+                    }
+                    self.voice.glide.enable();
+                }
+
+                MmlCommand::Note {
+                    midi_note,
+                    duration_ticks,
+                } => {
+                    self.start_mml_note(
+                        *midi_note,
+                        *duration_ticks,
+                        u64::from(self.clocks_per_tick) * u64::from(*duration_ticks),
+                    );
+                    return;
+                }
+                MmlCommand::SustainedNote {
+                    midi_note,
+                    duration_ticks,
+                } => {
+                    let clocks = duration_ticks
+                        .and_then(|ticks| ticks.checked_mul(u128::from(self.clocks_per_tick)))
+                        .and_then(|clocks| u64::try_from(clocks).ok())
+                        .unwrap_or(u64::MAX);
+                    let ticks = duration_ticks
+                        .and_then(|ticks| u32::try_from(ticks).ok())
+                        .unwrap_or(u32::MAX);
+                    self.start_mml_note(*midi_note, ticks, clocks);
+                    return;
+                }
+                MmlCommand::Sequence {
+                    commands,
+                    play_count,
+                } => {
+                    let body = commands.clone();
+                    let remaining = *play_count;
+                    self.sequence_frames.push(SequenceFrame {
+                        commands: std::mem::replace(&mut self.commands, body),
+                        return_index: self.command_index,
+                        remaining,
+                        iteration_start_clock: self.sound_elapsed_clocks,
+                    });
+                    self.command_index = 0;
+                }
+                MmlCommand::Rest { duration_ticks } => {
+                    self.note_duration_clocks =
+                        u64::from(self.clocks_per_tick) * u64::from(*duration_ticks);
+                    return;
+                }
+
+                MmlCommand::RepeatStart => {
+                    self.repeat_points
+                        .push((self.command_index, 0, self.sound_elapsed_clocks));
+                }
+                MmlCommand::RepeatEnd { play_count } => {
+                    if let Some((index, count, iteration_start_clock)) = self.repeat_points.pop() {
+                        // A repeat that advances no time must not spin the audio callback.
+                        if self.sound_elapsed_clocks == iteration_start_clock {
+                            if *play_count == 0 {
+                                self.command_index = self.commands.len();
+                                self.repeat_points.clear();
+                            }
+                            continue;
+                        }
+
+                        let next_count = count + 1;
+                        if *play_count == 0 || next_count < *play_count {
+                            self.repeat_points
+                                .push((index, next_count, self.sound_elapsed_clocks));
+                            self.command_index = index;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn start_mml_note(&mut self, midi_note: u32, duration_ticks: u32, duration_clocks: u64) {
+        let midi_note = midi_note as f32
+            + self.transpose_semitones
+            + self.detune_semitones
+            + self.detune as f32 / 100.0;
+        let velocity = self.gain * self.volume_level;
+        self.note_duration_clocks = duration_clocks;
+        let playback_clocks =
+            (self.note_duration_clocks as f64 * f64::from(self.gate_ratio)).round() as u64;
+        if let Some((pending_offset, pending_ticks)) = self.glide_pending_params {
+            let resolved_offset =
+                pending_offset.unwrap_or(self.last_midi_note.unwrap_or(midi_note) - midi_note);
+            let resolved_ticks = pending_ticks.unwrap_or(duration_ticks);
+            self.voice.glide.set(resolved_offset, resolved_ticks);
+        }
+        self.voice.play_note(midi_note, velocity, playback_clocks);
+        self.last_midi_note = Some(midi_note);
+    }
+
+    // PCM mixing
+
+    pub(crate) fn prepare_pcm(&mut self) {
+        let mut skipped_sounds = 0;
+
+        while self.is_playing_pcm() {
+            let has_samples = {
+                let sound = audio_ref!(self.sounds[self.sound_index]);
+                sound
+                    .pcm
+                    .as_ref()
+                    .is_some_and(|pcm| self.pcm_position < pcm.samples.len())
+            };
+            if has_samples {
+                return;
+            }
+
+            if skipped_sounds >= self.sounds.len() || !self.advance_pcm_sound() {
+                self.is_playing = false;
+                self.playing_pcm = false;
+                return;
+            }
+            skipped_sounds += 1;
+        }
+    }
+
+    pub(crate) fn pcm_samples_until_mode_change(&self, max_samples: usize) -> usize {
+        let mut sound_index = self.sound_index;
+        let mut pcm_position = self.pcm_position;
+        let mut total_samples = 0;
+        let mut empty_sounds = 0;
+
+        while total_samples < max_samples {
+            if sound_index >= self.sounds.len() {
+                if self.should_loop {
+                    sound_index = 0;
+                } else {
+                    break;
+                }
+            }
+
+            let sound = audio_ref!(self.sounds[sound_index]);
+            let Some(pcm) = &sound.pcm else {
+                break;
+            };
+
+            let remaining = pcm.samples.len().saturating_sub(pcm_position);
+            if remaining == 0 {
+                empty_sounds += 1;
+                if empty_sounds >= self.sounds.len() {
+                    break;
+                }
+            } else {
+                let consumed = remaining.min(max_samples - total_samples);
+                total_samples += consumed;
+                empty_sounds = 0;
+            }
+
+            sound_index += 1;
+            pcm_position = 0;
+        }
+
+        total_samples
+    }
+
+    pub(crate) fn mix_pcm(&mut self, out: &mut [i16]) {
+        if !self.is_playing_pcm() {
+            return;
+        }
+
+        let gain_fixed = (self.gain * AUDIO_GAIN_SCALE as f32) as i32;
+        let mut offset = 0;
+
+        while offset < out.len() {
+            let mut to_copy = 0;
+            let mut end_reached = false;
+            let mut should_advance = false;
+
+            {
+                let sound = audio_ref!(self.sounds[self.sound_index]);
+                let Some(pcm) = &sound.pcm else {
+                    return;
+                };
+                let len = pcm.samples.len();
+                if self.pcm_position >= len {
+                    should_advance = true;
+                } else {
+                    let remaining = len - self.pcm_position;
+                    to_copy = (out.len() - offset).min(remaining);
+
+                    if gain_fixed != 0 {
+                        // Slice-based iteration lets the optimizer elide per-element bounds checks
+                        let src_samples =
+                            &pcm.samples[self.pcm_position..self.pcm_position + to_copy];
+                        let dst = &mut out[offset..offset + to_copy];
+                        for (d, &sample) in dst.iter_mut().zip(src_samples) {
+                            let scaled = sample as i64 * gain_fixed as i64;
+                            let src = (scaled + ((scaled >> 63) & PCM_MIX_TRUNC_BIAS))
+                                >> AUDIO_GAIN_SHIFT;
+                            let mixed = *d as i64 + src;
+                            *d = mixed.clamp(i16::MIN as i64, i16::MAX as i64) as i16;
+                        }
+                    }
+
+                    end_reached = self.pcm_position + to_copy >= len;
+                }
+            }
+
+            if should_advance {
+                if !self.advance_pcm_sound() {
+                    return;
+                }
+                continue;
+            }
+
+            self.pcm_position += to_copy;
+            // Deriving elapsed clocks from the position keeps the exact
+            // clock/sample ratio without accumulating per-chunk rounding
+            let elapsed_clocks = Self::samples_to_clocks(self.pcm_position);
+            self.total_elapsed_clocks += elapsed_clocks - self.sound_elapsed_clocks;
+            self.sound_elapsed_clocks = elapsed_clocks;
+            offset += to_copy;
+
+            if end_reached && !self.advance_pcm_sound() {
+                return;
+            }
+        }
+    }
+
+    // Internal helpers
+
+    fn advance_pcm_sound(&mut self) -> bool {
+        self.sound_index += 1;
+        self.sound_elapsed_clocks = 0;
+        self.pcm_position = 0;
+
+        if self.sound_index >= self.sounds.len() {
+            if self.should_loop {
+                self.sound_index = 0;
+            } else if self.should_resume {
+                let resume_sounds = std::mem::take(&mut self.resume_sounds);
+                self.play_from_clock(
+                    resume_sounds,
+                    self.total_elapsed_clocks,
+                    self.resume_should_loop,
+                    false,
+                );
+                return self.is_playing;
+            } else {
+                self.is_playing = false;
+                self.playing_pcm = false;
+                return false;
+            }
+        }
+
+        self.update_playing_pcm();
+        self.is_playing
+    }
+
+    // Returns the clocks left unconsumed when a command sound or the
+    // playlist end is reached
+    fn seek_pcm(&mut self, start_clock: u64) -> u64 {
+        let sample_offset =
+            u128::from(start_clock) * u128::from(AUDIO_SAMPLE_RATE) / u128::from(AUDIO_CLOCK_RATE);
+        let looping_pcm_samples =
+            if self.should_loop && self.sound_index == 0 && self.pcm_position == 0 {
+                self.sounds
+                    .iter()
+                    .try_fold(0_u128, |total, sound| {
+                        let sound = audio_ref!(sound);
+                        let pcm = sound.pcm.as_ref()?;
+                        total.checked_add(pcm.samples.len() as u128)
+                    })
+                    .filter(|&samples| samples > 0)
+            } else {
+                None
+            };
+
+        let mut remaining =
+            looping_pcm_samples.map_or(sample_offset, |samples| sample_offset % samples);
+        let mut pass_progress = false;
+
+        while remaining > 0 {
+            if self.sound_index >= self.sounds.len() {
+                if self.should_loop && pass_progress {
+                    self.sound_index = 0;
+                    pass_progress = false;
+                    continue;
+                }
+                break;
+            }
+
+            let len = {
+                let sound = audio_ref!(self.sounds[self.sound_index]);
+                match &sound.pcm {
+                    Some(pcm) => pcm.samples.len(),
+                    None => break,
+                }
+            };
+            if remaining >= len as u128 {
+                remaining -= len as u128;
+                pass_progress |= len > 0;
+                self.sound_index += 1;
+                self.sound_elapsed_clocks = 0;
+                self.pcm_position = 0;
+            } else {
+                self.pcm_position = remaining as usize;
+                remaining = 0;
+            }
+        }
+
+        self.sound_elapsed_clocks = Self::samples_to_clocks(self.pcm_position);
+        let remaining_clocks = (remaining * u128::from(AUDIO_CLOCK_RATE)
+            / u128::from(AUDIO_SAMPLE_RATE))
+        .min(u128::from(start_clock)) as u64;
+        self.total_elapsed_clocks += start_clock - remaining_clocks;
+
+        if self.sound_index >= self.sounds.len() {
+            // Landing exactly on the playlist end wraps a looping playlist
+            if self.should_loop && pass_progress {
+                self.sound_index = 0;
+                self.update_playing_pcm();
+            } else {
+                self.is_playing = false;
+                self.playing_pcm = false;
+            }
+        } else {
+            self.update_playing_pcm();
+        }
+
+        remaining_clocks
+    }
+
+    fn update_playing_pcm(&mut self) {
+        self.playing_pcm = self
+            .sounds
+            .get(self.sound_index)
+            .is_some_and(|sound| audio_ref!(sound).pcm.is_some());
+    }
+
+    pub(crate) fn needs_blip_processing(&self) -> bool {
+        if self.playing_pcm {
+            self.voice.needs_processing()
+        } else {
+            self.is_playing || self.voice.needs_processing()
+        }
+    }
+
+    pub(crate) fn is_playing_pcm(&self) -> bool {
+        self.is_playing && self.playing_pcm
+    }
+
+    pub(crate) fn total_elapsed_clocks(&self) -> u64 {
+        self.total_elapsed_clocks
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pcm_decoder::PcmData;
+    use crate::settings::SOUND_TICKS_PER_SECOND;
+
+    const NOTE_CLOCKS: u32 = AUDIO_CLOCK_RATE / SOUND_TICKS_PER_SECOND;
+
+    fn note_sound(num_notes: usize) -> RcSound {
+        let sound = Sound::new();
+        {
+            let mut sound = audio_mut!(sound);
+            sound.notes = vec![0; num_notes];
+            sound.speed = 1;
+        }
+        sound
+    }
+
+    fn pcm_sound(num_samples: usize) -> RcSound {
+        let sound = Sound::new();
+        audio_mut!(sound).pcm = Some(PcmData {
+            samples: vec![0; num_samples],
+        });
+        sound
+    }
+
+    #[test]
+    fn test_process_stops_at_pcm_sound_mid_chunk() {
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel
+            .play(vec![note_sound(1), pcm_sound(1000)], None, false, false)
+            .unwrap();
+
+        channel.process(None, NOTE_CLOCKS + 5000);
+        assert!(channel.is_playing);
+        assert!(channel.playing_pcm);
+        assert_eq!(channel.sound_index, 1);
+        assert_eq!(channel.pcm_position, 0);
+    }
+
+    #[test]
+    fn test_seek_past_pcm_into_note_sound() {
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        let pcm_samples = 1000;
+        let extra_samples = 500;
+        let start_sec = (pcm_samples + extra_samples) as f32 / AUDIO_SAMPLE_RATE as f32;
+
+        channel
+            .play(
+                vec![pcm_sound(pcm_samples), note_sound(4)],
+                Some(start_sec),
+                false,
+                false,
+            )
+            .unwrap();
+        assert!(channel.is_playing);
+        assert!(!channel.playing_pcm);
+        assert_eq!(channel.sound_index, 1);
+
+        // The f32 seconds argument is rounded to clocks, then to whole PCM samples.
+        let start_clock = (start_sec * AUDIO_CLOCK_RATE as f32).round() as u64;
+        let seek_samples =
+            start_clock * AUDIO_SAMPLE_RATE as u64 / AUDIO_CLOCK_RATE as u64 - pcm_samples as u64;
+        assert_eq!(
+            channel.sound_elapsed_clocks,
+            seek_samples * AUDIO_CLOCK_RATE as u64 / AUDIO_SAMPLE_RATE as u64
+        );
+    }
+
+    #[test]
+    fn test_seek_to_exact_end_wraps_looping_pcm() {
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        let pcm_samples = 1000_usize;
+        let start_clock = (pcm_samples as u64 * u64::from(AUDIO_CLOCK_RATE))
+            .div_ceil(u64::from(AUDIO_SAMPLE_RATE));
+
+        channel.play_from_clock(vec![pcm_sound(pcm_samples)], start_clock, true, false);
+        assert!(channel.is_playing);
+        assert!(channel.playing_pcm);
+        assert_eq!(channel.sound_index, 0);
+        assert_eq!(channel.pcm_position, 0);
+    }
+
+    #[test]
+    fn test_seek_long_looping_note_is_exact() {
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        let loop_count = 400_000_u64;
+        let offset = u64::from(NOTE_CLOCKS / 2);
+        let start_clock = u64::from(NOTE_CLOCKS) * loop_count + offset;
+
+        channel.play_from_clock(vec![note_sound(1)], start_clock, true, false);
+        assert!(channel.is_playing);
+        assert_eq!(channel.sound_index, 0);
+        assert_eq!(channel.sound_elapsed_clocks, offset);
+        assert_eq!(channel.total_elapsed_clocks, start_clock);
+    }
+
+    #[test]
+    fn test_resume_to_pcm_replays_no_stale_commands() {
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel
+            .play(vec![pcm_sound(1000)], None, false, false)
+            .unwrap();
+
+        channel
+            .play(vec![note_sound(1)], None, false, true)
+            .unwrap();
+        channel.process(None, NOTE_CLOCKS + 5000);
+        assert!(channel.is_playing);
+        assert!(channel.playing_pcm);
+        assert_eq!(channel.sound_index, 0);
+        let expected_position =
+            (NOTE_CLOCKS as u64 * AUDIO_SAMPLE_RATE as u64 / AUDIO_CLOCK_RATE as u64) as usize;
+        assert_eq!(channel.pcm_position, expected_position);
+        assert_eq!(channel.note_duration_clocks, 0);
+    }
+
+    #[test]
+    fn test_play_mml_resume_returns_to_previous_mml() {
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel.play_mml("T120 L4 C", None, true, false).unwrap();
+        let previous = channel.sounds[0].clone();
+
+        channel.play_mml("T120 L4 C", None, false, true).unwrap();
+        channel.process(None, AUDIO_CLOCK_RATE);
+        assert!(channel.is_playing);
+        assert!(Arc::ptr_eq(&channel.sounds[0], &previous));
+    }
+
+    #[test]
+    fn test_stopped_mml_is_not_resumed_by_later_playback() {
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel.play_mml("T120 L4 C", None, true, false).unwrap();
+        channel.stop();
+
+        channel.play_mml("T120 L4 C", None, false, true).unwrap();
+        channel.process(None, AUDIO_CLOCK_RATE);
+        assert!(!channel.is_playing);
+    }
+
+    #[test]
+    fn test_stopped_sound_is_not_resumed_by_later_playback() {
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel
+            .play(vec![note_sound(1)], None, true, false)
+            .unwrap();
+        channel.stop();
+
+        channel
+            .play(vec![note_sound(1)], None, false, true)
+            .unwrap();
+        channel.process(None, NOTE_CLOCKS);
+        assert!(!channel.is_playing);
+    }
+
+    #[test]
+    fn test_loop_reuses_commands_and_refreshes_after_live_edit() {
+        let sound = note_sound(1);
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel
+            .play(vec![sound.clone()], None, true, false)
+            .unwrap();
+        channel.process(None, 1);
+        let first = channel.commands.clone();
+
+        channel.process(None, NOTE_CLOCKS);
+        assert!(Arc::ptr_eq(&first, &channel.commands));
+
+        audio_mut!(sound).notes[0] = 1;
+        channel.process(None, NOTE_CLOCKS);
+        assert!(!Arc::ptr_eq(&first, &channel.commands));
+    }
+
+    #[test]
+    fn test_effect_slots_are_sparse() {
+        let sound = Sound::new();
+        audio_mut!(sound).set_mml("@VIB10000{0,1,50} R").unwrap();
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel.play(vec![sound], None, false, false).unwrap();
+        channel.process(None, 1);
+        assert_eq!(channel.vibrato_slots.len(), 1);
+    }
+
+    #[test]
+    fn test_infinite_zero_duration_repeat_stops() {
+        let sound = Sound::new();
+        audio_mut!(sound).set_mml("[T120]").unwrap();
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel.play(vec![sound], None, false, false).unwrap();
+        channel.process(None, 1);
+        assert!(!channel.is_playing);
+    }
+
+    #[test]
+    fn test_finite_zero_duration_repeat_continues() {
+        let sound = Sound::new();
+        audio_mut!(sound).set_mml("[T120]2147483647 C").unwrap();
+        let channel = Channel::new();
+        let mut channel = audio_mut!(channel);
+        channel.play(vec![sound], None, false, false).unwrap();
+        channel.process(None, 1);
+        assert!(channel.is_playing);
+        assert_eq!(channel.sound_elapsed_clocks, 1);
+    }
+
+    #[test]
+    fn test_repeat_boundary_ties_match_expanded_pcm() {
+        fn samples(mml: &str) -> Vec<i16> {
+            let channel = Channel::new();
+            audio_mut!(channel)
+                .play_mml(
+                    &format!("T240 L16 @1 @ENV1{{0,4,127,2,40,6,0}} @ENV1 Q50 V100 {mml}"),
+                    None,
+                    false,
+                    false,
+                )
+                .unwrap();
+            let mut blip = BlipBuf::new(AUDIO_SAMPLE_RATE);
+            blip.set_rates(AUDIO_CLOCK_RATE as f64, AUDIO_SAMPLE_RATE as f64)
+                .unwrap();
+            let mut samples = vec![0; AUDIO_SAMPLE_RATE as usize * 3];
+            crate::audio::Audio::render_samples(&[channel], &mut blip, &mut samples);
+            assert!(samples.iter().any(|sample| *sample != 0));
+            samples
+        }
+        for (repeated, expanded) in [
+            (
+                "Q80 [C Q50 D]2 E&F G&[G]2",
+                "Q80 C Q50 D Q80 C Q50 D E&F G&G G",
+            ),
+            (
+                "Q100 [C Q50 D]2 E&F G&[G]2",
+                "Q100 C Q50 D C Q50 D E&F G&G G",
+            ),
+            (
+                "C&[@ENV2{127,1,0} C]2 D",
+                "C& @ENV2{127,1,0} C @ENV2{127,1,0} C D",
+            ),
+            (
+                "Q100 [C& Q50 C& Q100 C Q50 D]2 E&F G&[G]2",
+                "Q100 C8. Q50 D Q100 C8. Q50 D E&F G&G G",
+            ),
+            (
+                "Q100 [C& Q50 C& Q100 C Q50 D]2 E&F",
+                "Q100 C8. Q50 D Q100 C8. Q50 D E&F",
+            ),
+            ("Q100 [C& Q50 D]2 E", "Q100 C Q50 D Q100 C Q50 D E"),
+            ("C&[C]2 D", "C&C C D"),
+            ("[C&]2 C D", "C&C&C D"),
+            ("C&[[C]2]2 D", "C&C C C C D"),
+            ("[C& D C&]2 C E", "C& D C& C& D C& C E"),
+            (
+                "Q20 C&[Q80 C& T480 C&]2 Q40 C D",
+                "Q20 C& Q80 C& T480 C& Q80 C& T480 C& Q40 C D",
+            ),
+            ("[C C&] D", "C [C8]"),
+            ("[C&] D", "Q100 C1&1&1&1&1&1"),
+            ("C&[T120] D", "Q100 C T120"),
+        ] {
+            assert_eq!(samples(repeated), samples(expanded), "{repeated}");
+        }
+    }
+
+    #[test]
+    fn test_shared_repeat_ties_do_not_scan_large_counts_at_startup() {
+        for mml in [
+            "[[C&]2147483647]2147483647 C",
+            "C&[T120]2147483647 C",
+            "C&[T120] C",
+        ] {
+            let channel = Channel::new();
+            let mut channel = audio_mut!(channel);
+            channel.play_mml(mml, None, false, false).unwrap();
+            channel.process(None, 1);
+            assert!(channel.is_playing);
+            assert_eq!(channel.sound_elapsed_clocks, 1);
+        }
+    }
+}

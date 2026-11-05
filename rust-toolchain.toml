@@ -1,0 +1,6 @@
+# Match the official Pyxel 3.0.0 build toolchain.
+[toolchain]
+channel = "nightly-2026-11-05"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

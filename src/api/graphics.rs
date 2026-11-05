@@ -25,7 +25,7 @@ pub fn pset(x: f32, y: f32, col: Color) {
     dispatch!(soft: s().pset(x, y, col), pyxel: pyxel::pyxel().set_pixel(x, y, col));
 }
 pub fn pget(x: f32, y: f32) -> Color {
-    dispatch!(soft: s().pget(x, y), pyxel: 0)
+    dispatch!(soft: s().pget(x, y), pyxel: pyxel::pyxel().pixel(x, y))
 }
 pub fn line(x1: f32, y1: f32, x2: f32, y2: f32, col: Color) {
     dispatch!(soft: s().draw_line(x1,y1,x2,y2,col), pyxel: pyxel::pyxel().draw_line(x1,y1,x2,y2,col));
@@ -67,10 +67,10 @@ pub fn clip_reset() {
     dispatch!(soft: { s().clip_rect = None; }, pyxel: pyxel::pyxel().reset_clip_rect());
 }
 pub fn camera(x: f32, y: f32) {
-    dispatch!(soft: { let st = s(); st.camera_x = x; st.camera_y = y; }, pyxel: { let _ = (x,y); });
+    dispatch!(soft: { let st = s(); st.camera_x = x; st.camera_y = y; }, pyxel: pyxel::pyxel().set_camera(x, y));
 }
 pub fn camera_reset() {
-    dispatch!(soft: { let st = s(); st.camera_x = 0.0; st.camera_y = 0.0; }, pyxel: {});
+    dispatch!(soft: { let st = s(); st.camera_x = 0.0; st.camera_y = 0.0; }, pyxel: pyxel::pyxel().reset_camera());
 }
 pub fn pal(col1: Color, col2: Color) {
     dispatch!(

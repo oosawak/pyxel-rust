@@ -1,15 +1,18 @@
-/// WgpuBackend — wgpu + winit 0.28 + pixels 0.12
-
+/// WgpuBackend — wgpu + winit 0.30 + pixels 0.17
 pub mod drawing;
 pub mod font;
 pub mod input;
 
 use pixels::{Pixels, SurfaceTexture};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use winit::{
+    application::ApplicationHandler,
     dpi::LogicalSize,
-    event::{ElementState, Event, VirtualKeyCode, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    event::{ElementState, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    keyboard::{KeyCode, PhysicalKey},
+    window::{Window, WindowId},
 };
 
 use input::InputState;
@@ -47,6 +50,8 @@ pub struct WgpuState {
     pub fps: u32,
     pub title: String,
     pub pixel_buffer: Vec<u8>,
+    pub image_banks: [Vec<u8>; 3],
+    pub tilemaps: [Vec<(u8, u8)>; 8],
     pub palette: [[u8; 4]; 16],
     pub color_map: [u8; 16],
     pub clip_rect: Option<[i32; 4]>,
@@ -61,142 +66,218 @@ pub struct WgpuState {
 impl WgpuState {
     pub fn new(width: u32, height: u32, title: &str, fps: u32) -> Self {
         let mut color_map = [0u8; 16];
-        for i in 0..16u8 { color_map[i as usize] = i; }
+        for i in 0..16u8 {
+            color_map[i as usize] = i;
+        }
         Self {
-            width, height, fps, title: title.to_string(),
+            width,
+            height,
+            fps,
+            title: title.to_string(),
             pixel_buffer: vec![0u8; (width * height) as usize],
-            palette: DEFAULT_PALETTE, color_map,
-            clip_rect: None, camera_x: 0.0, camera_y: 0.0, dither_alpha: 1.0,
-            input: InputState::new(), should_quit: false, frame_count: 0,
+            image_banks: std::array::from_fn(|_| vec![0; 256 * 256]),
+            tilemaps: std::array::from_fn(|_| vec![(0, 0); 256 * 256]),
+            palette: DEFAULT_PALETTE,
+            color_map,
+            clip_rect: None,
+            camera_x: 0.0,
+            camera_y: 0.0,
+            dither_alpha: 1.0,
+            input: InputState::new(),
+            should_quit: false,
+            frame_count: 0,
         }
     }
 }
 
 pub fn init(width: u32, height: u32, title: &str, fps: u32) {
-    unsafe { STATE = Some(WgpuState::new(width, height, title, fps)); }
+    unsafe {
+        STATE = Some(WgpuState::new(width, height, title, fps));
+    }
 }
 
-fn vk_to_idx(vk: VirtualKeyCode) -> u32 {
+fn vk_to_idx(vk: KeyCode) -> u32 {
     match vk {
-        VirtualKeyCode::Escape     => 0,  VirtualKeyCode::Space      => 1,
-        VirtualKeyCode::Return     => 2,  VirtualKeyCode::Back       => 3,
-        VirtualKeyCode::Tab        => 4,
-        VirtualKeyCode::Up         => 5,  VirtualKeyCode::Down       => 6,
-        VirtualKeyCode::Left       => 7,  VirtualKeyCode::Right      => 8,
-        VirtualKeyCode::LShift     => 9,  VirtualKeyCode::RShift     => 10,
-        VirtualKeyCode::LControl   => 11, VirtualKeyCode::RControl   => 12,
-        VirtualKeyCode::LAlt       => 13, VirtualKeyCode::RAlt       => 14,
-        VirtualKeyCode::A => 20, VirtualKeyCode::B => 21, VirtualKeyCode::C => 22,
-        VirtualKeyCode::D => 23, VirtualKeyCode::E => 24, VirtualKeyCode::F => 25,
-        VirtualKeyCode::G => 26, VirtualKeyCode::H => 27, VirtualKeyCode::I => 28,
-        VirtualKeyCode::J => 29, VirtualKeyCode::K => 30, VirtualKeyCode::L => 31,
-        VirtualKeyCode::M => 32, VirtualKeyCode::N => 33, VirtualKeyCode::O => 34,
-        VirtualKeyCode::P => 35, VirtualKeyCode::Q => 36, VirtualKeyCode::R => 37,
-        VirtualKeyCode::S => 38, VirtualKeyCode::T => 39, VirtualKeyCode::U => 40,
-        VirtualKeyCode::V => 41, VirtualKeyCode::W => 42, VirtualKeyCode::X => 43,
-        VirtualKeyCode::Y => 44, VirtualKeyCode::Z => 45,
-        VirtualKeyCode::Key0 => 50, VirtualKeyCode::Key1 => 51, VirtualKeyCode::Key2 => 52,
-        VirtualKeyCode::Key3 => 53, VirtualKeyCode::Key4 => 54, VirtualKeyCode::Key5 => 55,
-        VirtualKeyCode::Key6 => 56, VirtualKeyCode::Key7 => 57, VirtualKeyCode::Key8 => 58,
-        VirtualKeyCode::Key9 => 59,
-        VirtualKeyCode::F1  => 60, VirtualKeyCode::F2  => 61, VirtualKeyCode::F3  => 62,
-        VirtualKeyCode::F4  => 63, VirtualKeyCode::F5  => 64, VirtualKeyCode::F6  => 65,
-        VirtualKeyCode::F7  => 66, VirtualKeyCode::F8  => 67, VirtualKeyCode::F9  => 68,
-        VirtualKeyCode::F10 => 69, VirtualKeyCode::F11 => 70, VirtualKeyCode::F12 => 71,
+        KeyCode::Escape => 0,
+        KeyCode::Space => 1,
+        KeyCode::Enter => 2,
+        KeyCode::Backspace => 3,
+        KeyCode::Tab => 4,
+        KeyCode::ArrowUp => 5,
+        KeyCode::ArrowDown => 6,
+        KeyCode::ArrowLeft => 7,
+        KeyCode::ArrowRight => 8,
+        KeyCode::ShiftLeft => 9,
+        KeyCode::ShiftRight => 10,
+        KeyCode::ControlLeft => 11,
+        KeyCode::ControlRight => 12,
+        KeyCode::AltLeft => 13,
+        KeyCode::AltRight => 14,
+        KeyCode::KeyA => 20,
+        KeyCode::KeyB => 21,
+        KeyCode::KeyC => 22,
+        KeyCode::KeyD => 23,
+        KeyCode::KeyE => 24,
+        KeyCode::KeyF => 25,
+        KeyCode::KeyG => 26,
+        KeyCode::KeyH => 27,
+        KeyCode::KeyI => 28,
+        KeyCode::KeyJ => 29,
+        KeyCode::KeyK => 30,
+        KeyCode::KeyL => 31,
+        KeyCode::KeyM => 32,
+        KeyCode::KeyN => 33,
+        KeyCode::KeyO => 34,
+        KeyCode::KeyP => 35,
+        KeyCode::KeyQ => 36,
+        KeyCode::KeyR => 37,
+        KeyCode::KeyS => 38,
+        KeyCode::KeyT => 39,
+        KeyCode::KeyU => 40,
+        KeyCode::KeyV => 41,
+        KeyCode::KeyW => 42,
+        KeyCode::KeyX => 43,
+        KeyCode::KeyY => 44,
+        KeyCode::KeyZ => 45,
+        KeyCode::Digit0 => 50,
+        KeyCode::Digit1 => 51,
+        KeyCode::Digit2 => 52,
+        KeyCode::Digit3 => 53,
+        KeyCode::Digit4 => 54,
+        KeyCode::Digit5 => 55,
+        KeyCode::Digit6 => 56,
+        KeyCode::Digit7 => 57,
+        KeyCode::Digit8 => 58,
+        KeyCode::Digit9 => 59,
+        KeyCode::F1 => 60,
+        KeyCode::F2 => 61,
+        KeyCode::F3 => 62,
+        KeyCode::F4 => 63,
+        KeyCode::F5 => 64,
+        KeyCode::F6 => 65,
+        KeyCode::F7 => 66,
+        KeyCode::F8 => 67,
+        KeyCode::F9 => 68,
+        KeyCode::F10 => 69,
+        KeyCode::F11 => 70,
+        KeyCode::F12 => 71,
         _ => 255,
     }
 }
 
-pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
-    let (width, height, title, fps) = {
+struct WgpuApp {
+    update: Box<dyn FnMut()>,
+    draw: Box<dyn FnMut()>,
+    window: Option<Arc<Window>>,
+    pixels: Option<Pixels<'static>>,
+    next_frame: Instant,
+    frame_duration: Duration,
+}
+
+impl ApplicationHandler for WgpuApp {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_some() {
+            return;
+        }
         let s = state();
-        (s.width, s.height, s.title.clone(), s.fps)
-    };
+        let attributes = Window::default_attributes()
+            .with_title(&s.title)
+            .with_inner_size(LogicalSize::new(
+                s.width * DISPLAY_SCALE,
+                s.height * DISPLAY_SCALE,
+            ))
+            .with_resizable(false);
+        let window = Arc::new(
+            event_loop
+                .create_window(attributes)
+                .expect("Failed to create window"),
+        );
+        let size = window.inner_size();
+        let surface = SurfaceTexture::new(size.width, size.height, window.clone());
+        self.pixels =
+            Some(Pixels::new(s.width, s.height, surface).expect("Failed to create pixel surface"));
+        self.window = Some(window);
+    }
 
-    let event_loop = EventLoop::new();
-    let win_w = width * DISPLAY_SCALE;
-    let win_h = height * DISPLAY_SCALE;
-
-    let window = WindowBuilder::new()
-        .with_title(&title)
-        .with_inner_size(LogicalSize::new(win_w, win_h))
-        .with_resizable(false)
-        .build(&event_loop)
-        .expect("Failed to create window");
-
-    let mut pixels = {
-        let surface = SurfaceTexture::new(win_w, win_h, &window);
-        Pixels::new(width, height, surface).expect("Failed to create pixel surface")
-    };
-
-    let frame_duration = std::time::Duration::from_secs_f64(1.0 / fps as f64);
-    let mut last_frame = std::time::Instant::now();
-
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
-
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         match event {
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-                *control_flow = ControlFlow::Exit;
-            }
-
-            Event::WindowEvent {
-                event: WindowEvent::KeyboardInput { input, .. }, ..
-            } => {
-                if let Some(vk) = input.virtual_keycode {
-                    let pressed = input.state == ElementState::Pressed;
-                    state().input.set_key(vk_to_idx(vk), pressed);
-                    if vk == VirtualKeyCode::Escape {
-                        *control_flow = ControlFlow::Exit;
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::KeyboardInput { event, .. } => {
+                if let PhysicalKey::Code(key) = event.physical_key {
+                    let pressed = event.state == ElementState::Pressed;
+                    state().input.set_key(vk_to_idx(key), pressed);
+                    if pressed && key == KeyCode::Escape {
+                        event_loop.exit();
                     }
                 }
             }
-
-            Event::WindowEvent {
-                event: WindowEvent::CursorMoved { position, .. }, ..
-            } => {
+            WindowEvent::CursorMoved { position, .. } => {
                 let s = state();
-                s.input.mouse_x = (position.x / DISPLAY_SCALE as f64) as i32;
-                s.input.mouse_y = (position.y / DISPLAY_SCALE as f64) as i32;
-            }
-
-            Event::MainEventsCleared => {
-                let now = std::time::Instant::now();
-                if now.duration_since(last_frame) >= frame_duration {
-                    last_frame = now;
-                    {
-                        let s = state();
-                        s.frame_count += 1;
-                        s.input.tick();
-                    }
-
-                    update();
-                    draw();
-
-                    if state().should_quit {
-                        *control_flow = ControlFlow::Exit;
-                        return;
-                    }
-
-                    {
-                        let s = state();
-                        let frame = pixels.frame_mut();
-                        for (i, &idx) in s.pixel_buffer.iter().enumerate() {
-                            let mapped = s.color_map[idx as usize & 0x0f];
-                            let rgba = s.palette[mapped as usize];
-                            let base = i * 4;
-                            frame[base..base + 4].copy_from_slice(&rgba);
-                        }
-                    }
-
-                    if pixels.render().is_err() {
-                        *control_flow = ControlFlow::Exit;
-                    }
-                    window.request_redraw();
+                if let Some(window) = &self.window {
+                    let size = window.inner_size();
+                    s.input.mouse_x =
+                        (position.x * s.width as f64 / size.width.max(1) as f64) as i32;
+                    s.input.mouse_y =
+                        (position.y * s.height as f64 / size.height.max(1) as f64) as i32;
                 }
             }
-
+            WindowEvent::Resized(size) if size.width > 0 && size.height > 0 => {
+                if let Some(pixels) = &mut self.pixels {
+                    if pixels.resize_surface(size.width, size.height).is_err() {
+                        event_loop.exit();
+                    }
+                }
+            }
+            WindowEvent::RedrawRequested => {
+                if Instant::now() < self.next_frame {
+                    return;
+                }
+                let Some(pixels) = &mut self.pixels else {
+                    return;
+                };
+                state().frame_count += 1;
+                (self.update)();
+                (self.draw)();
+                // Keep key edges available to callbacks before clearing them.
+                state().input.tick();
+                if state().should_quit {
+                    event_loop.exit();
+                    return;
+                }
+                let s = state();
+                let frame = pixels.frame_mut();
+                for (i, &index) in s.pixel_buffer.iter().enumerate() {
+                    let mapped = s.color_map[index as usize & 0x0f];
+                    frame[i * 4..i * 4 + 4].copy_from_slice(&s.palette[mapped as usize]);
+                }
+                if pixels.render().is_err() {
+                    event_loop.exit();
+                }
+                self.next_frame = Instant::now() + self.frame_duration;
+            }
             _ => {}
         }
-    });
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if Instant::now() >= self.next_frame {
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
+        }
+        event_loop.set_control_flow(ControlFlow::WaitUntil(self.next_frame));
+    }
+}
+
+pub fn run(update: Box<dyn FnMut()>, draw: Box<dyn FnMut()>) {
+    let event_loop = EventLoop::new().expect("Failed to create event loop");
+    let mut app = WgpuApp {
+        update,
+        draw,
+        window: None,
+        pixels: None,
+        next_frame: Instant::now(),
+        frame_duration: Duration::from_secs_f64(1.0 / state().fps as f64),
+    };
+    event_loop.run_app(&mut app).expect("Event loop failed");
 }

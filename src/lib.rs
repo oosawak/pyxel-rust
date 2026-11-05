@@ -7,9 +7,21 @@
 #[cfg(feature = "pyxel-core-backend")]
 extern crate pyxel;
 
+#[cfg(all(feature = "wasm-backend", not(feature = "pyxel-core-backend")))]
+extern crate pyxel_cube_core as pyxel;
+
 pub mod backend;
 pub mod api;
 pub mod games;
+
+/// Official Pyxel 3.0 Cube types, scene graph, collisions, and software renderer.
+/// Available on SDL2 and the Canvas/WASM backend.
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub use pyxel::cube;
+#[cfg(feature = "pyxel-core-backend")]
+pub use pyxel::screen;
+#[cfg(all(feature = "wasm-backend", not(feature = "pyxel-core-backend")))]
+pub use pyxel::Image;
 
 // Re-export pyxel-core types when using pyxel-core-backend
 #[cfg(feature = "pyxel-core-backend")]

@@ -1,0 +1,268 @@
+macro_rules! define_rc_type {
+    ($alias:ident, $inner:ty) => {
+        pub type $alias = std::rc::Rc<std::cell::RefCell<$inner>>;
+    };
+}
+
+macro_rules! define_audio_type {
+    ($alias:ident, $inner:ty) => {
+        pub type $alias = std::sync::Arc<std::sync::Mutex<$inner>>;
+    };
+}
+
+macro_rules! new_rc_type {
+    ($e:expr) => {
+        std::rc::Rc::new(std::cell::RefCell::new($e))
+    };
+}
+
+macro_rules! new_audio_type {
+    ($e:expr) => {
+        std::sync::Arc::new(std::sync::Mutex::new($e))
+    };
+}
+
+macro_rules! rc_ref {
+    ($rc:expr) => {
+        ($rc).borrow()
+    };
+}
+
+macro_rules! rc_mut {
+    ($rc:expr) => {
+        ($rc).borrow_mut()
+    };
+}
+
+macro_rules! audio_ref {
+    ($audio:expr) => {
+        ($audio)
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    };
+}
+
+macro_rules! audio_mut {
+    ($audio:expr) => {
+        ($audio)
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    };
+}
+
+// Numeric rounding helpers
+
+pub fn f32_to_i32(x: f32) -> i32 {
+    x.round() as i32
+}
+
+pub fn f32_to_u32(x: f32) -> u32 {
+    x.round() as u32
+}
+
+// String normalization helpers
+
+pub fn remove_whitespace(string: &str) -> String {
+    string.replace(&[' ', '\n', '\r', '\t'][..], "")
+}
+
+pub fn simplify_string(string: &str) -> String {
+    string
+        .chars()
+        .filter(|c| !c.is_ascii_whitespace())
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
+pub fn add_file_extension(filename: &str, ext: &str) -> String {
+    if filename.to_lowercase().ends_with(ext) {
+        filename.to_string()
+    } else {
+        format!("{filename}{ext}")
+    }
+}
+
+// Shorten repeated trailing values/rows; expansion repeats the final entry.
+
+pub fn compress_vec<T: PartialEq + Clone>(vec: &[T]) -> Vec<T> {
+    assert!(!vec.is_empty());
+    let last = vec.last().unwrap();
+    let new_len = vec.iter().rposition(|v| v != last).map_or(1, |i| i + 2);
+    vec[..new_len].to_vec()
+}
+
+pub fn compress_vec2<T: PartialEq + Clone>(vec: &[Vec<T>]) -> Vec<Vec<T>> {
+    assert!(!vec.is_empty());
+    compress_vec(vec)
+        .iter()
+        .map(|inner_vec| compress_vec(inner_vec))
+        .collect()
+}
+
+pub fn expand_vec<T: Clone>(vec: &[T], new_len: usize) -> Vec<T> {
+    assert!(!vec.is_empty());
+    let mut new_vec = vec.to_vec();
+    let last = new_vec.last().cloned().unwrap();
+    new_vec.resize(new_len, last);
+    new_vec
+}
+
+pub fn expand_vec2<T: Clone>(
+    vec: &[Vec<T>],
+    new_outer_len: usize,
+    new_inner_len: usize,
+) -> Vec<Vec<T>> {
+    assert!(!vec.is_empty());
+    let new_vec: Vec<_> = vec
+        .iter()
+        .map(|inner_vec| expand_vec(inner_vec, new_inner_len))
+        .collect();
+    expand_vec(&new_vec, new_outer_len)
+}
+
+pub fn trim_empty_vec<T: Clone>(vecs: &[Vec<T>]) -> Vec<Vec<T>> {
+    let mut vecs = vecs.to_vec();
+    let new_len = vecs
+        .iter()
+        .rev()
+        .position(|vec| !vec.is_empty())
+        .map_or(0, |i| vecs.len() - i);
+    vecs.truncate(new_len);
+    vecs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Numeric rounding tests
+
+    #[test]
+    fn test_f32_to_i32() {
+        assert_eq!(f32_to_i32(0.1), 0);
+        assert_eq!(f32_to_i32(0.49), 0);
+        assert_eq!(f32_to_i32(0.5), 1);
+        assert_eq!(f32_to_i32(1.49), 1);
+        assert_eq!(f32_to_i32(-0.1), 0);
+        assert_eq!(f32_to_i32(-0.49), 0);
+        assert_eq!(f32_to_i32(-0.5), -1);
+        assert_eq!(f32_to_i32(-1.49), -1);
+    }
+
+    #[test]
+    fn test_f32_to_u32() {
+        assert_eq!(f32_to_u32(0.1), 0);
+        assert_eq!(f32_to_u32(0.49), 0);
+        assert_eq!(f32_to_u32(0.5), 1);
+        assert_eq!(f32_to_u32(1.49), 1);
+        assert_eq!(f32_to_u32(-0.1), 0);
+        assert_eq!(f32_to_u32(-3.0), 0);
+    }
+
+    // String functions
+
+    #[test]
+    fn test_remove_whitespace() {
+        assert_eq!(remove_whitespace(" a\n b\r c\t d "), "abcd");
+        assert_eq!(remove_whitespace(""), "");
+        assert_eq!(remove_whitespace("abc"), "abc");
+    }
+
+    #[test]
+    fn test_simplify_string() {
+        assert_eq!(simplify_string(" 0\n 1\r 2\t 3 A\n b\r c\t d "), "0123abcd");
+        assert_eq!(simplify_string("ABC"), "abc");
+        assert_eq!(simplify_string(""), "");
+    }
+
+    #[test]
+    fn test_add_file_extension() {
+        assert_eq!(add_file_extension("test", ".png"), "test.png");
+        assert_eq!(add_file_extension("test.png", ".png"), "test.png");
+        assert_eq!(add_file_extension("test.PNG", ".png"), "test.PNG");
+        assert_eq!(add_file_extension("test.txt", ".png"), "test.txt.png");
+    }
+
+    #[test]
+    fn test_add_file_extension_edge_cases() {
+        assert_eq!(add_file_extension("", ".png"), ".png");
+        assert_eq!(add_file_extension("test.pn", ".png"), "test.pn.png");
+        assert_eq!(add_file_extension(".png", ".png"), ".png");
+    }
+
+    // Vector shape helper tests
+
+    #[test]
+    fn test_compress_vec() {
+        assert_eq!(compress_vec(&[1, 2, 2, 3, 3, 3]), vec![1, 2, 2, 3]);
+        assert_eq!(compress_vec(&[4, 4, 4, 4, 4]), vec![4]);
+        assert_eq!(compress_vec(&[2]), vec![2]);
+        assert_eq!(compress_vec(&[1, 2, 3]), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_compress_vec_two_distinct() {
+        assert_eq!(compress_vec(&[1, 2]), vec![1, 2]);
+    }
+
+    #[test]
+    fn test_compress_vec2() {
+        assert_eq!(
+            compress_vec2(&[vec![1, 1, 2], vec![2, 2, 2], vec![3, 3, 3], vec![3, 3, 3]]),
+            vec![vec![1, 1, 2], vec![2], vec![3]]
+        );
+        assert_eq!(compress_vec2(&[vec![2]]), vec![vec![2]]);
+    }
+
+    #[test]
+    fn test_expand_vec() {
+        assert_eq!(expand_vec(&[1, 2, 3], 5), vec![1, 2, 3, 3, 3]);
+        assert_eq!(expand_vec(&[4], 3), vec![4, 4, 4]);
+        assert_eq!(expand_vec(&[1, 2, 3], 2), vec![1, 2]);
+    }
+
+    #[test]
+    fn test_expand_vec_same_length() {
+        assert_eq!(expand_vec(&[1, 2, 3], 3), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_expand_vec2() {
+        assert_eq!(
+            expand_vec2(&[vec![1, 2], vec![3]], 4, 3),
+            vec![vec![1, 2, 2], vec![3, 3, 3], vec![3, 3, 3], vec![3, 3, 3]]
+        );
+        assert_eq!(
+            expand_vec2(
+                &[
+                    vec![1, 2, 4],
+                    vec![4, 5, 6],
+                    vec![7, 8, 9],
+                    vec![10, 11, 12]
+                ],
+                3,
+                2
+            ),
+            vec![vec![1, 2], vec![4, 5], vec![7, 8]]
+        );
+    }
+
+    #[test]
+    fn test_expand_vec2_same_dimensions() {
+        let input = vec![vec![1, 2], vec![3, 4]];
+        assert_eq!(expand_vec2(&input, 2, 2), input);
+    }
+
+    #[test]
+    fn test_trim_empty_vec() {
+        assert_eq!(
+            trim_empty_vec(&[vec![1, 2], vec![], vec![], vec![3, 4], vec![], vec![]]),
+            vec![vec![1, 2], vec![], vec![], vec![3, 4]]
+        );
+        let empty: Vec<Vec<i32>> = vec![];
+        assert_eq!(trim_empty_vec::<i32>(&[vec![], vec![]]), empty);
+        assert_eq!(trim_empty_vec(&[vec![1], vec![2]]), vec![vec![1], vec![2]]);
+        assert_eq!(trim_empty_vec::<i32>(&[vec![]]), empty);
+        assert_eq!(trim_empty_vec(&[vec![1, 2]]), vec![vec![1, 2]]);
+    }
+}

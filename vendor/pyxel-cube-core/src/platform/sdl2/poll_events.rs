@@ -1,0 +1,632 @@
+#[cfg(target_os = "emscripten")]
+use std::ffi::CString;
+use std::ffi::{c_char, CStr};
+use std::mem::zeroed;
+#[cfg(target_os = "emscripten")]
+use std::sync::OnceLock;
+
+use super::super::event::Event;
+use super::super::key::{
+    Key, GAMEPAD1_AXIS_LEFTX, GAMEPAD1_AXIS_LEFTY, GAMEPAD1_AXIS_RIGHTX, GAMEPAD1_AXIS_RIGHTY,
+    GAMEPAD1_AXIS_TRIGGERLEFT, GAMEPAD1_AXIS_TRIGGERRIGHT, GAMEPAD1_BUTTON_A, GAMEPAD1_BUTTON_B,
+    GAMEPAD1_BUTTON_BACK, GAMEPAD1_BUTTON_DPAD_DOWN, GAMEPAD1_BUTTON_DPAD_LEFT,
+    GAMEPAD1_BUTTON_DPAD_RIGHT, GAMEPAD1_BUTTON_DPAD_UP, GAMEPAD1_BUTTON_GUIDE,
+    GAMEPAD1_BUTTON_LEFTSHOULDER, GAMEPAD1_BUTTON_LEFTSTICK, GAMEPAD1_BUTTON_RIGHTSHOULDER,
+    GAMEPAD1_BUTTON_RIGHTSTICK, GAMEPAD1_BUTTON_START, GAMEPAD1_BUTTON_X, GAMEPAD1_BUTTON_Y,
+    GAMEPAD_KEY_STRIDE, KEY_ALT, KEY_CTRL, KEY_GUI, KEY_LALT, KEY_LCTRL, KEY_LGUI, KEY_LSHIFT,
+    KEY_RALT, KEY_RCTRL, KEY_RGUI, KEY_RSHIFT, KEY_SHIFT, KEY_UNKNOWN, MOUSE_BUTTON_LEFT,
+    MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_X1, MOUSE_BUTTON_X2, MOUSE_POS_X,
+    MOUSE_POS_Y, MOUSE_WHEEL_X, MOUSE_WHEEL_Y,
+};
+use super::platform_sdl2::PlatformSdl2;
+// This SDL bridge intentionally uses the generated C names directly.
+#[allow(clippy::wildcard_imports)]
+use super::sdl2_sys::*;
+
+pub type GamepadSlot = Option<(i32, *mut SDL_GameController)>;
+
+#[cfg(target_os = "emscripten")]
+extern "C" {
+    fn emscripten_run_script_int(script: *const c_char) -> std::os::raw::c_int;
+}
+
+#[cfg(target_os = "emscripten")]
+const VIRTUAL_GAMEPAD_BITMASK_SCRIPT: &CStr = c"_readVirtualGamepadBitmask();";
+
+// Pre-built eval scripts indexed by SDL scancode. Sized to cover the full
+// USB HID short-scancode range; pyxel.js's _scanCorrection only populates
+// indices 4..=56 (printable ASCII keys), so values past that just return 0.
+#[cfg(target_os = "emscripten")]
+const SCAN_CORRECTION_SCRIPT_COUNT: usize = 256;
+
+#[cfg(target_os = "emscripten")]
+static SCAN_CORRECTION_SCRIPTS: OnceLock<[CString; SCAN_CORRECTION_SCRIPT_COUNT]> = OnceLock::new();
+
+#[cfg(target_os = "emscripten")]
+fn scan_correction_scripts() -> &'static [CString; SCAN_CORRECTION_SCRIPT_COUNT] {
+    SCAN_CORRECTION_SCRIPTS.get_or_init(|| {
+        std::array::from_fn(|i| {
+            CString::new(format!("_scanCorrection[{i}]||0;"))
+                .expect("scan correction script is built from a numeric index")
+        })
+    })
+}
+
+// Gamepad lifecycle helpers
+
+pub fn open_gamepad(device_index: i32) -> Option<(i32, *mut SDL_GameController)> {
+    // SAFETY: SDL owns the controller allocation and returns either null or a
+    // live handle that close_gamepad closes exactly once.
+    let controller = unsafe { SDL_GameControllerOpen(device_index) };
+    if controller.is_null() {
+        return None;
+    }
+    let instance_id = unsafe { SDL_JoystickGetDeviceInstanceID(device_index) };
+    Some((instance_id, controller))
+}
+
+fn close_gamepad(gamepad: &mut GamepadSlot) {
+    if let Some((_, controller)) = gamepad {
+        // SAFETY: slots contain only non-null handles returned by
+        // SDL_GameControllerOpen, and clearing the slot prevents a second close.
+        unsafe { SDL_GameControllerClose(*controller) };
+        *gamepad = None;
+    }
+}
+
+impl PlatformSdl2 {
+    pub(super) fn close_gamepads(&mut self) {
+        for gamepad in &mut self.gamepads {
+            close_gamepad(gamepad);
+        }
+        self.gamepads.clear();
+    }
+
+    pub fn poll_events(&mut self, pyxel_events: &mut Vec<Event>) {
+        // SAFETY: SDL_Event is a C union used here only as an output buffer.
+        let mut sdl_event: SDL_Event = unsafe { zeroed() };
+        while unsafe { SDL_PollEvent(&raw mut sdl_event) } != 0 {
+            // SAFETY: a successful SDL_PollEvent initializes type_; each match
+            // arm reads only the union member selected by that SDL event tag.
+            match unsafe { sdl_event.type_ as SDL_EventType } {
+                // Window, file drop, and quit
+                SDL_WINDOWEVENT => match unsafe { sdl_event.window.event } as SDL_WindowEventID {
+                    SDL_WINDOWEVENT_SHOWN
+                    | SDL_WINDOWEVENT_MAXIMIZED
+                    | SDL_WINDOWEVENT_RESTORED => {
+                        pyxel_events.push(Event::WindowShown);
+                    }
+                    SDL_WINDOWEVENT_HIDDEN | SDL_WINDOWEVENT_MINIMIZED => {
+                        pyxel_events.push(Event::WindowHidden);
+                    }
+                    _ => {}
+                },
+
+                SDL_DROPFILE => {
+                    unsafe { SDL_RaiseWindow(self.window) };
+                    // SAFETY: SDL_DROPFILE supplies a non-null, NUL-terminated
+                    // SDL allocation. Copy it before releasing it once with SDL_free.
+                    let filename = unsafe { CStr::from_ptr(sdl_event.drop.file) };
+                    let filename = filename.to_string_lossy().into_owned();
+                    pyxel_events.push(Event::FileDropped { filename });
+                    unsafe { SDL_free(sdl_event.drop.file.cast()) };
+                }
+
+                SDL_QUIT => {
+                    pyxel_events.push(Event::Quit);
+                }
+
+                // Keyboard
+                SDL_KEYDOWN | SDL_KEYUP => {
+                    let key = unsafe { sdl_event.key.keysym.sym } as Key;
+                    #[cfg(target_os = "emscripten")]
+                    let key = correct_emscripten_key(key, unsafe { sdl_event.key.keysym.scancode }
+                        as u32);
+                    if unsafe { sdl_event.key.repeat } == 0 {
+                        let pressed = unsafe { sdl_event.type_ } as SDL_EventType == SDL_KEYDOWN;
+                        push_key_event(pyxel_events, key, pressed);
+
+                        if let Some((unified_key, mask)) = key_to_virtual_key(key) {
+                            // Use this event's state so queued transitions stay in order.
+                            let modifiers = unsafe { sdl_event.key.keysym.mod_ } as SDL_Keymod;
+                            let was_pressed = self.key_modifiers & mask != 0;
+                            let is_pressed = modifiers & mask != 0;
+                            if is_pressed != was_pressed {
+                                push_key_event(pyxel_events, unified_key, is_pressed);
+                            }
+                            self.key_modifiers = modifiers;
+                        }
+                    }
+                }
+
+                SDL_TEXTINPUT => unsafe {
+                    // SAFETY: SDL_TEXTINPUT makes text the active union member;
+                    // SDL guarantees its fixed buffer contains a NUL-terminated string.
+                    let c_str = CStr::from_ptr(sdl_event.text.text.as_ptr().cast::<c_char>());
+                    if let Ok(text) = c_str.to_str() {
+                        let text = text.to_string();
+                        pyxel_events.push(Event::TextInput { text });
+                    }
+                },
+
+                // Mouse
+                SDL_MOUSEBUTTONDOWN => {
+                    let key = mouse_button_to_key(unsafe { sdl_event.button.button } as u32);
+                    if key != KEY_UNKNOWN {
+                        pyxel_events.push(Event::KeyPressed { key });
+                    }
+                }
+
+                SDL_MOUSEBUTTONUP => {
+                    let key = mouse_button_to_key(unsafe { sdl_event.button.button } as u32);
+                    if key != KEY_UNKNOWN {
+                        pyxel_events.push(Event::KeyReleased { key });
+                    }
+                }
+
+                SDL_MOUSEWHEEL => {
+                    pyxel_events.push(Event::KeyValueChanged {
+                        key: MOUSE_WHEEL_X,
+                        value: unsafe { sdl_event.wheel.x },
+                    });
+                    pyxel_events.push(Event::KeyValueChanged {
+                        key: MOUSE_WHEEL_Y,
+                        value: unsafe { sdl_event.wheel.y },
+                    });
+                }
+
+                // Gamepad
+                SDL_CONTROLLERDEVICEADDED => {
+                    let device_index = unsafe { sdl_event.cdevice.which };
+                    let instance_id = unsafe { SDL_JoystickGetDeviceInstanceID(device_index) };
+                    // SDL queues add events for controllers already opened during init.
+                    if self
+                        .gamepads
+                        .iter()
+                        .any(|g| matches!(g, Some((id, _)) if *id == instance_id))
+                    {
+                        continue;
+                    }
+                    if let Some(gamepad) = open_gamepad(device_index) {
+                        match self.gamepads.iter_mut().find(|g| g.is_none()) {
+                            Some(slot) => *slot = Some(gamepad),
+                            None => self.gamepads.push(Some(gamepad)),
+                        }
+                    }
+                }
+
+                SDL_CONTROLLERDEVICEREMOVED => {
+                    let instance_id = unsafe { sdl_event.cdevice.which };
+                    if let Some(slot) = self
+                        .gamepads
+                        .iter_mut()
+                        .find(|g| matches!(g, Some((id, _)) if *id == instance_id))
+                    {
+                        close_gamepad(slot);
+                    }
+                }
+
+                SDL_CONTROLLERAXISMOTION => {
+                    if let Some(key_offset) =
+                        self.gamepad_key_offset(unsafe { sdl_event.caxis.which })
+                    {
+                        let key = controller_axis_to_key(unsafe { sdl_event.caxis.axis } as i32);
+                        if key != KEY_UNKNOWN {
+                            pyxel_events.push(Event::KeyValueChanged {
+                                key: key + key_offset,
+                                value: unsafe { sdl_event.caxis.value } as i32,
+                            });
+                        }
+                    }
+                }
+
+                SDL_CONTROLLERBUTTONDOWN | SDL_CONTROLLERBUTTONUP => {
+                    if let Some(key_offset) =
+                        self.gamepad_key_offset(unsafe { sdl_event.cbutton.which })
+                    {
+                        let key =
+                            controller_button_to_key(unsafe { sdl_event.cbutton.button } as i32);
+                        if key != KEY_UNKNOWN {
+                            let pressed = unsafe { sdl_event.type_ } as SDL_EventType
+                                == SDL_CONTROLLERBUTTONDOWN;
+                            push_key_event(pyxel_events, key + key_offset, pressed);
+                        }
+                    }
+                }
+
+                _ => {}
+            }
+        }
+
+        // Mouse motion (polling)
+        let (mouse_x, mouse_y) = if self.is_wayland || cfg!(target_os = "emscripten") {
+            // Wayland: SDL_GetGlobalMouseState is unsupported, so use
+            // SDL_GetMouseState which returns SDL's window-relative event state.
+            let (mut x, mut y) = (0, 0);
+            unsafe { SDL_GetMouseState(&raw mut x, &raw mut y) };
+            (x, y)
+        } else {
+            // SDL_GetGlobalMouseState tracks the cursor even outside the
+            // window, which is useful for drag operations.
+            let (mut gx, mut gy) = (0, 0);
+            unsafe { SDL_GetGlobalMouseState(&raw mut gx, &raw mut gy) };
+            let (wx, wy) = self.window_pos();
+            (gx - wx, gy - wy)
+        };
+
+        if mouse_x != self.mouse_x || mouse_y != self.mouse_y {
+            self.mouse_x = mouse_x;
+            self.mouse_y = mouse_y;
+            pyxel_events.push(Event::KeyValueChanged {
+                key: MOUSE_POS_X,
+                value: mouse_x,
+            });
+            pyxel_events.push(Event::KeyValueChanged {
+                key: MOUSE_POS_Y,
+                value: mouse_y,
+            });
+        }
+
+        // Virtual gamepad (Emscripten)
+        #[cfg(target_os = "emscripten")]
+        {
+            const VIRTUAL_GAMEPAD_BUTTONS: [Key; 10] = [
+                GAMEPAD1_BUTTON_DPAD_UP,
+                GAMEPAD1_BUTTON_DPAD_DOWN,
+                GAMEPAD1_BUTTON_DPAD_LEFT,
+                GAMEPAD1_BUTTON_DPAD_RIGHT,
+                GAMEPAD1_BUTTON_A,
+                GAMEPAD1_BUTTON_B,
+                GAMEPAD1_BUTTON_X,
+                GAMEPAD1_BUTTON_Y,
+                GAMEPAD1_BUTTON_START,
+                GAMEPAD1_BUTTON_BACK,
+            ];
+
+            let bits = unsafe { emscripten_run_script_int(VIRTUAL_GAMEPAD_BITMASK_SCRIPT.as_ptr()) }
+                as u32;
+            for (i, &button) in VIRTUAL_GAMEPAD_BUTTONS.iter().enumerate() {
+                let pressed = (bits >> i) & 1 == 1;
+                if pressed != self.virtual_gamepad_states[i] {
+                    self.virtual_gamepad_states[i] = pressed;
+                    push_key_event(pyxel_events, button, pressed);
+                }
+            }
+        }
+    }
+
+    fn gamepad_key_offset(&self, instance_id: i32) -> Option<Key> {
+        self.gamepads
+            .iter()
+            .enumerate()
+            .find_map(|(index, slot)| match slot {
+                Some((id, _)) if *id == instance_id => Some(GAMEPAD_KEY_STRIDE * index as Key),
+                _ => None,
+            })
+    }
+}
+
+// SDL-to-Pyxel event conversion helpers
+
+fn mouse_button_to_key(button: u32) -> Key {
+    match button {
+        SDL_BUTTON_LEFT => MOUSE_BUTTON_LEFT,
+        SDL_BUTTON_MIDDLE => MOUSE_BUTTON_MIDDLE,
+        SDL_BUTTON_RIGHT => MOUSE_BUTTON_RIGHT,
+        SDL_BUTTON_X1 => MOUSE_BUTTON_X1,
+        SDL_BUTTON_X2 => MOUSE_BUTTON_X2,
+        _ => KEY_UNKNOWN,
+    }
+}
+
+// Apply the persistent per-scancode correction map populated by pyxel.js so
+// keydown and keyup use the same non-US-layout correction.
+#[cfg(target_os = "emscripten")]
+fn correct_emscripten_key(sdl_key: Key, scancode: u32) -> Key {
+    let scripts = scan_correction_scripts();
+    let Some(script) = scripts.get(scancode as usize) else {
+        return sdl_key;
+    };
+    let js_key = unsafe { emscripten_run_script_int(script.as_ptr()) } as u32;
+    // Only correct printable ASCII keys (0x20 space .. 0x7E tilde)
+    if !(0x20..=0x7E).contains(&sdl_key) || !(0x20..=0x7E).contains(&js_key) {
+        return sdl_key;
+    }
+
+    // Convert uppercase letters to lowercase (Pyxel uses lowercase key constants)
+    if (0x41..=0x5A).contains(&js_key) {
+        return js_key + 0x20;
+    }
+    js_key
+}
+
+fn push_key_event(events: &mut Vec<Event>, key: Key, pressed: bool) {
+    events.push(if pressed {
+        Event::KeyPressed { key }
+    } else {
+        Event::KeyReleased { key }
+    });
+}
+
+fn key_to_virtual_key(key: Key) -> Option<(Key, SDL_Keymod)> {
+    match key {
+        KEY_LSHIFT | KEY_RSHIFT => Some((KEY_SHIFT, KMOD_SHIFT)),
+        KEY_LCTRL | KEY_RCTRL => Some((KEY_CTRL, KMOD_CTRL)),
+        KEY_LALT | KEY_RALT => Some((KEY_ALT, KMOD_ALT)),
+        KEY_LGUI | KEY_RGUI => Some((KEY_GUI, KMOD_GUI)),
+        _ => None,
+    }
+}
+
+fn controller_axis_to_key(axis: i32) -> Key {
+    match axis {
+        SDL_CONTROLLER_AXIS_LEFTX => GAMEPAD1_AXIS_LEFTX,
+        SDL_CONTROLLER_AXIS_LEFTY => GAMEPAD1_AXIS_LEFTY,
+        SDL_CONTROLLER_AXIS_RIGHTX => GAMEPAD1_AXIS_RIGHTX,
+        SDL_CONTROLLER_AXIS_RIGHTY => GAMEPAD1_AXIS_RIGHTY,
+        SDL_CONTROLLER_AXIS_TRIGGERLEFT => GAMEPAD1_AXIS_TRIGGERLEFT,
+        SDL_CONTROLLER_AXIS_TRIGGERRIGHT => GAMEPAD1_AXIS_TRIGGERRIGHT,
+        _ => KEY_UNKNOWN,
+    }
+}
+
+fn controller_button_to_key(button: i32) -> Key {
+    match button {
+        SDL_CONTROLLER_BUTTON_A => GAMEPAD1_BUTTON_A,
+        SDL_CONTROLLER_BUTTON_B => GAMEPAD1_BUTTON_B,
+        SDL_CONTROLLER_BUTTON_X => GAMEPAD1_BUTTON_X,
+        SDL_CONTROLLER_BUTTON_Y => GAMEPAD1_BUTTON_Y,
+        SDL_CONTROLLER_BUTTON_BACK => GAMEPAD1_BUTTON_BACK,
+        SDL_CONTROLLER_BUTTON_GUIDE => GAMEPAD1_BUTTON_GUIDE,
+        SDL_CONTROLLER_BUTTON_START => GAMEPAD1_BUTTON_START,
+        SDL_CONTROLLER_BUTTON_LEFTSTICK => GAMEPAD1_BUTTON_LEFTSTICK,
+        SDL_CONTROLLER_BUTTON_RIGHTSTICK => GAMEPAD1_BUTTON_RIGHTSTICK,
+        SDL_CONTROLLER_BUTTON_LEFTSHOULDER => GAMEPAD1_BUTTON_LEFTSHOULDER,
+        SDL_CONTROLLER_BUTTON_RIGHTSHOULDER => GAMEPAD1_BUTTON_RIGHTSHOULDER,
+        SDL_CONTROLLER_BUTTON_DPAD_UP => GAMEPAD1_BUTTON_DPAD_UP,
+        SDL_CONTROLLER_BUTTON_DPAD_DOWN => GAMEPAD1_BUTTON_DPAD_DOWN,
+        SDL_CONTROLLER_BUTTON_DPAD_LEFT => GAMEPAD1_BUTTON_DPAD_LEFT,
+        SDL_CONTROLLER_BUTTON_DPAD_RIGHT => GAMEPAD1_BUTTON_DPAD_RIGHT,
+        _ => KEY_UNKNOWN,
+    }
+}
+
+#[cfg(all(test, not(target_os = "emscripten")))]
+mod tests {
+    use super::*;
+    use crate::key::{GAMEPAD3_AXIS_LEFTX, GAMEPAD3_BUTTON_A};
+
+    // SDL shares the event queue and virtual devices across test threads.
+    static SDL_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn test_combined_modifiers_follow_either_side() {
+        let _guard = SDL_TEST_LOCK.lock().unwrap();
+        // Push real SDL events without opening a window or using the OS keyboard.
+        assert_eq!(unsafe { SDL_InitSubSystem(SDL_INIT_EVENTS) }, 0);
+
+        for (left, right, unified, left_mask, right_mask) in [
+            (KEY_LSHIFT, KEY_RSHIFT, KEY_SHIFT, KMOD_LSHIFT, KMOD_RSHIFT),
+            (KEY_LCTRL, KEY_RCTRL, KEY_CTRL, KMOD_LCTRL, KMOD_RCTRL),
+            (KEY_LALT, KEY_RALT, KEY_ALT, KMOD_LALT, KMOD_RALT),
+            (KEY_LGUI, KEY_RGUI, KEY_GUI, KMOD_LGUI, KMOD_RGUI),
+        ] {
+            for (first, second, first_mask, second_mask) in [
+                (left, right, left_mask, right_mask),
+                (right, left, right_mask, left_mask),
+            ] {
+                for batched in [false, true] {
+                    let mut platform = PlatformSdl2::new();
+                    platform.is_wayland = true;
+                    let mut events = Vec::new();
+
+                    for (key, pressed, modifiers, repeat) in [
+                        (first, true, first_mask, 0),
+                        (first, true, first_mask, 1),
+                        (second, true, first_mask | second_mask, 0),
+                        (first, false, second_mask, 0),
+                        (second, false, 0, 0),
+                    ] {
+                        let mut event: SDL_Event = unsafe { zeroed() };
+                        event.key.type_ = if pressed { SDL_KEYDOWN } else { SDL_KEYUP };
+                        event.key.keysym.sym = key as SDL_Keycode;
+                        event.key.keysym.mod_ = modifiers as u16;
+                        event.key.repeat = repeat;
+                        assert_eq!(unsafe { SDL_PushEvent(&raw mut event) }, 1);
+                        if !batched {
+                            platform.poll_events(&mut events);
+                        }
+                    }
+                    platform.poll_events(&mut events);
+
+                    let actual: Vec<_> = events
+                        .iter()
+                        .filter_map(|event| match event {
+                            Event::KeyPressed { key } => Some((*key, true)),
+                            Event::KeyReleased { key } => Some((*key, false)),
+                            _ => None,
+                        })
+                        .collect();
+                    assert_eq!(
+                        actual,
+                        [
+                            (first, true),
+                            (unified, true),
+                            (second, true),
+                            (first, false),
+                            (second, false),
+                            (unified, false),
+                        ],
+                        "first={first}, second={second}, batched={batched}"
+                    );
+                }
+            }
+        }
+
+        unsafe { SDL_QuitSubSystem(SDL_INIT_EVENTS) };
+    }
+
+    #[test]
+    fn test_gamepad_platform_replacement_releases_each_open_reference() {
+        let _guard = SDL_TEST_LOCK.lock().unwrap();
+        assert_eq!(unsafe { SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) }, 0);
+        let device_index =
+            unsafe { SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER, 6, 16, 0) };
+        assert!(device_index >= 0);
+        let instance_id = unsafe { SDL_JoystickGetDeviceInstanceID(device_index) };
+        let mut released = Vec::new();
+
+        for cycle in 0..3 {
+            let mut previous = PlatformSdl2::new();
+            previous.gamepads = vec![None, open_gamepad(device_index)];
+            assert!(previous.gamepads[1].is_some());
+            let mut replacement = PlatformSdl2::new();
+            replacement.gamepads.push(open_gamepad(device_index));
+            assert!(replacement.gamepads[0].is_some());
+
+            drop(previous);
+            // The replacement owns a separate open reference to the same handle.
+            assert!(!unsafe { SDL_GameControllerFromInstanceID(instance_id) }.is_null());
+            if cycle == 1 {
+                replacement.close_gamepads();
+                replacement.close_gamepads();
+                assert_eq!(replacement.gamepads, []);
+            }
+            drop(replacement);
+            released.push(unsafe { SDL_GameControllerFromInstanceID(instance_id) }.is_null());
+        }
+
+        assert_eq!(unsafe { SDL_JoystickDetachVirtual(device_index) }, 0);
+        unsafe { SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER) };
+        assert_eq!(released, [true, true, true]);
+    }
+
+    #[test]
+    fn test_gamepad_startup_events_preserve_slots_and_open_references() {
+        const CHILD_ENV: &str = "PYXEL_TEST_GAMEPAD_STARTUP";
+        if std::env::var_os(CHILD_ENV).is_none() {
+            // Isolate SDL video, device state, and hints from the other tests.
+            let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "platform::sdl2::poll_events::tests::test_gamepad_startup_events_preserve_slots_and_open_references",
+                    "--nocapture",
+                ])
+                .env(CHILD_ENV, "1")
+                .env("SDL_VIDEODRIVER", "dummy")
+                .env("SDL_AUDIODRIVER", "dummy")
+                .spawn()
+                .unwrap();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            loop {
+                if let Some(status) = child.try_wait().unwrap() {
+                    assert!(
+                        status.success(),
+                        "gamepad startup subprocess failed: {status}"
+                    );
+                    return;
+                }
+                if std::time::Instant::now() >= deadline {
+                    child.kill().unwrap();
+                    child.wait().unwrap();
+                    panic!("gamepad startup subprocess exceeded 30 seconds");
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+
+        unsafe {
+            SDL_SetHint(
+                SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS.as_ptr().cast(),
+                c"1".as_ptr(),
+            )
+        };
+        assert_eq!(unsafe { SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) }, 0);
+        let attach = || {
+            let index =
+                unsafe { SDL_JoystickAttachVirtual(SDL_JOYSTICK_TYPE_GAMECONTROLLER, 6, 16, 0) };
+            assert!(index >= 0);
+            (index, unsafe { SDL_JoystickGetDeviceInstanceID(index) })
+        };
+        let (first_index, first_id) = attach();
+        let (second_index, second_id) = attach();
+
+        let mut platform = PlatformSdl2::new();
+        platform.init(false);
+        let ids = |platform: &PlatformSdl2| {
+            platform
+                .gamepads
+                .iter()
+                .map(|g| g.map(|(id, _)| id))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(ids(&platform), [Some(first_id), Some(second_id)]);
+        platform.poll_events(&mut Vec::new());
+        assert_eq!(ids(&platform), [Some(first_id), Some(second_id)]);
+
+        let (third_index, third_id) = attach();
+        platform.poll_events(&mut Vec::new());
+        assert_eq!(
+            ids(&platform),
+            [Some(first_id), Some(second_id), Some(third_id)]
+        );
+
+        for index in [third_index, -1] {
+            let mut event: SDL_Event = unsafe { zeroed() };
+            event.cdevice.type_ = SDL_CONTROLLERDEVICEADDED;
+            event.cdevice.which = index;
+            assert_eq!(unsafe { SDL_PushEvent(&raw mut event) }, 1);
+        }
+        platform.poll_events(&mut Vec::new());
+        assert_eq!(
+            ids(&platform),
+            [Some(first_id), Some(second_id), Some(third_id)]
+        );
+
+        let controller = unsafe { SDL_GameControllerFromInstanceID(third_id) };
+        let joystick = unsafe { SDL_GameControllerGetJoystick(controller) };
+        assert_eq!(unsafe { SDL_JoystickSetVirtualButton(joystick, 0, 1) }, 0);
+        assert_eq!(unsafe { SDL_JoystickSetVirtualAxis(joystick, 0, 12345) }, 0);
+        let mut events = Vec::new();
+        platform.poll_events(&mut events);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, Event::KeyPressed { key } if *key == GAMEPAD3_BUTTON_A)));
+        assert!(events.iter().any(|e| matches!(e, Event::KeyValueChanged { key, value } if *key == GAMEPAD3_AXIS_LEFTX && *value == 12345)));
+
+        assert_eq!(unsafe { SDL_JoystickDetachVirtual(first_index) }, 0);
+        platform.poll_events(&mut Vec::new());
+        assert_eq!(ids(&platform), [None, Some(second_id), Some(third_id)]);
+        assert!(unsafe { SDL_GameControllerFromInstanceID(first_id) }.is_null());
+
+        let (fourth_index, fourth_id) = attach();
+        platform.poll_events(&mut Vec::new());
+        assert_eq!(
+            ids(&platform),
+            [Some(fourth_id), Some(second_id), Some(third_id)]
+        );
+
+        platform.close_gamepads();
+        platform.close_gamepads();
+        for id in [second_id, third_id, fourth_id] {
+            assert!(unsafe { SDL_GameControllerFromInstanceID(id) }.is_null());
+        }
+
+        platform.init(false);
+        platform.poll_events(&mut Vec::new());
+        assert_eq!(
+            ids(&platform),
+            [Some(second_id), Some(third_id), Some(fourth_id)]
+        );
+        drop(platform);
+        for id in [second_id, third_id, fourth_id] {
+            assert!(unsafe { SDL_GameControllerFromInstanceID(id) }.is_null());
+        }
+
+        // Removing a device shifts the remaining SDL device indices.
+        for index in [fourth_index, third_index - 1, second_index - 1] {
+            assert_eq!(unsafe { SDL_JoystickDetachVirtual(index) }, 0);
+        }
+        unsafe { SDL_Quit() };
+    }
+}
