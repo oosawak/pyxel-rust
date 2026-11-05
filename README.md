@@ -215,6 +215,28 @@ npx playwright install chromium
 node scripts/playtest-retro3d.cjs
 ```
 
+デモ画面の「Pyxel全機能の対応状況を確認」を開くと、Pyxel 3.0.0の2D/共通・Cubeの
+公式APIと定数738項目、およびRust拡張3項目の状況をバックエンド別に確認できます。
+検索・分類・実装状況による絞り込みに対応します。CLI・エディタUI・非公開APIは一覧の対象外です。
+「実装あり」はRustの相当機能があるというソース確認の結果で、完全互換や全条件の検証済みを意味しません。
+関数名があっても空処理・固定値のスタブは未対応と表示し、関連テストと未検証を区別します。
+「ブラウザ確認を実行」は起動・Canvas・デモ状態・GLB/アニメーションAPI接続の4項目を確認し、モデルや再生状態を変更しません。
+音声や全APIの動作確認にはなりません。
+
+対応表の確認基準はエンジンのコミットに固定しています。APIを変更した際は判定規則を見直し、再生成してください。
+生成後の古い判定を検出するため、ソースのハッシュも記録しています。
+
+```bash
+python3 scripts/generate-compatibility.py --check
+python3 scripts/test-compatibility.py
+# 判定の見直し後に再生成
+python3 scripts/generate-compatibility.py
+# 公式API一覧は固定コミットのcheckoutから抽出
+python3 scripts/extract-pyxel-api.py --upstream /path/to/pyxel --check
+# 対応パネルのブラウザテスト（HTTPサーバーが必要）
+node scripts/playtest-compatibility.cjs
+```
+
 スクリーンショットは一時ディレクトリの `pyxel-retro3d-smoke` に保存します。
 `PYXEL_TEST_URL` と `PYXEL_TEST_OUTPUT` でテスト先と出力先を指定できます。
 

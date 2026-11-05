@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pyxel Cube — ブラウザ3Dデモ</title>
+  <link rel="stylesheet" href="../../assets/compatibility/panel.css">
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101421; color: #eef0f7; }
     * { box-sizing: border-box; }
@@ -48,6 +49,7 @@
     <header>
       <span class="eyebrow">PYXEL-RUST / RETRO 3D</span>
       <h1>Pyxel Cube</h1>
+      <p><a href="#compatibility" id="open-compatibility">全機能の対応状況を見る ↓</a></p>
       <p>Rustで描く3Dを、そのままブラウザへ。<br>立方体を回して、レトロな奥行きを確かめてみてください。</p>
     </header>
     <div class="stage"><canvas id="pyxel_canvas" width="640" height="480" tabindex="0" aria-label="回転する3つの立方体。左右キーで回転、スペースで一時停止、Rでリセット。"></canvas></div>
@@ -80,8 +82,21 @@
       </div>
     </section>
     <p class="hint">キーボード：← → 回転 / Space 一時停止 / R リセット<br>スマートフォンでは画面下のボタンで操作できます。</p>
+    <details id="compatibility" class="compatibility">
+      <summary>Pyxel全機能の対応状況を確認</summary>
+      <div id="compatibility-body">
+        <p id="compatibility-loading" role="status">対応状況を読み込み中…</p>
+      </div>
+      <noscript><p>対応表の表示にはJavaScriptが必要です。<a href="../../assets/compatibility/data.json">対応表データを開く</a></p></noscript>
+    </details>
   </main>
+  <script type="module" src="../../assets/compatibility/panel.js"></script>
   <script type="module">
+    const compatibility = document.getElementById('compatibility');
+    const revealCompatibility = () => { if (location.hash === '#compatibility') compatibility.open = true; };
+    window.addEventListener('hashchange', revealCompatibility);
+    document.getElementById('open-compatibility').addEventListener('click', () => { compatibility.open = true; });
+    revealCompatibility();
     const status = document.getElementById('status');
     const pause = document.getElementById('pause');
     const distance = document.getElementById('distance');
