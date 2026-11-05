@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const clear_retro3d_model: () => void;
 export const get_bg_idx: () => number;
 export const get_enemy_flash: () => number;
 export const get_enemy_hp: () => number;
@@ -14,12 +15,14 @@ export const get_player_max_hp: () => number;
 export const get_player_max_mp: () => number;
 export const get_player_mp: () => number;
 export const key_index: (a: number, b: number) => number;
+export const load_retro3d_glb: (a: number, b: number) => [number, number, number];
 export const main: () => void;
 export const main_aobacastle: () => void;
 export const main_nanoteras: () => void;
 export const reset_retro3d: () => void;
 export const retro3d_angle: () => number;
 export const retro3d_distance: () => number;
+export const retro3d_has_model: () => number;
 export const retro3d_paused: () => number;
 export const rotate_retro3d: (a: number) => void;
 export const set_key: (a: number, b: number) => void;
@@ -28,7 +31,7 @@ export const set_retro3d_paused: (a: number) => void;
 export const start_battle_from_js: (a: number) => void;
 export const start_retro3d: () => void;
 export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__27: (a: number, b: number, c: any) => void;
+export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__30: (a: number, b: number, c: any) => void;
 export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
@@ -37,4 +40,5 @@ export const __wbindgen_exn_store: (a: number) => void;
 export const __externref_table_alloc: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;
 export const __wbindgen_destroy_closure: (a: number, b: number) => void;
+export const __externref_table_dealloc: (a: number) => void;
 export const __wbindgen_start: () => void;

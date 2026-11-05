@@ -172,11 +172,23 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory docs
 ブラウザ版は公式3.0.0の固定ソースを
 [`vendor/pyxel-cube-core`](vendor/pyxel-cube-core/UPSTREAM.md) に同梱しています。
 Cubeの描画・数学・衝突判定を維持し、SDL2との接続を切り離して既存のCanvasバックエンドへ接続します。
-PythonのNodeコールバックや、ファイル名を指定するモデル/リソース読込用の仮想ファイルシステムは提供しません。
+ブラウザでは `cube::Mesh::from_glb_bytes(&bytes, colkey, fps)` でGLBのバイト列を読み込み、
+`draw_mesh_3d(ctx, &mesh.borrow(), &transform, state)` で階層変換とマテリアルを反映して描画できます。
+ファイルシステムやPythonのNodeコールバックは使用しません。
+
+デモ下部の「ファイルを選ぶ」で自分のGLBを表示できます。「サンプルを表示」では
+テクスチャ付きピラミッドを読み込みます。選択したファイルはブラウザ内で処理します。
+表示位置と倍率は自動調整し、読み込みに失敗しても現在のモデルを保持します。
+
+対応範囲：
+- デモのファイル上限は16 MiB。画像・バッファをGLBのBINチャンクに埋め込んでください。
+- 埋め込みテクスチャ、ノードの親子変換、パートごとのマテリアルに対応します。
+- ビューワーは静止した三角形メッシュを表示します。アニメーション再生、スキニング、外部画像/バッファは未対応です。
+- サンプルは外部アセットを使わず生成しています。`python3 scripts/generate-retro3d-model.py` で再生成できます。
 
 ```bash
 # ブラウザ用のプラットフォーム非依存レンダラーも同じ描画テストを実行
-cargo test --locked --no-default-features --features wasm-backend --test retro3d
+cargo test --locked --no-default-features --features wasm-backend --test retro3d --test glb_browser
 
 # ブラウザで表示・操作・モバイルレイアウトを検証（HTTPサーバーを起動した状態）
 npm install --no-save playwright@1.62.1

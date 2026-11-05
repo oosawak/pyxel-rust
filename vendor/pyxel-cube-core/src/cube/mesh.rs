@@ -82,6 +82,10 @@ impl Mesh {
         crate::cube::glb_parser::parse_glb(filename, colkey, fps)
     }
 
+    pub fn from_glb_bytes(bytes: &[u8], colkey: Option<i32>, fps: f32) -> Result<RcMesh, String> {
+        crate::cube::glb_parser::parse_glb_bytes(bytes, colkey, fps)
+    }
+
     // Queries must use mesh-local space, including the composed part transforms.
     pub fn with_collision_bvh<R>(&self, f: impl FnOnce(&Bvh) -> R) -> R {
         self.refresh_collision_geometry();

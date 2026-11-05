@@ -68,6 +68,29 @@ async function pixels(page) {
     await page.waitForFunction(() => document.querySelector('#status').textContent === '一時停止中');
     await page.screenshot({ path: path.join(output, 'desktop.png'), fullPage: true });
 
+    // Load the built-in sample, then exercise the actual file selection path.
+    await page.locator('#load-sample').click();
+    await page.waitForFunction(() => document.querySelector('#model-status').textContent.includes('6 三角形'));
+    assert.ok(await page.evaluate(() => demo.retro3d_has_model()));
+    const samplePixels = await pixels(page);
+    for (const color of ['233,195,91', '118,150,222']) {
+      assert.ok(samplePixels.colors[color] > 100, `Missing imported texture color ${color}`);
+    }
+    await page.screenshot({ path: path.join(output, 'desktop-model.png'), fullPage: true });
+    const fixture = await fs.readFile(path.join(__dirname, '../docs/examples/retro3d/assets/pyramid.glb'));
+    await page.locator('#model-file').setInputFiles({ name: 'my-pyramid.glb', mimeType: 'model/gltf-binary', buffer: fixture });
+    await page.waitForFunction(() => document.querySelector('#model-status').textContent.includes('my-pyramid.glb — 6 三角形'));
+    await page.waitForTimeout(100);
+    const importedPixels = await pixels(page);
+    await page.locator('#model-file').setInputFiles({ name: 'broken.glb', mimeType: 'model/gltf-binary', buffer: Buffer.from('invalid GLB') });
+    await page.waitForFunction(() => document.querySelector('#model-status').getAttribute('role') === 'alert');
+    assert.ok(await page.evaluate(() => demo.retro3d_has_model()), 'Invalid import must retain the valid model');
+    assert.equal((await pixels(page)).hash, importedPixels.hash, 'Invalid import must preserve the rendered scene');
+    await page.locator('#clear-model').click();
+    await page.waitForFunction(() => !demo.retro3d_has_model());
+    await page.waitForTimeout(100);
+    assert.ok((await pixels(page)).colors['255,151,152'] > 100, 'Clear must restore the pink cube');
+
     const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     mobile.on('pageerror', error => errors.push(error.message));
     await mobile.goto(`${base}/examples/retro3d/`);
@@ -81,6 +104,10 @@ async function pixels(page) {
     assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile page must not overflow');
     await mobile.waitForFunction(() => document.querySelector('#status').textContent === '一時停止中');
     await mobile.screenshot({ path: path.join(output, 'mobile.png'), fullPage: true });
+    await mobile.locator('#load-sample').tap();
+    await mobile.waitForFunction(() => demo.retro3d_has_model());
+    await mobile.waitForTimeout(100);
+    await mobile.screenshot({ path: path.join(output, 'mobile-model.png'), fullPage: true });
     assert.deepEqual(errors, [], 'Browser runtime errors');
 
     // An unavailable WASM binary must display a recoverable error, not hang on loading.
@@ -89,7 +116,7 @@ async function pixels(page) {
     await failurePage.goto(`${base}/examples/retro3d/`);
     await failurePage.waitForFunction(() => document.querySelector('#status').getAttribute('role') === 'alert');
     assert.ok(await failurePage.locator('#pause').isDisabled());
-    console.log(JSON.stringify({ result: 'passed', checks: ['load', 'canvas colors', 'animation', 'pause', 'rotation', 'zoom', 'keyboard reset', 'keyboard input', 'mobile touch and layout', 'load error'], screenshots: output }));
+    console.log(JSON.stringify({ result: 'passed', checks: ['load', 'canvas colors', 'animation', 'pause', 'rotation', 'zoom', 'keyboard reset', 'keyboard input', 'mobile touch and layout', 'GLB sample', 'embedded textures', 'GLB file selection', 'failed import preserves model', 'clear model', 'mobile model', 'load error'], screenshots: output }));
   } finally {
     await browser.close();
   }

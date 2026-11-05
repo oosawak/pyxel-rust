@@ -23,6 +23,8 @@ export enum ChromaSampling {
     Cs400 = 3,
 }
 
+export function clear_retro3d_model(): void;
+
 export function get_bg_idx(): number;
 
 export function get_enemy_flash(): number;
@@ -53,6 +55,12 @@ export function get_player_mp(): number;
 export function key_index(code: string): number;
 
 /**
+ * Import a self-contained GLB from browser-provided bytes. Failed imports retain
+ * the previous model so a malformed selection cannot blank the current scene.
+ */
+export function load_retro3d_glb(bytes: Uint8Array | number[]): number;
+
+/**
  * WASM entry point — JS calls `main()` after `await init()` to start the Arisa Quest game.
  */
 export function main(): void;
@@ -73,6 +81,8 @@ export function reset_retro3d(): void;
 export function retro3d_angle(): number;
 
 export function retro3d_distance(): number;
+
+export function retro3d_has_model(): boolean;
 
 export function retro3d_paused(): boolean;
 
@@ -99,6 +109,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly clear_retro3d_model: () => void;
     readonly get_bg_idx: () => number;
     readonly get_enemy_flash: () => number;
     readonly get_enemy_hp: () => number;
@@ -112,12 +123,14 @@ export interface InitOutput {
     readonly get_player_max_mp: () => number;
     readonly get_player_mp: () => number;
     readonly key_index: (a: number, b: number) => number;
+    readonly load_retro3d_glb: (a: number, b: number) => [number, number, number];
     readonly main: () => void;
     readonly main_aobacastle: () => void;
     readonly main_nanoteras: () => void;
     readonly reset_retro3d: () => void;
     readonly retro3d_angle: () => number;
     readonly retro3d_distance: () => number;
+    readonly retro3d_has_model: () => number;
     readonly retro3d_paused: () => number;
     readonly rotate_retro3d: (a: number) => void;
     readonly set_key: (a: number, b: number) => void;
@@ -126,7 +139,7 @@ export interface InitOutput {
     readonly start_battle_from_js: (a: number) => void;
     readonly start_retro3d: () => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__27: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__30: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
@@ -135,6 +148,7 @@ export interface InitOutput {
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
+    readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

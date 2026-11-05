@@ -22,10 +22,30 @@ pub(super) fn parse_glb(filename: &str, colkey: Option<i32>, fps: f32) -> Result
     if !fps.is_finite() || fps <= 0.0 {
         return Err("fps must be finite and greater than 0".to_string());
     }
-
     let bytes = fs::read(filename).map_err(|_| format!("Failed to open file '{filename}'"))?;
-    validate_glb_header(&bytes)?;
-    let (import_bytes, skip_animations) = sanitize_glb_for_import(&bytes)?;
+    parse_glb_data(&bytes, filename, colkey, fps)
+}
+
+pub(super) fn parse_glb_bytes(
+    bytes: &[u8],
+    colkey: Option<i32>,
+    fps: f32,
+) -> Result<RcMesh, String> {
+    parse_glb_data(bytes, "memory", colkey, fps)
+}
+
+fn parse_glb_data(
+    bytes: &[u8],
+    filename: &str,
+    colkey: Option<i32>,
+    fps: f32,
+) -> Result<RcMesh, String> {
+    if !fps.is_finite() || fps <= 0.0 {
+        return Err("fps must be finite and greater than 0".to_string());
+    }
+
+    validate_glb_header(bytes)?;
+    let (import_bytes, skip_animations) = sanitize_glb_for_import(bytes)?;
 
     let gltf::Gltf { document, blob } = gltf::Gltf::from_slice(import_bytes.as_ref())
         .map_err(|e| format!("Failed to parse file '{filename}': {e}"))?;
@@ -46,6 +66,12 @@ pub(super) fn parse_glb(filename: &str, colkey: Option<i32>, fps: f32) -> Result
             .checked_add(view.byte_length.0);
         if end.is_none_or(|end| end > buffers[view.buffer.value()].len() as u64) {
             return Err(format!("GLB bufferView {index} is out of bounds"));
+        }
+    }
+    // Establish the self-contained GLB contract before the decoder can try I/O.
+    for image in document.images() {
+        if matches!(image.source(), gltf::image::Source::Uri { .. }) {
+            return Err("GLB external images are not supported".to_string());
         }
     }
     let images = gltf::import_images(&document, None, &buffers)

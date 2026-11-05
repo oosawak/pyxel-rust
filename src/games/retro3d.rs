@@ -1,5 +1,5 @@
 //! Browser demo of the official Cube renderer through the Canvas backend.
-use crate::cube::{draw, Camera, Mat4, Vec3};
+use crate::cube::{draw, Camera, Mat4, Mesh, RcMesh, Vec3};
 use crate::prelude::*;
 use crate::Image;
 use std::cell::RefCell;
@@ -24,8 +24,78 @@ impl Default for Controls {
     }
 }
 
+#[derive(Clone)]
+struct LoadedModel {
+    mesh: RcMesh,
+    fit: crate::cube::RcMat4,
+}
+
 thread_local! {
+    static MODEL: RefCell<Option<LoadedModel>> = const { RefCell::new(None) };
     static CONTROLS: RefCell<Controls> = RefCell::new(Controls::default());
+}
+
+/// Import a self-contained GLB from browser-provided bytes. Failed imports retain
+/// the previous model so a malformed selection cannot blank the current scene.
+#[wasm_bindgen]
+pub fn load_retro3d_glb(bytes: &[u8]) -> Result<u32, JsValue> {
+    if bytes.len() > 16 * 1024 * 1024 {
+        return Err(JsValue::from_str("GLB must be at most 16 MiB"));
+    }
+    let mesh = Mesh::from_glb_bytes(bytes, None, 30.0).map_err(|e| JsValue::from_str(&e))?;
+    let (bounds, triangles) = {
+        let mesh = mesh.borrow();
+        let triangles: usize = mesh
+            .primitives
+            .iter()
+            .flatten()
+            .map(|p| {
+                let p = p.borrow();
+                if p.indices.is_empty() {
+                    p.positions.len() / 9
+                } else {
+                    p.indices.len() / 3
+                }
+            })
+            .sum();
+        (mesh.local_aabb(), triangles)
+    };
+    let min = [bounds.min.x, bounds.min.y, bounds.min.z];
+    let max = [bounds.max.x, bounds.max.y, bounds.max.z];
+    if triangles == 0 || min.iter().chain(max.iter()).any(|n| !n.is_finite()) {
+        return Err(JsValue::from_str(
+            "GLB must contain finite triangle geometry",
+        ));
+    }
+    let extent = (0..3)
+        .map(|i| f64::from(max[i]) - f64::from(min[i]))
+        .fold(0.0, f64::max);
+    let scale = (2.4 / extent) as f32;
+    if extent <= 0.0 || !scale.is_finite() || scale <= 0.0 {
+        return Err(JsValue::from_str(
+            "GLB bounds cannot be fitted into the view",
+        ));
+    }
+    let center: [f32; 3] =
+        std::array::from_fn(|i| ((f64::from(min[i]) + f64::from(max[i])) * 0.5) as f32);
+    let fit = Mat4::from_rows([
+        [scale, 0.0, 0.0, -center[0] * scale],
+        [0.0, scale, 0.0, -center[1] * scale],
+        [0.0, 0.0, scale, -center[2] * scale],
+        [0.0, 0.0, 0.0, 1.0],
+    ]);
+    MODEL.with(|model| *model.borrow_mut() = Some(LoadedModel { mesh, fit }));
+    Ok(triangles as u32)
+}
+
+#[wasm_bindgen]
+pub fn clear_retro3d_model() {
+    MODEL.with(|model| *model.borrow_mut() = None);
+}
+
+#[wasm_bindgen]
+pub fn retro3d_has_model() -> bool {
+    MODEL.with(|model| model.borrow().is_some())
 }
 
 #[wasm_bindgen]
@@ -158,21 +228,34 @@ pub fn start_retro3d() {
                         state,
                     );
                 }
-                for (x, color, offset) in [(-2.1, 12, -30.0), (0.0, 10, 0.0), (2.1, 14, 30.0)] {
+                let model = MODEL.with(|model| model.borrow().clone());
+                if let Some(model) = model {
                     let transform = Mat4::from_translation(&Vec3 {
-                        x,
+                        x: 0.0,
                         y: 0.0,
-                        z: -controls.distance - x.abs() * 0.35,
+                        z: -controls.distance,
                     });
-                    let transform = transform.borrow().rotate_y(controls.angle + offset);
-                    let transform = transform.borrow().rotate_x(controls.angle * 0.6);
-                    let size = Vec3 {
-                        x: 1.5,
-                        y: 1.5,
-                        z: 1.5,
-                    };
-                    draw::box_solid(ctx, &transform.borrow(), &size, color, None, None, state);
-                    draw::boxb(ctx, &transform.borrow(), &size, 7, state);
+                    let transform = transform.borrow().rotate_y(controls.angle);
+                    let transform = transform.borrow().mul_mat(&model.fit.borrow());
+                    draw_mesh_3d(ctx, &model.mesh.borrow(), &transform.borrow(), state)
+                        .expect("GLB import validates primitive buffers");
+                } else {
+                    for (x, color, offset) in [(-2.1, 12, -30.0), (0.0, 10, 0.0), (2.1, 14, 30.0)] {
+                        let transform = Mat4::from_translation(&Vec3 {
+                            x,
+                            y: 0.0,
+                            z: -controls.distance - x.abs() * 0.35,
+                        });
+                        let transform = transform.borrow().rotate_y(controls.angle + offset);
+                        let transform = transform.borrow().rotate_x(controls.angle * 0.6);
+                        let size = Vec3 {
+                            x: 1.5,
+                            y: 1.5,
+                            z: 1.5,
+                        };
+                        draw::box_solid(ctx, &transform.borrow(), &size, color, None, None, state);
+                        draw::boxb(ctx, &transform.borrow(), &size, 7, state);
+                    }
                 }
             });
             blit_3d(&target, 0.0, 0.0);

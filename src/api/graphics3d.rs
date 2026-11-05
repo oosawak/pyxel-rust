@@ -85,3 +85,39 @@ pub fn blit_3d(target: &RcImage, x: f32, y: f32) {
         }
     }
 }
+
+/// Draw a static mesh, preserving its node transforms and per-part materials.
+/// Imported animation tracks can be applied to the mesh before drawing.
+pub fn draw_mesh_3d(
+    context: &mut DrawContext,
+    mesh: &crate::cube::Mesh,
+    transform: &crate::cube::Mat4,
+    state: crate::cube::draw::DrawState<'_>,
+) -> Result<(), String> {
+    mesh.validate()?;
+    let transforms = mesh.compose_world_transforms(transform);
+    for (index, primitive) in mesh.primitives.iter().enumerate() {
+        let Some(primitive) = primitive else {
+            continue;
+        };
+        let primitive = primitive.borrow();
+        let material = mesh.material_for_part(index);
+        let (color, image) = material.col_img.as_flat_and_image();
+        crate::cube::draw::prim(
+            context,
+            &transforms[index],
+            primitive.mode,
+            primitive.cull,
+            &primitive.positions,
+            (!primitive.indices.is_empty()).then_some(primitive.indices.as_slice()),
+            (!primitive.normals.is_empty()).then_some(primitive.normals.as_slice()),
+            (!primitive.uvs.is_empty()).then_some(primitive.uvs.as_slice()),
+            color,
+            image.as_ref(),
+            material.colkey,
+            state,
+        )
+        .map_err(str::to_owned)?;
+    }
+    Ok(())
+}
