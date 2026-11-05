@@ -1,0 +1,1855 @@
+use std::sync::Arc;
+
+use crate::mml_command::MmlCommand;
+use crate::settings::{AUDIO_CLOCK_RATE, TICKS_PER_QUARTER_NOTE};
+
+const RANGE_ALL: (i32, i32) = (i32::MIN, i32::MAX);
+const RANGE_GE0: (i32, i32) = (0, i32::MAX);
+const RANGE_GE1: (i32, i32) = (1, i32::MAX);
+
+const RANGE_QUANTIZE: (i32, i32) = (0, 100);
+const RANGE_VOLUME: (i32, i32) = (0, 127);
+const RANGE_OCTAVE: (i32, i32) = (-1, 9);
+const RANGE_LENGTH: (i32, i32) = (1, 192);
+
+const DEFAULT_TEMPO: u32 = 120;
+const DEFAULT_QUANTIZE: u32 = 80;
+const DEFAULT_VOLUME: u32 = 100;
+const DEFAULT_OCTAVE: i32 = 4;
+const DEFAULT_LENGTH: u32 = 4;
+
+struct CharStream<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> CharStream<'a> {
+    fn new(input: &'a str) -> Self {
+        Self {
+            bytes: input.as_bytes(),
+            pos: 0,
+        }
+    }
+
+    fn peek(&self) -> Option<char> {
+        self.bytes.get(self.pos).map(|&b| b as char)
+    }
+
+    fn advance(&mut self) -> Option<char> {
+        let c = self.bytes.get(self.pos).map(|&b| b as char);
+        if c.is_some() {
+            self.pos += 1;
+        }
+        c
+    }
+
+    fn error(&self, message: &str) -> String {
+        format!("MML:{}: {}", self.pos, message)
+    }
+}
+
+macro_rules! parse_error {
+    ($stream:expr, $fmt:literal $(, $arg:expr)*) => {
+        return Err($stream.error(&format!($fmt $(, $arg)*)))
+    };
+}
+
+pub fn parse_mml(mml: &str) -> Result<Vec<MmlCommand>, String> {
+    parse_mml_inner(mml, true)
+}
+
+fn parse_mml_inner(mml: &str, detect_repeat_ties: bool) -> Result<Vec<MmlCommand>, String> {
+    let mut stream = CharStream::new(mml);
+    let mut commands = Vec::new();
+    let normalize_ties = detect_repeat_ties && mml.contains('&') && mml.contains('[');
+    let mut crosses_repeat = false;
+    let mut note_connections = Vec::new();
+    let mut octave: i32 = DEFAULT_OCTAVE;
+    let mut note_ticks: u32 = TICKS_PER_QUARTER_NOTE * 4 / DEFAULT_LENGTH;
+    let mut quantize: u32 = DEFAULT_QUANTIZE;
+
+    let mut is_tempo_set = false;
+    let mut is_quantize_set = false;
+    let mut is_tone_set = false;
+    let mut is_volume_set = false;
+    let mut is_transpose_set = false;
+    let mut is_detune_set = false;
+    let mut is_envelope_set = false;
+    let mut is_vibrato_set = false;
+    let mut is_glide_set = false;
+
+    let mut connected_note: Option<u32> = None;
+    let mut connected_gate_index: Option<usize> = None;
+    let mut last_note_index: Option<usize> = None;
+    let mut repeat_depth: u32 = 0;
+
+    while stream.peek().is_some() {
+        if let Some(bpm) = parse_command(&mut stream, "T", RANGE_GE1)? {
+            is_tempo_set = true;
+            commands.push(MmlCommand::Tempo {
+                clocks_per_tick: bpm_to_clocks_per_tick(bpm),
+            });
+        } else if let Some(gate_time) = parse_command(&mut stream, "Q", RANGE_QUANTIZE)? {
+            is_quantize_set = true;
+            quantize = gate_time;
+            commands.push(MmlCommand::Quantize {
+                gate_ratio: gate_time_to_gate_ratio(gate_time),
+            });
+        } else if let Some(vol) = parse_command(&mut stream, "V", RANGE_VOLUME)? {
+            is_volume_set = true;
+            commands.push(MmlCommand::Volume {
+                level: volume_to_level(vol),
+            });
+        } else if let Some(key_offset) = parse_command::<i32>(&mut stream, "K", RANGE_ALL)? {
+            is_transpose_set = true;
+            commands.push(MmlCommand::Transpose {
+                semitone_offset: key_offset as f32,
+            });
+        } else if let Some(offset_cents) = parse_command(&mut stream, "Y", RANGE_ALL)? {
+            is_detune_set = true;
+            commands.push(MmlCommand::Detune {
+                semitone_offset: cents_to_semitones(offset_cents),
+            });
+        } else if let Some(command) = parse_envelope(&mut stream)? {
+            is_envelope_set = true;
+            commands.push(command);
+        } else if let Some(command) = parse_vibrato(&mut stream)? {
+            is_vibrato_set = true;
+            commands.push(command);
+        } else if let Some(command) = parse_glide(&mut stream)? {
+            is_glide_set = true;
+            commands.push(command);
+        } else if let Some(tone) = parse_command(&mut stream, "@", RANGE_GE0)? {
+            is_tone_set = true;
+            commands.push(MmlCommand::Tone { tone });
+        } else if let Some(oct) = parse_command(&mut stream, "O", RANGE_OCTAVE)? {
+            octave = oct;
+        } else if parse_string(&mut stream, ">").is_ok() {
+            if octave < RANGE_OCTAVE.1 {
+                octave += 1;
+            } else {
+                parse_error!(stream, "Octave exceeds maximum {}", octave);
+            }
+        } else if parse_string(&mut stream, "<").is_ok() {
+            if octave > RANGE_OCTAVE.0 {
+                octave -= 1;
+            } else {
+                parse_error!(stream, "Octave is below minimum {}", octave);
+            }
+        } else if parse_string(&mut stream, "L").is_ok() {
+            note_ticks = parse_length_ticks(&mut stream, note_ticks)?;
+        } else if let Some((command, is_connected)) = parse_note(&mut stream, octave, note_ticks)? {
+            if normalize_ties {
+                connected_note = None;
+            } else {
+                // Combine durations if this note is tied to the previous one.
+                if let Some(prev_note) = connected_note.take() {
+                    if let MmlCommand::Note {
+                        midi_note,
+                        duration_ticks,
+                    } = &command
+                    {
+                        if *midi_note == prev_note {
+                            if let Some(index) = last_note_index {
+                                if let MmlCommand::Note {
+                                    duration_ticks: prev_ticks,
+                                    ..
+                                } = &mut commands[index]
+                                {
+                                    *prev_ticks += *duration_ticks;
+                                }
+                            }
+                            if is_connected {
+                                connected_note = Some(prev_note);
+                            } else {
+                                // A same-pitch tie plays as one note, so its gate follows
+                                // the Q in effect where the tie ends.
+                                let gate_ratio = gate_time_to_gate_ratio(quantize);
+                                if let Some(index) = connected_gate_index.take() {
+                                    commands[index] = MmlCommand::Quantize { gate_ratio };
+                                } else if quantize != 100 {
+                                    if let Some(index) = last_note_index {
+                                        commands.insert(index, MmlCommand::Quantize { gate_ratio });
+                                        last_note_index = Some(index + 1);
+                                    }
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            // Insert default commands for any unset parameters
+            macro_rules! ensure_set {
+                ($flag:expr, $cmd:expr) => {
+                    if !$flag {
+                        $flag = true;
+                        commands.push($cmd);
+                    }
+                };
+            }
+
+            ensure_set!(
+                is_tempo_set,
+                MmlCommand::Tempo {
+                    clocks_per_tick: bpm_to_clocks_per_tick(DEFAULT_TEMPO)
+                }
+            );
+            ensure_set!(
+                is_quantize_set,
+                MmlCommand::Quantize {
+                    gate_ratio: gate_time_to_gate_ratio(DEFAULT_QUANTIZE)
+                }
+            );
+            ensure_set!(is_tone_set, MmlCommand::Tone { tone: 0 });
+            ensure_set!(
+                is_volume_set,
+                MmlCommand::Volume {
+                    level: volume_to_level(DEFAULT_VOLUME)
+                }
+            );
+            ensure_set!(
+                is_transpose_set,
+                MmlCommand::Transpose {
+                    semitone_offset: 0.0
+                }
+            );
+            ensure_set!(
+                is_detune_set,
+                MmlCommand::Detune {
+                    semitone_offset: 0.0
+                }
+            );
+            ensure_set!(is_envelope_set, MmlCommand::Envelope { slot: 0 });
+            ensure_set!(is_vibrato_set, MmlCommand::Vibrato { slot: 0 });
+            ensure_set!(is_glide_set, MmlCommand::Glide { slot: 0 });
+
+            connected_gate_index = None;
+            if !normalize_ties && (is_connected || quantize != 100) {
+                if is_connected {
+                    connected_gate_index = Some(commands.len());
+                    commands.push(MmlCommand::Quantize { gate_ratio: 1.0 });
+                } else {
+                    commands.push(MmlCommand::Quantize {
+                        gate_ratio: gate_time_to_gate_ratio(quantize),
+                    });
+                }
+            }
+
+            if is_connected {
+                if let MmlCommand::Note { midi_note, .. } = &command {
+                    connected_note = Some(*midi_note);
+                }
+            }
+            if normalize_ties {
+                note_connections.push((commands.len(), quantize, is_connected));
+            }
+            last_note_index = Some(commands.len());
+            commands.push(command);
+        } else if let Some(command) = parse_rest(&mut stream, note_ticks)? {
+            if connected_note.is_some() {
+                parse_error!(stream, "Tie '&' is not followed by a note");
+            }
+            if !is_tempo_set {
+                is_tempo_set = true;
+                commands.push(MmlCommand::Tempo {
+                    clocks_per_tick: bpm_to_clocks_per_tick(DEFAULT_TEMPO),
+                });
+            }
+            commands.push(command);
+            last_note_index = None;
+        } else if parse_string(&mut stream, "[").is_ok() {
+            crosses_repeat |= connected_note.is_some();
+            repeat_depth += 1;
+            commands.push(MmlCommand::RepeatStart);
+        } else if parse_string(&mut stream, "]").is_ok() {
+            crosses_repeat |= connected_note.is_some();
+            if repeat_depth == 0 {
+                parse_error!(stream, "Repeat end ']' has no matching '['");
+            }
+            repeat_depth -= 1;
+            let count = match parse_number(&mut stream, "count", RANGE_GE0) {
+                Ok(count) => count,
+                Err(ParseNumberError::Missing(_)) => 0,
+                Err(ParseNumberError::Invalid(error)) => return Err(error),
+            };
+            commands.push(MmlCommand::RepeatEnd { play_count: count });
+        } else {
+            let Some(c) = stream.peek() else { break };
+            parse_error!(stream, "Unexpected character '{c}'");
+        }
+    }
+
+    if connected_note.is_some() {
+        parse_error!(stream, "Tie '&' is not followed by a note");
+    }
+    if repeat_depth > 0 {
+        parse_error!(stream, "Repeat start '[' has no matching ']'");
+    }
+    if normalize_ties && crosses_repeat {
+        normalize_repeat_ties(commands, note_connections).map_err(|error| stream.error(&error))
+    } else if normalize_ties {
+        parse_mml_inner(mml, false)
+    } else {
+        Ok(commands)
+    }
+}
+
+// Normalize ties at event boundaries while retaining shared repeat bodies.
+// Controls between tied notes stay after the merged note; only the final Q
+// determines its gate, as in ordinary same-pitch ties.
+#[derive(Clone)]
+struct TieNote {
+    midi_note: u32,
+    ticks: Option<u128>,
+    quantize: u32,
+    // Untied Q100 notes inherit the live gate; connected notes always set it.
+    force_gate: bool,
+    connected: bool,
+}
+
+#[derive(Clone)]
+enum TieItem {
+    Command(MmlCommand),
+    Note(TieNote),
+    Repeat(Arc<TiePhrase>, u32),
+}
+
+#[derive(Clone, Default)]
+struct TiePhrase {
+    items: Vec<TieItem>,
+    has_event: bool,
+    terminal: bool,
+}
+
+impl TiePhrase {
+    fn new(items: Vec<TieItem>) -> Self {
+        let has_event = items.iter().any(|item| match item {
+            TieItem::Note(_) | TieItem::Command(MmlCommand::Rest { .. }) => true,
+            TieItem::Repeat(body, _) => body.has_event,
+            TieItem::Command(_) => false,
+        });
+        let terminal = items.last().is_some_and(|item| match item {
+            TieItem::Note(note) => note.ticks.is_none(),
+            TieItem::Repeat(body, count) => *count == 0 || body.terminal,
+            TieItem::Command(_) => false,
+        });
+        Self {
+            items,
+            has_event,
+            terminal,
+        }
+    }
+
+    fn raw_join(mut self, other: Self) -> Self {
+        if !self.terminal {
+            self.has_event |= other.has_event;
+            if !other.items.is_empty() {
+                self.terminal = other.terminal;
+            }
+            self.items.extend(other.items);
+        }
+        self
+    }
+
+    fn edge(&self, last: bool) -> Option<&TieItem> {
+        for offset in 0..self.items.len() {
+            let index = if last {
+                self.items.len() - 1 - offset
+            } else {
+                offset
+            };
+            match &self.items[index] {
+                item @ (TieItem::Note(_) | TieItem::Command(MmlCommand::Rest { .. })) => {
+                    return Some(item)
+                }
+                TieItem::Repeat(body, _) if body.has_event => return body.edge(last),
+                _ => {}
+            }
+        }
+        None
+    }
+
+    fn raw_repeat(body: Arc<Self>, count: u32) -> Self {
+        Self::new(vec![TieItem::Repeat(body, count)])
+    }
+
+    fn split_first(mut self) -> (Self, TieItem, Self) {
+        let index = self
+            .items
+            .iter()
+            .position(|item| match item {
+                TieItem::Note(_) | TieItem::Command(MmlCommand::Rest { .. }) => true,
+                TieItem::Repeat(body, _) => body.has_event,
+                TieItem::Command(_) => false,
+            })
+            .expect("phrase contains an event");
+        let tail = self.items.split_off(index + 1);
+        let event = self.items.pop().unwrap();
+        let prefix = Self::new(self.items);
+        match event {
+            TieItem::Repeat(body, count) => {
+                let (before, event, after) = (*body).clone().split_first();
+                let remaining = if count == 1 {
+                    Self::default()
+                } else {
+                    Self::raw_repeat(body, if count == 0 { 0 } else { count - 1 })
+                };
+                (
+                    prefix.raw_join(before),
+                    event,
+                    after.raw_join(remaining).raw_join(Self::new(tail)),
+                )
+            }
+            _ => (prefix, event, Self::new(tail)),
+        }
+    }
+
+    fn split_last(mut self) -> (Self, TieItem, Self) {
+        let index = self
+            .items
+            .iter()
+            .rposition(|item| match item {
+                TieItem::Note(_) | TieItem::Command(MmlCommand::Rest { .. }) => true,
+                TieItem::Repeat(body, _) => body.has_event,
+                TieItem::Command(_) => false,
+            })
+            .expect("phrase contains an event");
+        let suffix = Self::new(self.items.split_off(index + 1));
+        let event = self.items.pop().unwrap();
+        let prefix = Self::new(self.items);
+        match event {
+            TieItem::Repeat(body, count) => {
+                debug_assert!(count > 0);
+                let (before, event, after) = (*body).clone().split_last();
+                let preceding = if count == 1 {
+                    Self::default()
+                } else {
+                    Self::raw_repeat(body, count - 1)
+                };
+                (
+                    prefix.raw_join(preceding).raw_join(before),
+                    event,
+                    after.raw_join(suffix),
+                )
+            }
+            _ => (prefix, event, suffix),
+        }
+    }
+
+    fn join(self, other: Self) -> Result<Self, String> {
+        if self.terminal {
+            return Ok(self);
+        }
+        let Some(TieItem::Note(previous)) = self.edge(true) else {
+            return Ok(self.raw_join(other));
+        };
+        if !previous.connected || !other.has_event {
+            return Ok(self.raw_join(other));
+        }
+        let Some(TieItem::Note(next)) = other.edge(false) else {
+            return Err("Tie '&' is not followed by a note".to_string());
+        };
+        if previous.midi_note != next.midi_note {
+            return Ok(self.raw_join(other));
+        }
+        let (before, TieItem::Note(previous), controls) = self.split_last() else {
+            unreachable!()
+        };
+        let (prefix, TieItem::Note(next), after) = other.split_first() else {
+            unreachable!()
+        };
+        let note = TieNote {
+            midi_note: previous.midi_note,
+            ticks: previous
+                .ticks
+                .and_then(|a| next.ticks.and_then(|b| a.checked_add(b))),
+            quantize: next.quantize,
+            force_gate: previous.force_gate || (!next.connected && next.quantize != 100),
+            connected: next.connected,
+        };
+        Ok(before
+            .raw_join(Self::new(vec![TieItem::Note(note)]))
+            .raw_join(controls)
+            .raw_join(prefix)
+            .raw_join(after))
+    }
+
+    fn repeated(self, count: u32) -> Result<Self, String> {
+        if count == 1 || self.terminal {
+            return Ok(self);
+        }
+        let Some(TieItem::Note(tail)) = self.edge(true) else {
+            return Ok(Self::raw_repeat(Arc::new(self), count));
+        };
+        if !tail.connected {
+            return Ok(Self::raw_repeat(Arc::new(self), count));
+        }
+        let Some(TieItem::Note(head)) = self.edge(false) else {
+            return Err("Tie '&' is not followed by a note".to_string());
+        };
+        if tail.midi_note != head.midi_note {
+            return Ok(Self::raw_repeat(Arc::new(self), count));
+        }
+        let (prefix, TieItem::Note(head), remainder) = self.split_first() else {
+            unreachable!()
+        };
+        if !remainder.has_event {
+            let note = TieNote {
+                ticks: if count == 0 {
+                    None
+                } else {
+                    head.ticks
+                        .and_then(|ticks| ticks.checked_mul(u128::from(count)))
+                },
+                quantize: if count == 0 { 100 } else { head.quantize },
+                force_gate: count == 0 || head.force_gate,
+                connected: count != 0 && head.connected,
+                ..head
+            };
+            if count == 0 {
+                return Ok(prefix.raw_join(Self::new(vec![TieItem::Note(note)])));
+            }
+            let controls = prefix.clone().raw_join(remainder.clone());
+            return Ok(prefix
+                .raw_join(Self::new(vec![TieItem::Note(note)]))
+                .raw_join(remainder)
+                .raw_join(Self::raw_repeat(Arc::new(controls), count - 1)));
+        }
+        let (middle, TieItem::Note(tail), suffix) = remainder.split_last() else {
+            unreachable!()
+        };
+        let middle = Self::raw_repeat(Arc::new(middle), 1);
+        let merged = TieNote {
+            force_gate: tail.force_gate || (!head.connected && head.quantize != 100),
+            ticks: tail
+                .ticks
+                .and_then(|a| head.ticks.and_then(|b| a.checked_add(b))),
+            ..head.clone()
+        };
+        let center = Self::new(vec![TieItem::Note(merged)])
+            .raw_join(suffix.clone())
+            .raw_join(prefix.clone())
+            .raw_join(middle.clone());
+        let result = prefix
+            .raw_join(Self::new(vec![TieItem::Note(head)]))
+            .raw_join(middle)
+            .raw_join(Self::raw_repeat(
+                Arc::new(center),
+                if count == 0 { 0 } else { count - 1 },
+            ));
+        Ok(if count == 0 {
+            result
+        } else {
+            result
+                .raw_join(Self::new(vec![TieItem::Note(tail)]))
+                .raw_join(suffix)
+        })
+    }
+}
+
+fn compile_tie_phrase(
+    phrase: &TiePhrase,
+    cache: &mut std::collections::HashMap<usize, Arc<[MmlCommand]>>,
+) -> Vec<MmlCommand> {
+    let mut commands = Vec::new();
+    for item in &phrase.items {
+        match item {
+            TieItem::Command(command) => commands.push(command.clone()),
+            TieItem::Note(note) => {
+                if note.force_gate {
+                    commands.push(MmlCommand::Quantize {
+                        gate_ratio: if note.connected {
+                            1.0
+                        } else {
+                            gate_time_to_gate_ratio(note.quantize)
+                        },
+                    });
+                }
+                match note.ticks.and_then(|ticks| u32::try_from(ticks).ok()) {
+                    Some(duration_ticks) => commands.push(MmlCommand::Note {
+                        midi_note: note.midi_note,
+                        duration_ticks,
+                    }),
+                    None => commands.push(MmlCommand::SustainedNote {
+                        midi_note: note.midi_note,
+                        duration_ticks: note.ticks,
+                    }),
+                }
+            }
+            TieItem::Repeat(body, play_count) => {
+                let identity = Arc::as_ptr(body) as usize;
+                let body_commands = if let Some(commands) = cache.get(&identity) {
+                    commands.clone()
+                } else {
+                    let commands: Arc<[MmlCommand]> = compile_tie_phrase(body, cache).into();
+                    cache.insert(identity, commands.clone());
+                    commands
+                };
+                commands.push(MmlCommand::Sequence {
+                    commands: body_commands,
+                    play_count: *play_count,
+                });
+            }
+        }
+    }
+    commands
+}
+
+fn normalize_repeat_ties(
+    commands: Vec<MmlCommand>,
+    connections: Vec<(usize, u32, bool)>,
+) -> Result<Vec<MmlCommand>, String> {
+    let mut connections = connections.into_iter();
+    let mut next_connection = connections.next();
+    let mut phrases = vec![TiePhrase::default()];
+    for (index, command) in commands.into_iter().enumerate() {
+        let phrase = match command {
+            MmlCommand::RepeatStart => {
+                phrases.push(TiePhrase::default());
+                continue;
+            }
+            MmlCommand::RepeatEnd { play_count } => phrases.pop().unwrap().repeated(play_count)?,
+            MmlCommand::Note {
+                midi_note,
+                duration_ticks,
+            } => {
+                let (note_index, quantize, connected) =
+                    next_connection.take().expect("note metadata");
+                debug_assert_eq!(index, note_index);
+                next_connection = connections.next();
+                TiePhrase::new(vec![TieItem::Note(TieNote {
+                    midi_note,
+                    ticks: Some(u128::from(duration_ticks)),
+                    quantize,
+                    force_gate: connected || quantize != 100,
+                    connected,
+                })])
+            }
+            command => TiePhrase::new(vec![TieItem::Command(command)]),
+        };
+        let previous = std::mem::take(phrases.last_mut().unwrap());
+        *phrases.last_mut().unwrap() = previous.join(phrase)?;
+    }
+    Ok(compile_tie_phrase(
+        &phrases.pop().unwrap(),
+        &mut std::collections::HashMap::new(),
+    ))
+}
+
+// A duration is input_tempo_ticks * incoming clocks-per-tick + fixed_clocks.
+#[derive(Clone, Copy, Default)]
+struct DurationTransform {
+    input_tempo_ticks: u128,
+    fixed_clocks: u128,
+    final_tempo: Option<u32>,
+}
+
+impl DurationTransform {
+    fn then(self, next: Self) -> Option<Self> {
+        let (input_tempo_ticks, next_fixed_clocks) = if let Some(tempo) = self.final_tempo {
+            (
+                self.input_tempo_ticks,
+                next.input_tempo_ticks.checked_mul(u128::from(tempo))?,
+            )
+        } else {
+            (
+                self.input_tempo_ticks.checked_add(next.input_tempo_ticks)?,
+                0,
+            )
+        };
+
+        let fixed_clocks = self
+            .fixed_clocks
+            .checked_add(next_fixed_clocks)?
+            .checked_add(next.fixed_clocks)?;
+
+        Some(Self {
+            input_tempo_ticks,
+            fixed_clocks,
+            final_tempo: next.final_tempo.or(self.final_tempo),
+        })
+    }
+
+    fn repeated(self, play_count: u32) -> Option<Self> {
+        if play_count == 0 {
+            return None;
+        }
+
+        let play_count = u128::from(play_count);
+        if let Some(tempo) = self.final_tempo {
+            let repeated_clocks = self
+                .input_tempo_ticks
+                .checked_mul(u128::from(tempo))?
+                .checked_add(self.fixed_clocks)?
+                .checked_mul(play_count - 1)?;
+            Some(Self {
+                fixed_clocks: self.fixed_clocks.checked_add(repeated_clocks)?,
+                ..self
+            })
+        } else {
+            Some(Self {
+                input_tempo_ticks: self.input_tempo_ticks.checked_mul(play_count)?,
+                fixed_clocks: self.fixed_clocks.checked_mul(play_count)?,
+                final_tempo: None,
+            })
+        }
+    }
+}
+
+fn duration_transform(commands: &[MmlCommand]) -> Option<DurationTransform> {
+    duration_transform_cached(commands, &mut std::collections::HashMap::new())
+}
+
+fn duration_transform_cached(
+    commands: &[MmlCommand],
+    cache: &mut std::collections::HashMap<usize, DurationTransform>,
+) -> Option<DurationTransform> {
+    let mut transforms = vec![DurationTransform::default()];
+
+    for command in commands {
+        let next = match command {
+            MmlCommand::Tempo { clocks_per_tick } => DurationTransform {
+                final_tempo: Some(*clocks_per_tick),
+                ..DurationTransform::default()
+            },
+            MmlCommand::Note { duration_ticks, .. } | MmlCommand::Rest { duration_ticks } => {
+                DurationTransform {
+                    input_tempo_ticks: u128::from(*duration_ticks),
+                    ..DurationTransform::default()
+                }
+            }
+            MmlCommand::SustainedNote { duration_ticks, .. } => DurationTransform {
+                input_tempo_ticks: (*duration_ticks)?,
+                ..DurationTransform::default()
+            },
+            MmlCommand::Sequence {
+                commands,
+                play_count,
+            } => {
+                let identity = commands.as_ptr() as usize;
+                let transform = if let Some(transform) = cache.get(&identity) {
+                    *transform
+                } else {
+                    let transform = duration_transform_cached(commands, cache)?;
+                    cache.insert(identity, transform);
+                    transform
+                };
+                transform.repeated(*play_count)?
+            }
+            MmlCommand::RepeatStart => {
+                transforms.push(DurationTransform::default());
+                continue;
+            }
+            MmlCommand::RepeatEnd { play_count } => {
+                if transforms.len() == 1 {
+                    return None;
+                }
+                let repeated = transforms.pop()?;
+                repeated.repeated(*play_count)?
+            }
+            _ => DurationTransform::default(),
+        };
+
+        let transform = transforms.last_mut()?;
+        *transform = transform.then(next)?;
+    }
+
+    if transforms.len() != 1 {
+        return None;
+    }
+    transforms.pop()
+}
+
+pub(crate) fn total_duration_clocks(commands: &[MmlCommand]) -> Option<u128> {
+    let transform = duration_transform(commands)?;
+    transform
+        .input_tempo_ticks
+        .checked_mul(u128::from(bpm_to_clocks_per_tick(DEFAULT_TEMPO)))?
+        .checked_add(transform.fixed_clocks)
+}
+
+pub fn total_duration_sec(commands: &[MmlCommand]) -> Option<f32> {
+    let total_clocks = total_duration_clocks(commands)?;
+    let duration_sec = total_clocks as f64 / f64::from(AUDIO_CLOCK_RATE);
+    (duration_sec <= f64::from(f32::MAX)).then_some(duration_sec as f32)
+}
+
+// Stream primitives
+
+fn skip_whitespace(stream: &mut CharStream) {
+    while stream.peek().is_some_and(char::is_whitespace) {
+        stream.advance();
+    }
+}
+
+enum ParseNumberError {
+    Missing(String),
+    Invalid(String),
+}
+
+fn parse_number<T: TryFrom<i32>>(
+    stream: &mut CharStream,
+    name: &str,
+    range: (i32, i32),
+) -> Result<T, ParseNumberError> {
+    skip_whitespace(stream);
+    let pos = stream.pos;
+    let negative = stream.peek() == Some('-');
+    if negative {
+        stream.advance();
+    }
+
+    let mut value: i32 = 0;
+    let mut has_digit = false;
+    while let Some(c) = stream.peek() {
+        if let Some(digit) = c.to_digit(10) {
+            value = value.saturating_mul(10).saturating_add(digit as i32);
+            has_digit = true;
+            stream.advance();
+        } else {
+            break;
+        }
+    }
+    if !has_digit {
+        let err_char = stream.peek().map_or(String::new(), |c| c.to_string());
+        stream.pos = pos;
+        return Err(ParseNumberError::Missing(err_char));
+    }
+
+    if negative {
+        value = -value;
+    }
+    if value < range.0 {
+        return Err(ParseNumberError::Invalid(
+            stream.error(&format!("'{name}' is below minimum {}", range.0)),
+        ));
+    }
+    if value > range.1 {
+        return Err(ParseNumberError::Invalid(
+            stream.error(&format!("'{name}' exceeds maximum {}", range.1)),
+        ));
+    }
+
+    T::try_from(value).map_err(|_| {
+        ParseNumberError::Invalid(stream.error(&format!("Invalid value for '{name}'")))
+    })
+}
+
+fn expect_number<T: TryFrom<i32>>(
+    stream: &mut CharStream,
+    name: &str,
+    range: (i32, i32),
+) -> Result<T, String> {
+    match parse_number(stream, name, range) {
+        Ok(value) => Ok(value),
+        Err(ParseNumberError::Missing(actual)) => {
+            parse_error!(stream, "Expected value for '{name}' but found '{actual}'")
+        }
+        Err(ParseNumberError::Invalid(error)) => Err(error),
+    }
+}
+
+fn parse_string(stream: &mut CharStream, literal: &str) -> Result<String, String> {
+    skip_whitespace(stream);
+    let pos = stream.pos;
+    let mut parsed_str = String::new();
+
+    for expected in literal.chars() {
+        match stream.peek() {
+            Some(c) if c.eq_ignore_ascii_case(&expected) => {
+                parsed_str.push(stream.advance().unwrap());
+            }
+            Some(c) => {
+                parsed_str.push(c);
+                stream.pos = pos;
+                return Err(parsed_str);
+            }
+            None => {
+                stream.pos = pos;
+                return Err(parsed_str);
+            }
+        }
+    }
+
+    Ok(parsed_str)
+}
+
+fn expect_string(stream: &mut CharStream, literal: &str) -> Result<(), String> {
+    if let Err(actual) = parse_string(stream, literal) {
+        parse_error!(stream, "Expected '{literal}' but found '{actual}'");
+    }
+    Ok(())
+}
+
+fn parse_command<T: TryFrom<i32>>(
+    stream: &mut CharStream,
+    name: &str,
+    range: (i32, i32),
+) -> Result<Option<T>, String> {
+    if parse_string(stream, name).is_ok() {
+        return Ok(Some(expect_number(stream, name, range)?));
+    }
+    Ok(None)
+}
+
+// Command parsers
+
+fn parse_length_ticks(stream: &mut CharStream, note_ticks: u32) -> Result<u32, String> {
+    const WHOLE_NOTE_TICKS: u32 = TICKS_PER_QUARTER_NOTE * 4;
+    let mut note_ticks = note_ticks;
+    skip_whitespace(stream);
+    if stream.peek().is_some_and(|c| c.is_ascii_digit()) {
+        let len: u32 = expect_number(stream, "Note length", RANGE_LENGTH)?;
+        if WHOLE_NOTE_TICKS.is_multiple_of(len) {
+            note_ticks = WHOLE_NOTE_TICKS / len;
+        } else {
+            parse_error!(stream, "Invalid note length '{len}'");
+        }
+    }
+
+    let mut dot_ticks = note_ticks;
+    while parse_string(stream, ".").is_ok() {
+        if dot_ticks.is_multiple_of(2) {
+            dot_ticks /= 2;
+            note_ticks += dot_ticks;
+        } else {
+            parse_error!(stream, "Cannot apply dot to this note length");
+        }
+    }
+
+    Ok(note_ticks)
+}
+
+fn parse_note(
+    stream: &mut CharStream,
+    octave: i32,
+    note_ticks: u32,
+) -> Result<Option<(MmlCommand, bool)>, String> {
+    skip_whitespace(stream);
+    let semitone = match stream.peek().map(|c| c.to_ascii_uppercase()) {
+        Some(c) => match c {
+            'C' => 0,
+            'D' => 2,
+            'E' => 4,
+            'F' => 5,
+            'G' => 7,
+            'A' => 9,
+            'B' => 11,
+            _ => return Ok(None),
+        },
+        None => return Ok(None),
+    };
+    stream.advance();
+
+    let midi_note = ((octave + 1) * 12 + semitone) as u32;
+    let midi_note = if parse_string(stream, "#").is_ok() || parse_string(stream, "+").is_ok() {
+        midi_note + 1
+    } else if parse_string(stream, "-").is_ok() {
+        midi_note.saturating_sub(1)
+    } else {
+        midi_note
+    };
+
+    let mut duration_ticks = parse_length_ticks(stream, note_ticks)?;
+    // Extend duration with '&<len>'
+    let mut is_connected = false;
+    while parse_string(stream, "&").is_ok() {
+        skip_whitespace(stream);
+        if stream.peek().is_some_and(|c| c.is_ascii_digit()) {
+            duration_ticks += parse_length_ticks(stream, note_ticks)?;
+        } else {
+            // A bare & ties to the next note instead of adding a length.
+            is_connected = true;
+            break;
+        }
+    }
+
+    Ok(Some((
+        MmlCommand::Note {
+            midi_note,
+            duration_ticks,
+        },
+        is_connected,
+    )))
+}
+
+fn parse_rest(stream: &mut CharStream, note_ticks: u32) -> Result<Option<MmlCommand>, String> {
+    if parse_string(stream, "R").is_err() {
+        return Ok(None);
+    }
+
+    let mut duration_ticks = parse_length_ticks(stream, note_ticks)?;
+    while parse_string(stream, "&").is_ok() {
+        skip_whitespace(stream);
+        if !stream.peek().is_some_and(|c| c.is_ascii_digit()) {
+            parse_error!(stream, "Tie '&' after a rest requires a length");
+        }
+        duration_ticks += parse_length_ticks(stream, note_ticks)?;
+    }
+
+    Ok(Some(MmlCommand::Rest { duration_ticks }))
+}
+
+fn parse_envelope(stream: &mut CharStream) -> Result<Option<MmlCommand>, String> {
+    let Some(slot) = parse_command(stream, "@ENV", RANGE_GE0)? else {
+        return Ok(None);
+    };
+    if parse_string(stream, "{").is_err() {
+        return Ok(Some(MmlCommand::Envelope { slot }));
+    }
+
+    if slot == 0 {
+        parse_error!(stream, "Envelope slot 0 is reserved for disable");
+    }
+    let init_vol = expect_number(stream, "init_vol", RANGE_VOLUME)?;
+    let mut segments = Vec::new();
+
+    while parse_string(stream, "}").is_err() {
+        expect_string(stream, ",")?;
+        let dur_ticks = expect_number(stream, "dur_ticks", RANGE_GE0)?;
+        expect_string(stream, ",")?;
+        let vol = expect_number(stream, "vol", RANGE_VOLUME)?;
+        segments.push((dur_ticks, volume_to_level(vol)));
+    }
+
+    Ok(Some(MmlCommand::EnvelopeSet {
+        slot,
+        initial_level: volume_to_level(init_vol),
+        segments: segments.into(),
+    }))
+}
+
+fn parse_vibrato(stream: &mut CharStream) -> Result<Option<MmlCommand>, String> {
+    let Some(slot) = parse_command(stream, "@VIB", RANGE_GE0)? else {
+        return Ok(None);
+    };
+    if parse_string(stream, "{").is_err() {
+        return Ok(Some(MmlCommand::Vibrato { slot }));
+    }
+
+    if slot == 0 {
+        parse_error!(stream, "Vibrato slot 0 is reserved for disable");
+    }
+    let delay_ticks = expect_number(stream, "delay_ticks", RANGE_GE0)?;
+    expect_string(stream, ",")?;
+    let period_ticks = expect_number(stream, "period_ticks", RANGE_GE0)?;
+    expect_string(stream, ",")?;
+    let depth_cents = expect_number(stream, "depth_cents", RANGE_ALL)?;
+    expect_string(stream, "}")?;
+
+    Ok(Some(MmlCommand::VibratoSet {
+        slot,
+        delay_ticks,
+        period_ticks,
+        semitone_depth: cents_to_semitones(depth_cents),
+    }))
+}
+
+fn parse_glide(stream: &mut CharStream) -> Result<Option<MmlCommand>, String> {
+    let Some(slot) = parse_command(stream, "@GLI", RANGE_GE0)? else {
+        return Ok(None);
+    };
+    if parse_string(stream, "{").is_err() {
+        return Ok(Some(MmlCommand::Glide { slot }));
+    }
+
+    if slot == 0 {
+        parse_error!(stream, "Glide slot 0 is reserved for disable");
+    }
+    let semitone_offset = if parse_string(stream, "*").is_ok() {
+        None
+    } else {
+        Some(cents_to_semitones(expect_number(
+            stream,
+            "offset_cents",
+            RANGE_ALL,
+        )?))
+    };
+    expect_string(stream, ",")?;
+    let duration_ticks = if parse_string(stream, "*").is_ok() {
+        None
+    } else {
+        Some(expect_number(stream, "dur_ticks", RANGE_GE0)?)
+    };
+    expect_string(stream, "}")?;
+
+    Ok(Some(MmlCommand::GlideSet {
+        slot,
+        semitone_offset,
+        duration_ticks,
+    }))
+}
+
+// Unit conversions
+
+fn bpm_to_clocks_per_tick(bpm: u32) -> u32 {
+    let numerator = u64::from(AUDIO_CLOCK_RATE) * 60;
+    let denominator = u64::from(bpm) * u64::from(TICKS_PER_QUARTER_NOTE);
+    ((numerator + denominator / 2) / denominator).max(1) as u32
+}
+
+fn gate_time_to_gate_ratio(gate_time: u32) -> f32 {
+    gate_time as f32 / RANGE_QUANTIZE.1 as f32
+}
+
+fn volume_to_level(volume: u32) -> f32 {
+    volume as f32 / RANGE_VOLUME.1 as f32
+}
+
+fn cents_to_semitones(cents: i32) -> f32 {
+    cents as f32 / 100.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(mml: &str) -> Vec<MmlCommand> {
+        parse_mml(mml).unwrap()
+    }
+
+    fn assert_parse_error(mml: &str, expected: &str) {
+        assert_eq!(parse_mml(mml).unwrap_err(), expected);
+    }
+
+    fn note_commands(commands: &[MmlCommand]) -> Vec<(u32, u32)> {
+        commands
+            .iter()
+            .filter_map(|cmd| match cmd {
+                MmlCommand::Note {
+                    midi_note,
+                    duration_ticks,
+                } => Some((*midi_note, *duration_ticks)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn rest_commands(commands: &[MmlCommand]) -> Vec<u32> {
+        commands
+            .iter()
+            .filter_map(|cmd| match cmd {
+                MmlCommand::Rest { duration_ticks } => Some(*duration_ticks),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn quantize_commands(commands: &[MmlCommand]) -> Vec<f32> {
+        commands
+            .iter()
+            .filter_map(|cmd| match cmd {
+                MmlCommand::Quantize { gate_ratio } => Some(*gate_ratio),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn duration_sec_for_clocks(clocks: u128) -> f32 {
+        (clocks as f64 / f64::from(AUDIO_CLOCK_RATE)) as f32
+    }
+
+    // Basic notes
+
+    #[test]
+    fn test_single_note() {
+        let cmds = parse("C");
+        let notes = note_commands(&cmds);
+        // C4 = MIDI 60, default length = quarter note = 48 ticks
+        assert_eq!(notes, [(60, 48)]);
+    }
+
+    #[test]
+    fn test_note_names() {
+        let cmds = parse("O4 CDEFGAB");
+        let notes = note_commands(&cmds);
+        let midi_notes: Vec<u32> = notes.iter().map(|(n, _)| *n).collect();
+        assert_eq!(midi_notes, [60, 62, 64, 65, 67, 69, 71]);
+    }
+
+    #[test]
+    fn test_sharp_and_flat() {
+        let cmds = parse("C+ C# C-");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes[0].0, 61, "C+");
+        assert_eq!(notes[1].0, 61, "C#");
+        assert_eq!(notes[2].0, 59, "C- maps to B3");
+    }
+
+    // Octave
+
+    #[test]
+    fn test_octave() {
+        let cmds = parse("O3 C O5 C");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes[0].0, 48, "C3");
+        assert_eq!(notes[1].0, 72, "C5");
+    }
+
+    #[test]
+    fn test_octave_shift() {
+        let cmds = parse("O4 C > C < C");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes[0].0, 60, "C4");
+        assert_eq!(notes[1].0, 72, "C5 after octave up");
+        assert_eq!(notes[2].0, 60, "C4 after octave down");
+    }
+
+    #[test]
+    fn test_octave_boundaries() {
+        let cmds = parse("O-1 C O9 B");
+        let notes = note_commands(&cmds);
+        // O-1 maps C to MIDI 0.
+        assert_eq!(notes[0].0, 0);
+        // O9 maps B to MIDI 131.
+        assert_eq!(notes[1].0, 131);
+    }
+
+    // Note length
+
+    #[test]
+    fn test_note_length() {
+        let cmds = parse("C1 C2 C4 C8 C16");
+        let notes = note_commands(&cmds);
+        let ticks: Vec<u32> = notes.iter().map(|(_, t)| *t).collect();
+        // whole=192, half=96, quarter=48, eighth=24, sixteenth=12
+        assert_eq!(ticks, [192, 96, 48, 24, 12]);
+    }
+
+    #[test]
+    fn test_note_length_boundaries() {
+        let cmds = parse("C1 C192");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes[0].1, 192, "whole note is the longest length");
+        assert_eq!(notes[1].1, 1, "C192 is the shortest length");
+    }
+
+    #[test]
+    fn test_dotted_note() {
+        let cmds = parse("C4.");
+        let notes = note_commands(&cmds);
+        // quarter dot = 48 + 24 = 72
+        assert_eq!(notes[0].1, 72);
+    }
+
+    #[test]
+    fn test_double_dotted_note() {
+        let cmds = parse("C4..");
+        let notes = note_commands(&cmds);
+        // quarter=48, dot1=+24=72, dot2=+12=84
+        assert_eq!(notes[0].1, 84);
+    }
+
+    #[test]
+    fn test_default_length() {
+        let cmds = parse("L8 C D E");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes, [(60, 24), (62, 24), (64, 24)]);
+    }
+
+    // Rest
+
+    #[test]
+    fn test_rest() {
+        let cmds = parse("C R C");
+        let rests = rest_commands(&cmds);
+        assert_eq!(rests, [48], "R uses the default quarter-note length");
+    }
+
+    #[test]
+    fn test_rest_with_length() {
+        let cmds = parse("R8 R16");
+        let rests = rest_commands(&cmds);
+        assert_eq!(rests, [24, 12]);
+    }
+
+    #[test]
+    fn test_rest_with_tie() {
+        let cmds = parse("R4&8");
+        let rests = rest_commands(&cmds);
+        assert_eq!(rests, [72]);
+    }
+
+    #[test]
+    fn test_rest_only() {
+        let cmds = parse("R4 R8");
+        assert_eq!(rest_commands(&cmds), [48, 24]);
+        assert_eq!(note_commands(&cmds), [] as [(u32, u32); 0]);
+    }
+
+    // Tie & connection
+
+    #[test]
+    fn test_tie_extends_duration() {
+        let cmds = parse("C4&4");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes[0].1, 96);
+    }
+
+    #[test]
+    fn test_tie_chain() {
+        let cmds = parse("C4&4&4");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes, [(60, 144)]);
+    }
+
+    #[test]
+    fn test_tie_different_notes_not_combined() {
+        let cmds = parse("C4& D4");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes.len(), 2);
+        assert_eq!(notes[0], (60, 48), "C4 remains separate");
+        assert_eq!(notes[1], (62, 48), "D4 remains separate");
+    }
+
+    #[test]
+    fn test_tie_same_note_merges() {
+        let cmds = parse("C4& C4");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes, [(60, 96)]);
+    }
+
+    #[test]
+    fn test_tie_chain_merges() {
+        let cmds = parse("C4& C4& C4");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes, [(60, 144)]);
+    }
+
+    #[test]
+    fn test_tie_survives_non_note_commands() {
+        let cmds = parse("C4& T140 C4");
+        let notes = note_commands(&cmds);
+        assert_eq!(notes, [(60, 96)]);
+    }
+
+    // Repeat
+
+    #[test]
+    fn test_repeat() {
+        let cmds = parse("[C D]3");
+        let has_start = cmds
+            .iter()
+            .any(|cmd| matches!(cmd, MmlCommand::RepeatStart));
+        let has_end = cmds
+            .iter()
+            .any(|cmd| matches!(cmd, MmlCommand::RepeatEnd { play_count: 3 }));
+        assert!(has_start);
+        assert!(has_end);
+    }
+
+    #[test]
+    fn test_repeat_default_infinite() {
+        let cmds = parse("[C]");
+        assert!(cmds
+            .iter()
+            .any(|cmd| matches!(cmd, MmlCommand::RepeatEnd { play_count: 0 })));
+    }
+
+    #[test]
+    fn test_repeat_boundary_ties_keep_expanded_duration() {
+        for (mml, quarters) in [
+            ("C&[C]2", 3_u128),
+            ("[C&]2C", 3),
+            ("C&[[C]2]2", 5),
+            ("[[C&]2]2C", 5),
+            ("[C& D C&]2 C", 7),
+            ("C&[]2C", 2),
+        ] {
+            assert_eq!(
+                total_duration_clocks(&parse(&format!("T120 L4 {mml}"))),
+                Some(quarters * 48 * 18_643),
+                "{mml}"
+            );
+        }
+        let count = 2_147_483_647_u128;
+        let commands = parse("T120 L4 [[C&]2147483647]2147483647 C");
+        assert_eq!(
+            total_duration_clocks(&commands),
+            Some((count * count + 1) * 48 * 18_643)
+        );
+        assert_eq!(total_duration_clocks(&parse("[C&] D")), None);
+        assert_eq!(total_duration_clocks(&parse("[C C&] D")), None);
+    }
+
+    #[test]
+    fn test_nested_repeat_ties_keep_shared_command_size() {
+        fn graph_size(
+            commands: &[MmlCommand],
+            seen: &mut std::collections::HashSet<usize>,
+        ) -> usize {
+            let mut size = commands.len();
+            for command in commands {
+                if let MmlCommand::Sequence { commands, .. } = command {
+                    if seen.insert(commands.as_ptr() as usize) {
+                        size += graph_size(commands, seen);
+                    }
+                }
+            }
+            size
+        }
+        let depth = 30;
+        let mut mml = "D".to_string();
+        for _ in 0..depth {
+            mml = format!("[C D {mml} E C&]2");
+        }
+        mml.push_str(" D");
+        let commands = parse(&mml);
+        // A count of two also needs sharing: peeling one iteration must not
+        // recursively duplicate the previously normalized middle phrase.
+        assert!(graph_size(&commands, &mut std::collections::HashSet::new()) < mml.len() * 16);
+        assert_eq!(
+            total_duration_clocks(&commands),
+            Some((9 * (1_u128 << depth) - 7) * 48 * 18_643)
+        );
+    }
+
+    // Parameter commands: Tempo
+
+    #[test]
+    fn test_tempo_value() {
+        let cmds = parse("T120 C");
+        let cpt = cmds.iter().find_map(|cmd| match cmd {
+            MmlCommand::Tempo { clocks_per_tick } => Some(*clocks_per_tick),
+            _ => None,
+        });
+        assert_eq!(cpt, Some(18643));
+    }
+
+    // Parameter commands: Volume
+
+    #[test]
+    fn test_volume_value() {
+        for (mml, expected) in [("V0 C", 0.0), ("V100 C", 100.0 / 127.0), ("V127 C", 1.0)] {
+            let cmds = parse(mml);
+            let levels: Vec<f32> = cmds
+                .iter()
+                .filter_map(|cmd| match cmd {
+                    MmlCommand::Volume { level } => Some(*level),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(levels, [expected], "{mml}");
+        }
+    }
+
+    // Parameter commands: Quantize
+
+    #[test]
+    fn test_quantize() {
+        let cmds = parse("Q50 C");
+        let qvals = quantize_commands(&cmds);
+        assert!(
+            qvals.contains(&0.5),
+            "expected gate_ratio 0.5, got {qvals:?}"
+        );
+    }
+
+    #[test]
+    fn test_quantize_full_gate() {
+        // Q100 means no per-note quantize command is emitted
+        let cmds = parse("Q100 C D");
+        let qvals = quantize_commands(&cmds);
+        assert_eq!(qvals.len(), 1, "expected only the Q100 command: {qvals:?}");
+        assert_eq!(qvals[0], 1.0);
+    }
+
+    #[test]
+    fn test_connected_note_quantize_full_gate() {
+        // Connected note (C&) should get gate_ratio=1.0, normal note (D) gets 0.5
+        let cmds = parse("Q50 C& D");
+        let qvals = quantize_commands(&cmds);
+        assert_eq!(qvals, [0.5, 1.0, 0.5]);
+    }
+
+    #[test]
+    fn test_tied_same_note_ends_with_current_quantize() {
+        // C4& C4 merges into one note that ends with the same gate as C4&4
+        let tied = parse("Q50 C4& C4");
+        let lengthened = parse("Q50 C4&4");
+        assert_eq!(quantize_commands(&tied), [0.5, 0.5]);
+        assert_eq!(quantize_commands(&tied), quantize_commands(&lengthened));
+        assert_eq!(note_commands(&tied), note_commands(&lengthened));
+    }
+
+    #[test]
+    fn test_tied_same_note_uses_quantize_at_tie_end() {
+        let cmds = parse("Q50 C4& Q80 C4");
+        assert_eq!(quantize_commands(&cmds), [0.5, 0.8, 0.8]);
+        assert_eq!(note_commands(&cmds), [(60, 96)]);
+    }
+
+    #[test]
+    fn test_tie_chain_into_slur_keeps_full_gate() {
+        let cmds = parse("Q50 C4& C4& D4");
+        assert_eq!(quantize_commands(&cmds), [0.5, 1.0, 0.5]);
+        assert_eq!(note_commands(&cmds), [(60, 96), (62, 48)]);
+    }
+
+    #[test]
+    fn test_tied_note_gate_inserted_after_full_gate() {
+        // Q100 emits no per-note gate, so a tie ending under Q50 inserts one before the note
+        let cmds = parse("Q100 C4& Q50 C4");
+        let note_index = cmds
+            .iter()
+            .position(|cmd| matches!(cmd, MmlCommand::Note { .. }))
+            .unwrap();
+        assert!(matches!(
+            cmds[note_index - 1],
+            MmlCommand::Quantize { gate_ratio } if gate_ratio == 0.5
+        ));
+        assert_eq!(quantize_commands(&cmds), [1.0, 0.5, 0.5]);
+        assert_eq!(note_commands(&cmds), [(60, 96)]);
+    }
+
+    // Parameter commands: Tone, Transpose, Detune
+
+    #[test]
+    fn test_tone_command() {
+        let cmds = parse("@3 C");
+        assert!(cmds
+            .iter()
+            .any(|cmd| matches!(cmd, MmlCommand::Tone { tone: 3 })));
+    }
+
+    #[test]
+    fn test_transpose() {
+        let cmds = parse("K5 C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::Transpose { semitone_offset } if *semitone_offset == 5.0
+        )));
+    }
+
+    #[test]
+    fn test_transpose_negative() {
+        let cmds = parse("K-5 C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::Transpose { semitone_offset } if *semitone_offset == -5.0
+        )));
+    }
+
+    #[test]
+    fn test_detune() {
+        let cmds = parse("Y50 C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::Detune { semitone_offset } if *semitone_offset == 0.5
+        )));
+    }
+
+    // Effect definitions: Envelope
+
+    #[test]
+    fn test_envelope_definition() {
+        let cmds = parse("@ENV1{127, 10, 64} C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::EnvelopeSet { slot: 1, initial_level, segments }
+                if *initial_level == 1.0 && segments.as_ref() == [(10, 64.0 / 127.0)]
+        )));
+    }
+
+    #[test]
+    fn test_envelope_multiple_segments() {
+        let cmds = parse("@ENV1{127, 10, 64, 10, 32} C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::EnvelopeSet { slot: 1, initial_level, segments }
+                if *initial_level == 1.0
+                    && segments.as_ref() == [(10, 64.0 / 127.0), (10, 32.0 / 127.0)]
+        )));
+    }
+
+    #[test]
+    fn test_envelope_switch() {
+        let cmds = parse("@ENV2 C");
+        assert!(cmds
+            .iter()
+            .any(|cmd| matches!(cmd, MmlCommand::Envelope { slot: 2 })));
+    }
+
+    // Effect definitions: Vibrato
+
+    #[test]
+    fn test_vibrato_definition() {
+        let cmds = parse("@VIB1{10, 20, 50} C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::VibratoSet { slot: 1, delay_ticks: 10, period_ticks: 20, semitone_depth }
+                if *semitone_depth == 0.5
+        )));
+    }
+
+    // Effect definitions: Glide
+
+    #[test]
+    fn test_glide_definition() {
+        let cmds = parse("@GLI1{100, 10} C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::GlideSet { slot: 1, semitone_offset: Some(offset), duration_ticks: Some(10) }
+                if *offset == 1.0
+        )));
+    }
+
+    #[test]
+    fn test_glide_wildcard() {
+        let cmds = parse("@GLI1{*, *} C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::GlideSet {
+                slot: 1,
+                semitone_offset: None,
+                duration_ticks: None,
+            }
+        )));
+    }
+
+    #[test]
+    fn test_glide_partial_wildcard() {
+        let cmds = parse("@GLI1{100, *} C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::GlideSet {
+                slot: 1,
+                semitone_offset: Some(offset),
+                duration_ticks: None,
+            } if *offset == 1.0
+        )));
+
+        let cmds = parse("@GLI1{*, 10} C");
+        assert!(cmds.iter().any(|cmd| matches!(
+            cmd,
+            MmlCommand::GlideSet {
+                slot: 1,
+                semitone_offset: None,
+                duration_ticks: Some(10),
+            }
+        )));
+    }
+
+    // Default insertion
+
+    #[test]
+    fn test_default_commands_inserted_on_first_note() {
+        let cmds = parse("C");
+        assert_eq!(cmds.len(), 11);
+        assert!(matches!(cmds[0], MmlCommand::Tempo { .. }));
+        assert!(matches!(cmds[1], MmlCommand::Quantize { .. }));
+        assert!(matches!(cmds[2], MmlCommand::Tone { .. }));
+        assert!(matches!(cmds[3], MmlCommand::Volume { .. }));
+        assert!(matches!(cmds[4], MmlCommand::Transpose { .. }));
+        assert!(matches!(cmds[5], MmlCommand::Detune { .. }));
+        assert!(matches!(cmds[6], MmlCommand::Envelope { slot: 0 }));
+        assert!(matches!(cmds[7], MmlCommand::Vibrato { slot: 0 }));
+        assert!(matches!(cmds[8], MmlCommand::Glide { slot: 0 }));
+        assert!(matches!(cmds[9], MmlCommand::Quantize { .. }));
+        assert!(matches!(
+            cmds[10],
+            MmlCommand::Note {
+                midi_note: 60,
+                duration_ticks: 48
+            }
+        ));
+    }
+
+    // Case / whitespace / empty
+
+    #[test]
+    fn test_case_insensitive() {
+        let upper = note_commands(&parse("C D E"));
+        let lower = note_commands(&parse("c d e"));
+        assert_eq!(upper, lower);
+    }
+
+    #[test]
+    fn test_whitespace_ignored() {
+        let no_space = note_commands(&parse("CDE"));
+        let with_space = note_commands(&parse("C D E"));
+        assert_eq!(no_space, with_space);
+    }
+
+    #[test]
+    fn test_trailing_whitespace() {
+        for mml in ["", "V7", "T120", ">", "@ENV1{127}", "[C]2", "C"] {
+            assert_eq!(
+                format!("{:?}", parse(&format!("{mml} \t\n"))),
+                format!("{:?}", parse(mml)),
+                "{mml:?}"
+            );
+        }
+
+        assert_parse_error("C& \n", "MML:4: Tie '&' is not followed by a note");
+        assert_parse_error("[V7 \n", "MML:5: Repeat start '[' has no matching ']'");
+    }
+
+    #[test]
+    fn test_empty_mml() {
+        let cmds = parse("");
+        assert!(cmds.is_empty());
+    }
+
+    // Error cases
+
+    #[test]
+    fn test_err_invalid_character() {
+        assert_parse_error("X", "MML:0: Unexpected character 'X'");
+    }
+
+    #[test]
+    fn test_err_octave_overflow() {
+        assert_parse_error("O9 > C", "MML:4: Octave exceeds maximum 9");
+    }
+
+    #[test]
+    fn test_err_octave_underflow() {
+        assert_parse_error("O-1 < C", "MML:5: Octave is below minimum -1");
+    }
+
+    #[test]
+    fn test_err_tempo_missing_number() {
+        assert_parse_error("T C", "MML:2: Expected value for 'T' but found 'C'");
+    }
+
+    #[test]
+    fn test_err_volume_missing_number() {
+        assert_parse_error("V C", "MML:2: Expected value for 'V' but found 'C'");
+    }
+
+    #[test]
+    fn test_err_envelope_slot_zero_reserved() {
+        assert_parse_error(
+            "@ENV0{127}",
+            "MML:6: Envelope slot 0 is reserved for disable",
+        );
+    }
+
+    #[test]
+    fn test_err_vibrato_slot_zero_reserved() {
+        assert_parse_error(
+            "@VIB0{10, 20, 50}",
+            "MML:6: Vibrato slot 0 is reserved for disable",
+        );
+    }
+
+    #[test]
+    fn test_err_glide_slot_zero_reserved() {
+        assert_parse_error(
+            "@GLI0{100, 10}",
+            "MML:6: Glide slot 0 is reserved for disable",
+        );
+    }
+
+    #[test]
+    fn test_err_note_length_out_of_range() {
+        assert_parse_error("L0 C", "MML:2: 'Note length' is below minimum 1");
+        assert_parse_error("L193 C", "MML:4: 'Note length' exceeds maximum 192");
+        assert_parse_error("C0", "MML:2: 'Note length' is below minimum 1");
+    }
+
+    #[test]
+    fn test_err_tie_before_rest() {
+        assert_parse_error("C4& R4", "MML:6: Tie '&' is not followed by a note");
+    }
+
+    #[test]
+    fn test_err_tie_at_end() {
+        assert_parse_error("C4&", "MML:3: Tie '&' is not followed by a note");
+    }
+
+    #[test]
+    fn test_err_rest_tie_without_length() {
+        assert_parse_error("R4& C4", "MML:4: Tie '&' after a rest requires a length");
+    }
+
+    #[test]
+    fn test_err_unmatched_repeat_end() {
+        assert_parse_error("]2", "MML:1: Repeat end ']' has no matching '['");
+        assert_parse_error("[C]2 ]", "MML:6: Repeat end ']' has no matching '['");
+    }
+
+    #[test]
+    fn test_err_unclosed_repeat_start() {
+        assert_parse_error("[C", "MML:2: Repeat start '[' has no matching ']'");
+        assert_parse_error("[[C]2", "MML:5: Repeat start '[' has no matching ']'");
+    }
+
+    #[test]
+    fn test_err_negative_repeat_count() {
+        assert_parse_error("[C]-1", "MML:5: 'count' is below minimum 0");
+    }
+
+    #[test]
+    fn test_err_note_length_not_divisible() {
+        assert_parse_error("C7", "MML:2: Invalid note length '7'");
+    }
+
+    #[test]
+    fn test_err_dot_on_odd_tick_length() {
+        // L192 = 1 tick, cannot apply dot to odd value
+        assert_parse_error("C192.", "MML:5: Cannot apply dot to this note length");
+    }
+
+    // total_duration_sec
+
+    #[test]
+    fn test_total_duration_sec_quarter_note_at_120bpm() {
+        let cmds = parse("T120 C4");
+        let sec = total_duration_sec(&cmds).unwrap();
+        let clocks = u128::from(bpm_to_clocks_per_tick(120) * TICKS_PER_QUARTER_NOTE);
+        assert_eq!(sec, duration_sec_for_clocks(clocks));
+    }
+
+    #[test]
+    fn test_total_duration_sec_tempo_change() {
+        let cmds = parse("T120 C4 T60 C4");
+        let sec = total_duration_sec(&cmds).unwrap();
+        let clocks = u128::from(
+            (bpm_to_clocks_per_tick(120) + bpm_to_clocks_per_tick(60)) * TICKS_PER_QUARTER_NOTE,
+        );
+        assert_eq!(sec, duration_sec_for_clocks(clocks));
+    }
+
+    #[test]
+    fn test_total_duration_sec_infinite_loop() {
+        // Repeat count 0 means an infinite repeat.
+        let cmds = parse("[C]0");
+        assert!(total_duration_sec(&cmds).is_none());
+    }
+
+    #[test]
+    fn test_total_duration_sec_finite_repeat() {
+        let cmds = parse("T120 [C4]2");
+        let sec = total_duration_sec(&cmds).unwrap();
+        let clocks = u128::from(bpm_to_clocks_per_tick(120) * TICKS_PER_QUARTER_NOTE * 2);
+        assert_eq!(sec, duration_sec_for_clocks(clocks));
+    }
+
+    #[test]
+    fn test_total_duration_sec_nested_repeat() {
+        let cmds = parse("T120 [[C4]2]3");
+        let sec = total_duration_sec(&cmds).unwrap();
+        let clocks = u128::from(bpm_to_clocks_per_tick(120) * TICKS_PER_QUARTER_NOTE * 2 * 3);
+        assert_eq!(sec, duration_sec_for_clocks(clocks));
+    }
+
+    #[test]
+    fn test_total_duration_sec_repeat_carries_tempo_between_iterations() {
+        let cmds = parse("T120 [C4 T60 D4]3");
+        let sec = total_duration_sec(&cmds).unwrap();
+        let clocks = u128::from(TICKS_PER_QUARTER_NOTE)
+            * (u128::from(bpm_to_clocks_per_tick(120))
+                + u128::from(bpm_to_clocks_per_tick(60)) * 5);
+        assert_eq!(sec, duration_sec_for_clocks(clocks));
+    }
+
+    #[test]
+    fn test_total_duration_sec_empty() {
+        let cmds = parse("");
+        assert_eq!(total_duration_sec(&cmds), Some(0.0));
+    }
+}

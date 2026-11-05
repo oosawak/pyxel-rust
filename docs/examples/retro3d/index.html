@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pyxel Cube — ブラウザ3Dデモ</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101421; color: #eef0f7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 28px 20px; }
+    main { max-width: 720px; margin: auto; }
+    a { color: #a9c1ff; }
+    header { margin: 24px 0; }
+    h1 { margin: 10px 0; font-size: clamp(26px, 5vw, 40px); letter-spacing: -.04em; }
+    p { color: #aeb8ce; line-height: 1.7; }
+    .eyebrow { color: #70c6a9; font-size: 12px; letter-spacing: .16em; }
+    .stage { background: #2b335f; border: 1px solid #495477; border-radius: 12px; overflow: hidden; }
+    canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; image-rendering: pixelated; touch-action: manipulation; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; align-items: center; }
+    button { color: inherit; font: inherit; background: #222b40; border: 1px solid #495477; border-radius: 8px; padding: 10px 16px; cursor: pointer; min-height: 44px; }
+    button:hover { background: #33415f; }
+    button:focus-visible, input:focus-visible, canvas:focus-visible { outline: 3px solid #70c6a9; outline-offset: 3px; }
+    button:disabled { opacity: .4; cursor: wait; }
+    label { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+    input { width: 110px; accent-color: #70c6a9; }
+    #status { font-size: 13px; color: #70c6a9; }
+    .hint { font-size: 13px; }
+    @media (max-width: 480px) { body { padding: 16px 12px; } label { margin: 6px 0 0; width: 100%; } }
+  </style>
+</head>
+<body>
+  <main>
+    <a href="../../">← デモ一覧</a>
+    <header>
+      <span class="eyebrow">PYXEL-RUST / RETRO 3D</span>
+      <h1>Pyxel Cube</h1>
+      <p>Rustで描く3Dを、そのままブラウザへ。<br>立方体を回して、レトロな奥行きを確かめてみてください。</p>
+    </header>
+    <div class="stage"><canvas id="pyxel_canvas" width="640" height="480" tabindex="0" aria-label="回転する3つの立方体。左右キーで回転、スペースで一時停止、Rでリセット。"></canvas></div>
+    <div class="toolbar">
+      <button id="pause" disabled>一時停止</button>
+      <button id="left" aria-label="左に回転" disabled>←</button>
+      <button id="right" aria-label="右に回転" disabled>→</button>
+      <button id="reset" disabled>リセット</button>
+      <label for="distance">距離 <input id="distance" type="range" min="5" max="10" value="7" step="0.1" disabled></label>
+    </div>
+    <div id="status" role="status">読み込み中…</div>
+    <p class="hint">キーボード：← → 回転 / Space 一時停止 / R リセット<br>スマートフォンでは画面下のボタンで操作できます。</p>
+  </main>
+  <script type="module">
+    const status = document.getElementById('status');
+    const pause = document.getElementById('pause');
+    const distance = document.getElementById('distance');
+    try {
+      const { default: init, start_retro3d, set_retro3d_paused, retro3d_paused, retro3d_distance,
+        rotate_retro3d, reset_retro3d, set_retro3d_distance } = await import('./pkg/pyxel_rust.js');
+      await init();
+      start_retro3d();
+      document.querySelectorAll('button, input').forEach(el => { el.disabled = false; });
+      pause.onclick = () => set_retro3d_paused(!retro3d_paused());
+      document.getElementById('left').onclick = () => rotate_retro3d(-15);
+      document.getElementById('right').onclick = () => rotate_retro3d(15);
+      document.getElementById('reset').onclick = () => { reset_retro3d(); distance.value = 7; };
+      distance.oninput = () => set_retro3d_distance(Number(distance.value));
+      const sync = () => {
+        const paused = retro3d_paused();
+        pause.textContent = paused ? '再開' : '一時停止';
+        distance.value = retro3d_distance();
+        pause.setAttribute('aria-pressed', String(paused));
+        status.textContent = paused ? '一時停止中' : '実行中';
+      };
+      sync();
+      setInterval(sync, 100);
+    } catch (error) {
+      console.error(error);
+      status.setAttribute('role', 'alert');
+      status.textContent = '読み込めませんでした。ページを再読み込みしてください。';
+    }
+  </script>
+</body>
+</html>

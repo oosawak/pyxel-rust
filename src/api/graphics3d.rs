@@ -1,4 +1,4 @@
-//! Pyxel Cube rendering for the SDL2 backend.
+//! Pyxel Cube rendering for SDL2 and Canvas/WASM backends.
 //!
 //! Draw commands use the official `crate::cube::draw` API. The target can be
 //! the screen or an offscreen image. Camera buffers are reused between frames.
@@ -69,4 +69,19 @@ pub fn render_3d(target: &RcImage, camera: &RcCamera, draw: impl FnOnce(&mut Dra
     };
     let mut frame = RenderFrame(context);
     draw(&mut frame.0);
+}
+
+/// Copy a rendered image onto the active backend, then draw 2D HUD elements.
+/// Uses the backend's camera and clipping rules, like other 2D drawing calls.
+pub fn blit_3d(target: &RcImage, x: f32, y: f32) {
+    let image = target.borrow();
+    for row in 0..image.height() {
+        for col in 0..image.width() {
+            crate::api::pset(
+                x + col as f32,
+                y + row as f32,
+                image.pixel(col as f32, row as f32),
+            );
+        }
+    }
 }

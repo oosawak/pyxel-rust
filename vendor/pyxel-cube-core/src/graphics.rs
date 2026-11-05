@@ -1,0 +1,746 @@
+use std::mem::size_of;
+
+use glow::{HasContext, PixelUnpackData};
+
+use crate::font::RcFont;
+use crate::image::{rgb24_to_rgb8, Color, Rgb24};
+use crate::platform::{self, GlProfile};
+use crate::pyxel::{self, Pyxel};
+use crate::settings::{BACKGROUND_COLOR, MAX_COLORS, NUM_SCREEN_MODES};
+
+// SDL creates a core profile context on macOS, which rejects GLSL 1.20 and
+// compiles GLSL ES 1.00 through ARB_ES2_compatibility.
+#[cfg(target_os = "macos")]
+const GL_VERSION: &str = include_str!("shaders/gles_version.glsl");
+#[cfg(not(target_os = "macos"))]
+const GL_VERSION: &str = include_str!("shaders/gl_version.glsl");
+const GLES_VERSION: &str = include_str!("shaders/gles_version.glsl");
+
+const COMMON_VERT: &str = include_str!("shaders/common.vert");
+const COMMON_FRAG: &str = include_str!("shaders/common.frag");
+const SCREEN_FRAGS: [&str; NUM_SCREEN_MODES as usize] = [
+    include_str!("shaders/crisp.frag"),
+    include_str!("shaders/smooth.frag"),
+    include_str!("shaders/retro.frag"),
+];
+
+const NUM_UNIFORMS: usize = 7;
+const U_SCREEN_POS: usize = 0;
+const U_SCREEN_SIZE: usize = 1;
+const U_SCREEN_SCALE: usize = 2;
+const U_NUM_COLORS: usize = 3;
+const U_BACKGROUND_COLOR: usize = 4;
+const U_SCREEN_TEXTURE: usize = 5;
+const U_COLORS_TEXTURE: usize = 6;
+
+const UNIFORM_NAMES: [&str; NUM_UNIFORMS] = [
+    "u_screenPos",
+    "u_screenSize",
+    "u_screenScale",
+    "u_numColors",
+    "u_backgroundColor",
+    "u_screenTexture",
+    "u_colorsTexture",
+];
+
+const QUAD_VERTICES: [f32; 8] = [-1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, -1.0];
+
+pub struct ScreenShader {
+    program: glow::Program,
+    uniform_locations: [Option<glow::UniformLocation>; NUM_UNIFORMS],
+    vertex_array: glow::VertexArray,
+    vertex_buffer: glow::Buffer,
+}
+
+pub struct Graphics {
+    is_gles: bool,
+    screen_shaders: Vec<ScreenShader>,
+    screen_texture: glow::Texture,
+    screen_texture_initialized: bool,
+    colors_texture: glow::Texture,
+    cached_colors: Vec<Rgb24>,
+    color_pixels: Vec<u8>,
+}
+
+impl Graphics {
+    // OpenGL resources
+
+    pub fn new() -> Self {
+        // SAFETY: Platform initialization keeps this thread's GL context current.
+        // Graphics owns every created handle, and uploads use complete typed slices.
+        let is_gles = platform::gl_profile() == GlProfile::Gles;
+        platform::with_gl_context(|gl| unsafe {
+            if !is_gles {
+                gl.disable(glow::FRAMEBUFFER_SRGB);
+            }
+            gl.disable(glow::BLEND);
+
+            let screen_shaders = Self::create_screen_shaders(gl, is_gles);
+            let screen_texture = Self::create_screen_texture(gl);
+            let colors_texture = Self::create_colors_texture(gl);
+            Self {
+                is_gles,
+                screen_shaders,
+                screen_texture,
+                screen_texture_initialized: false,
+                colors_texture,
+                cached_colors: Vec::new(),
+                color_pixels: Vec::new(),
+            }
+        })
+    }
+
+    pub(crate) fn destroy(self, gl: &mut glow::Context) {
+        // The caller releases these handles before replacing their current context.
+        unsafe {
+            gl.use_program(None);
+            gl.bind_vertex_array(None);
+            gl.bind_buffer(glow::ARRAY_BUFFER, None);
+            for shader in self.screen_shaders {
+                gl.delete_vertex_array(shader.vertex_array);
+                gl.delete_buffer(shader.vertex_buffer);
+                gl.delete_program(shader.program);
+            }
+            gl.delete_texture(self.screen_texture);
+            gl.delete_texture(self.colors_texture);
+        }
+    }
+
+    pub(crate) fn invalidate_screen_texture(&mut self) {
+        self.screen_texture_initialized = false;
+    }
+
+    unsafe fn create_screen_shaders(gl: &mut glow::Context, is_gles: bool) -> Vec<ScreenShader> {
+        let glsl_version = if is_gles { GLES_VERSION } else { GL_VERSION };
+        let mut screen_shaders = Vec::new();
+
+        for &screen_frag in &SCREEN_FRAGS {
+            let vertex_shader = gl
+                .create_shader(glow::VERTEX_SHADER)
+                .expect("Failed to create OpenGL vertex shader");
+            gl.shader_source(vertex_shader, &format!("{glsl_version}{COMMON_VERT}"));
+            gl.compile_shader(vertex_shader);
+            assert!(
+                gl.get_shader_compile_status(vertex_shader),
+                "\n[vertex shader]\n{}",
+                gl.get_shader_info_log(vertex_shader)
+            );
+
+            let fragment_shader = gl
+                .create_shader(glow::FRAGMENT_SHADER)
+                .expect("Failed to create OpenGL fragment shader");
+            gl.shader_source(
+                fragment_shader,
+                &format!("{glsl_version}{COMMON_FRAG}{screen_frag}"),
+            );
+            gl.compile_shader(fragment_shader);
+            assert!(
+                gl.get_shader_compile_status(fragment_shader),
+                "\n[fragment shader]\n{}",
+                gl.get_shader_info_log(fragment_shader)
+            );
+
+            let program = gl
+                .create_program()
+                .expect("Failed to create OpenGL shader program");
+            gl.attach_shader(program, vertex_shader);
+            gl.attach_shader(program, fragment_shader);
+            gl.link_program(program);
+            assert!(
+                gl.get_program_link_status(program),
+                "{}",
+                gl.get_program_info_log(program)
+            );
+
+            gl.detach_shader(program, vertex_shader);
+            gl.delete_shader(vertex_shader);
+            gl.detach_shader(program, fragment_shader);
+            gl.delete_shader(fragment_shader);
+            let uniform_locations: [Option<glow::UniformLocation>; NUM_UNIFORMS] =
+                std::array::from_fn(|i| gl.get_uniform_location(program, UNIFORM_NAMES[i]));
+
+            let vertex_array = gl
+                .create_vertex_array()
+                .expect("Failed to create OpenGL vertex array");
+            let vertex_buffer = gl.create_buffer().expect("Failed to create OpenGL buffer");
+            gl.bind_vertex_array(Some(vertex_array));
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vertex_buffer));
+            gl.buffer_data_u8_slice(
+                glow::ARRAY_BUFFER,
+                QUAD_VERTICES.align_to::<u8>().1,
+                glow::STATIC_DRAW,
+            );
+
+            let position = gl
+                .get_attrib_location(program, "position")
+                .expect("Failed to find OpenGL attribute 'position'");
+            gl.vertex_attrib_pointer_f32(
+                position,
+                2,
+                glow::FLOAT,
+                false,
+                2 * size_of::<f32>() as i32,
+                0,
+            );
+            gl.enable_vertex_attrib_array(position);
+
+            screen_shaders.push(ScreenShader {
+                program,
+                uniform_locations,
+                vertex_array,
+                vertex_buffer,
+            });
+        }
+
+        screen_shaders
+    }
+
+    // Texture setup
+
+    unsafe fn set_texture_nearest_clamp(gl: &mut glow::Context) {
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MIN_FILTER,
+            glow::NEAREST as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MAG_FILTER,
+            glow::NEAREST as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_WRAP_S,
+            glow::CLAMP_TO_EDGE as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_WRAP_T,
+            glow::CLAMP_TO_EDGE as i32,
+        );
+    }
+
+    unsafe fn create_screen_texture(gl: &mut glow::Context) -> glow::Texture {
+        let screen_texture = gl
+            .create_texture()
+            .expect("Failed to create OpenGL screen texture");
+        gl.active_texture(glow::TEXTURE0);
+        gl.bind_texture(glow::TEXTURE_2D, Some(screen_texture));
+        Self::set_texture_nearest_clamp(gl);
+        screen_texture
+    }
+
+    unsafe fn create_colors_texture(gl: &mut glow::Context) -> glow::Texture {
+        let colors_texture = gl
+            .create_texture()
+            .expect("Failed to create OpenGL colors texture");
+        gl.active_texture(glow::TEXTURE1);
+        gl.bind_texture(glow::TEXTURE_2D, Some(colors_texture));
+        Self::set_texture_nearest_clamp(gl);
+        colors_texture
+    }
+}
+
+impl Pyxel {
+    // Drawing state
+
+    pub fn set_clip_rect(&self, x: f32, y: f32, width: f32, height: f32) {
+        rc_mut!(pyxel::screen()).set_clip_rect(x, y, width, height);
+    }
+
+    pub fn reset_clip_rect(&self) {
+        rc_mut!(pyxel::screen()).reset_clip_rect();
+    }
+
+    pub fn set_camera(&self, x: f32, y: f32) {
+        rc_mut!(pyxel::screen()).set_camera(x, y);
+    }
+
+    pub fn reset_camera(&self) {
+        rc_mut!(pyxel::screen()).reset_camera();
+    }
+
+    pub fn map_color(&self, src_color: Color, dst_color: Color) {
+        rc_mut!(pyxel::screen()).map_color(src_color, dst_color);
+    }
+
+    pub fn reset_color_map(&self) {
+        rc_mut!(pyxel::screen()).reset_color_map();
+    }
+
+    pub fn set_dithering(&self, alpha: f32) {
+        rc_mut!(pyxel::screen()).set_dithering(alpha);
+    }
+
+    // Drawing primitives
+
+    pub fn clear(&self, color: Color) {
+        rc_mut!(pyxel::screen()).clear(color);
+    }
+
+    pub fn pixel(&self, x: f32, y: f32) -> Color {
+        rc_ref!(pyxel::screen()).pixel(x, y)
+    }
+
+    pub fn set_pixel(&self, x: f32, y: f32, color: Color) {
+        rc_mut!(pyxel::screen()).set_pixel(x, y, color);
+    }
+
+    pub fn draw_line(&self, x1: f32, y1: f32, x2: f32, y2: f32, color: Color) {
+        rc_mut!(pyxel::screen()).draw_line(x1, y1, x2, y2, color);
+    }
+
+    pub fn draw_rect(&self, x: f32, y: f32, width: f32, height: f32, color: Color) {
+        rc_mut!(pyxel::screen()).draw_rect(x, y, width, height, color);
+    }
+
+    pub fn draw_rect_border(&self, x: f32, y: f32, width: f32, height: f32, color: Color) {
+        rc_mut!(pyxel::screen()).draw_rect_border(x, y, width, height, color);
+    }
+
+    pub fn draw_circle(&self, x: f32, y: f32, radius: f32, color: Color) {
+        rc_mut!(pyxel::screen()).draw_circle(x, y, radius, color);
+    }
+
+    pub fn draw_circle_border(&self, x: f32, y: f32, radius: f32, color: Color) {
+        rc_mut!(pyxel::screen()).draw_circle_border(x, y, radius, color);
+    }
+
+    pub fn draw_ellipse(&self, x: f32, y: f32, width: f32, height: f32, color: Color) {
+        rc_mut!(pyxel::screen()).draw_ellipse(x, y, width, height, color);
+    }
+
+    pub fn draw_ellipse_border(&self, x: f32, y: f32, width: f32, height: f32, color: Color) {
+        rc_mut!(pyxel::screen()).draw_ellipse_border(x, y, width, height, color);
+    }
+
+    pub fn draw_triangle(
+        &self,
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+        x3: f32,
+        y3: f32,
+        color: Color,
+    ) {
+        rc_mut!(pyxel::screen()).draw_triangle(x1, y1, x2, y2, x3, y3, color);
+    }
+
+    pub fn draw_triangle_border(
+        &self,
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+        x3: f32,
+        y3: f32,
+        color: Color,
+    ) {
+        rc_mut!(pyxel::screen()).draw_triangle_border(x1, y1, x2, y2, x3, y3, color);
+    }
+
+    pub fn flood_fill(&self, x: f32, y: f32, color: Color) {
+        rc_mut!(pyxel::screen()).flood_fill(x, y, color);
+    }
+
+    // Image & tilemap
+
+    pub fn draw_image(
+        &self,
+        x: f32,
+        y: f32,
+        image_index: u32,
+        image_x: f32,
+        image_y: f32,
+        width: f32,
+        height: f32,
+        transparent: Option<Color>,
+        rotate: Option<f32>,
+        scale: Option<f32>,
+    ) {
+        rc_mut!(pyxel::screen()).draw_image(
+            x,
+            y,
+            &pyxel::images()[image_index as usize],
+            image_x,
+            image_y,
+            width,
+            height,
+            transparent,
+            rotate,
+            scale,
+        );
+    }
+
+    pub fn draw_tilemap(
+        &self,
+        x: f32,
+        y: f32,
+        tilemap_index: u32,
+        tilemap_x: f32,
+        tilemap_y: f32,
+        width: f32,
+        height: f32,
+        transparent: Option<Color>,
+        rotate: Option<f32>,
+        scale: Option<f32>,
+    ) {
+        rc_mut!(pyxel::screen()).draw_tilemap(
+            x,
+            y,
+            &pyxel::tilemaps()[tilemap_index as usize],
+            tilemap_x,
+            tilemap_y,
+            width,
+            height,
+            transparent,
+            rotate,
+            scale,
+        );
+    }
+
+    // 3D graphics
+
+    pub fn draw_image_3d(
+        &self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        image_index: u32,
+        pos: (f32, f32, f32),
+        rot: (f32, f32, f32),
+        fov: Option<f32>,
+        transparent: Option<Color>,
+    ) {
+        rc_mut!(pyxel::screen()).draw_image_3d(
+            x,
+            y,
+            width,
+            height,
+            &pyxel::images()[image_index as usize],
+            pos,
+            rot,
+            fov,
+            transparent,
+        );
+    }
+
+    pub fn draw_tilemap_3d(
+        &self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        tilemap_index: u32,
+        pos: (f32, f32, f32),
+        rot: (f32, f32, f32),
+        fov: Option<f32>,
+        transparent: Option<Color>,
+    ) {
+        rc_mut!(pyxel::screen()).draw_tilemap_3d(
+            x,
+            y,
+            width,
+            height,
+            &pyxel::tilemaps()[tilemap_index as usize],
+            pos,
+            rot,
+            fov,
+            transparent,
+        );
+    }
+
+    // Text & rendering
+
+    pub fn draw_text(&self, x: f32, y: f32, text: &str, color: Color, font: Option<&RcFont>) {
+        rc_mut!(pyxel::screen()).draw_text(x, y, text, color, font);
+    }
+
+    pub(crate) fn render_screen(&mut self) {
+        if self.graphics.is_none() {
+            return;
+        }
+
+        // SAFETY: The platform keeps the GL context current until shutdown.
+        // Graphics owns the bound handles, and texture dimensions match the slices.
+        let (window_width, window_height) = platform::window_size();
+        platform::with_gl_context(|gl| unsafe {
+            Self::set_viewport(gl, window_width, window_height);
+            self.use_screen_shader(gl, window_height);
+            self.bind_screen_texture(gl);
+            self.bind_colors_texture(gl);
+            gl.draw_arrays(glow::TRIANGLE_STRIP, 0, 4);
+        });
+    }
+
+    unsafe fn set_viewport(gl: &mut glow::Context, window_width: u32, window_height: u32) {
+        gl.viewport(0, 0, window_width as i32, window_height as i32);
+    }
+
+    unsafe fn use_screen_shader(&self, gl: &mut glow::Context, window_height: u32) {
+        let shader =
+            &self.graphics.as_ref().unwrap().screen_shaders[self.system.screen_mode as usize];
+        gl.use_program(Some(shader.program));
+        let uniforms = &shader.uniform_locations;
+
+        // Screen placement and size uniforms
+        if let Some(location) = &uniforms[U_SCREEN_POS] {
+            gl.uniform_2_f32(
+                Some(location),
+                self.system.screen_x as f32,
+                (window_height as i32
+                    - self.system.screen_y
+                    - (*pyxel::height() as f32 * self.system.screen_scale) as i32)
+                    as f32,
+            );
+        }
+        if let Some(location) = &uniforms[U_SCREEN_SIZE] {
+            gl.uniform_2_f32(
+                Some(location),
+                *pyxel::width() as f32 * self.system.screen_scale,
+                *pyxel::height() as f32 * self.system.screen_scale,
+            );
+        }
+        if let Some(location) = &uniforms[U_SCREEN_SCALE] {
+            gl.uniform_1_f32(Some(location), self.system.screen_scale);
+        }
+
+        // Palette and texture uniforms
+        if let Some(location) = &uniforms[U_NUM_COLORS] {
+            gl.uniform_1_i32(Some(location), pyxel::colors().len() as i32);
+        }
+        if let Some(location) = &uniforms[U_BACKGROUND_COLOR] {
+            let (r, g, b) = rgb24_to_rgb8(BACKGROUND_COLOR);
+            gl.uniform_3_f32(
+                Some(location),
+                r as f32 / 255.0,
+                g as f32 / 255.0,
+                b as f32 / 255.0,
+            );
+        }
+        if let Some(location) = &uniforms[U_SCREEN_TEXTURE] {
+            gl.uniform_1_i32(Some(location), 0);
+        }
+        if let Some(location) = &uniforms[U_COLORS_TEXTURE] {
+            gl.uniform_1_i32(Some(location), 1);
+        }
+
+        gl.bind_vertex_array(Some(shader.vertex_array));
+    }
+
+    unsafe fn bind_screen_texture(&mut self, gl: &mut glow::Context) {
+        let graphics = self.graphics.as_mut().unwrap();
+        gl.active_texture(glow::TEXTURE0);
+        gl.bind_texture(glow::TEXTURE_2D, Some(graphics.screen_texture));
+        // Indexed screen rows are tightly packed at every screen width.
+        gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
+
+        let (internal_format, format) = if graphics.is_gles {
+            (glow::LUMINANCE as i32, glow::LUMINANCE)
+        } else {
+            (glow::R8 as i32, glow::RED)
+        };
+        let screen_width = *pyxel::width() as i32;
+        let screen_height = *pyxel::height() as i32;
+        let screen_rc = pyxel::screen().clone();
+        let screen = rc_ref!(screen_rc);
+        let data = &screen.canvas.data;
+
+        if graphics.screen_texture_initialized {
+            gl.tex_sub_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                0,
+                0,
+                screen_width,
+                screen_height,
+                format,
+                glow::UNSIGNED_BYTE,
+                PixelUnpackData::Slice(Some(data)),
+            );
+        } else {
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                internal_format,
+                screen_width,
+                screen_height,
+                0,
+                format,
+                glow::UNSIGNED_BYTE,
+                PixelUnpackData::Slice(Some(data)),
+            );
+            graphics.screen_texture_initialized = true;
+        }
+    }
+
+    unsafe fn bind_colors_texture(&mut self, gl: &mut glow::Context) {
+        let colors = pyxel::colors();
+        assert!(
+            !colors.is_empty() && colors.len() <= MAX_COLORS as usize,
+            "Number of colors must be between 1 and {MAX_COLORS}",
+        );
+
+        let graphics = self.graphics.as_mut().unwrap();
+        gl.active_texture(glow::TEXTURE1);
+        gl.bind_texture(glow::TEXTURE_2D, Some(graphics.colors_texture));
+        if graphics.cached_colors == *colors {
+            return;
+        }
+
+        gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 4);
+        let pixels = &mut graphics.color_pixels;
+        pixels.clear();
+
+        // Pack RGB palette entries for the 1D color texture.
+        for &c in colors.iter() {
+            let (r, g, b) = rgb24_to_rgb8(c);
+            pixels.push(r);
+            pixels.push(g);
+            pixels.push(b);
+        }
+
+        if graphics.cached_colors.len() == colors.len() {
+            gl.tex_sub_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                0,
+                0,
+                colors.len() as i32,
+                1,
+                glow::RGB,
+                glow::UNSIGNED_BYTE,
+                PixelUnpackData::Slice(Some(pixels)),
+            );
+        } else {
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGB as i32,
+                colors.len() as i32,
+                1,
+                0,
+                glow::RGB,
+                glow::UNSIGNED_BYTE,
+                PixelUnpackData::Slice(Some(pixels)),
+            );
+        }
+
+        graphics.cached_colors.clone_from(&colors);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::ffi::c_void;
+    use std::num::NonZeroU32;
+
+    use super::*;
+
+    thread_local! {
+        static GL_CALLS: RefCell<Vec<(&'static str, u32)>> = const { RefCell::new(Vec::new()) };
+    }
+
+    extern "system" fn get_string(name: u32) -> *const u8 {
+        if name == glow::VERSION {
+            c"2.1".as_ptr().cast()
+        } else {
+            c"".as_ptr().cast()
+        }
+    }
+
+    extern "system" fn use_program(value: u32) {
+        GL_CALLS.with(|calls| calls.borrow_mut().push(("use_program", value)));
+    }
+
+    extern "system" fn bind_vertex_array(value: u32) {
+        GL_CALLS.with(|calls| calls.borrow_mut().push(("bind_vertex_array", value)));
+    }
+
+    extern "system" fn bind_buffer(_target: u32, value: u32) {
+        GL_CALLS.with(|calls| calls.borrow_mut().push(("bind_buffer", value)));
+    }
+
+    extern "system" fn delete_program(value: u32) {
+        GL_CALLS.with(|calls| calls.borrow_mut().push(("program", value)));
+    }
+
+    fn record_deletions(kind: &'static str, count: i32, values: *const u32) {
+        // glow passes the address of each owned handle for the duration of its call.
+        let values = unsafe { std::slice::from_raw_parts(values, count as usize) };
+        GL_CALLS.with(|calls| calls.borrow_mut().extend(values.iter().map(|&v| (kind, v))));
+    }
+
+    extern "system" fn delete_vertex_arrays(count: i32, values: *const u32) {
+        record_deletions("vertex_array", count, values);
+    }
+
+    extern "system" fn delete_buffers(count: i32, values: *const u32) {
+        record_deletions("buffer", count, values);
+    }
+
+    extern "system" fn delete_textures(count: i32, values: *const u32) {
+        record_deletions("texture", count, values);
+    }
+
+    #[test]
+    fn test_destroy_releases_every_owned_gl_handle() {
+        // Real glow dispatch through recording GL entry points checks the owned
+        // handles without requiring a window; browser reset tests check its context.
+        let mut gl = unsafe {
+            glow::Context::from_loader_function(|name| match name {
+                "glGetString" => (get_string as *const ()).cast::<c_void>(),
+                "glUseProgram" => (use_program as *const ()).cast::<c_void>(),
+                "glBindVertexArray" => (bind_vertex_array as *const ()).cast::<c_void>(),
+                "glBindBuffer" => (bind_buffer as *const ()).cast::<c_void>(),
+                "glDeleteProgram" => (delete_program as *const ()).cast::<c_void>(),
+                "glDeleteVertexArrays" => (delete_vertex_arrays as *const ()).cast::<c_void>(),
+                "glDeleteBuffers" => (delete_buffers as *const ()).cast::<c_void>(),
+                "glDeleteTextures" => (delete_textures as *const ()).cast::<c_void>(),
+                _ => std::ptr::null(),
+            })
+        };
+        let graphics = Graphics {
+            is_gles: false,
+            screen_shaders: (1..=3)
+                .map(|id| ScreenShader {
+                    program: glow::NativeProgram(NonZeroU32::new(id).unwrap()),
+                    uniform_locations: [None; NUM_UNIFORMS],
+                    vertex_array: glow::NativeVertexArray(NonZeroU32::new(id + 10).unwrap()),
+                    vertex_buffer: glow::NativeBuffer(NonZeroU32::new(id + 20).unwrap()),
+                })
+                .collect(),
+            screen_texture: glow::Texture(NonZeroU32::new(31).unwrap()),
+            screen_texture_initialized: false,
+            colors_texture: glow::Texture(NonZeroU32::new(32).unwrap()),
+            cached_colors: Vec::new(),
+            color_pixels: Vec::new(),
+        };
+        GL_CALLS.with(|calls| calls.borrow_mut().clear());
+        graphics.destroy(&mut gl);
+        GL_CALLS.with(|calls| {
+            assert_eq!(
+                *calls.borrow(),
+                [
+                    ("use_program", 0),
+                    ("bind_vertex_array", 0),
+                    ("bind_buffer", 0),
+                    ("vertex_array", 11),
+                    ("buffer", 21),
+                    ("program", 1),
+                    ("vertex_array", 12),
+                    ("buffer", 22),
+                    ("program", 2),
+                    ("vertex_array", 13),
+                    ("buffer", 23),
+                    ("program", 3),
+                    ("texture", 31),
+                    ("texture", 32),
+                ]
+            );
+        });
+    }
+}

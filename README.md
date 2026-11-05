@@ -11,7 +11,7 @@
 
 ## 特徴
 
-- 🧊 **Pyxel Cube 3D（デスクトップ）** — 公式 Pyxel 3.0.0 のソフトウェア3D描画・シーングラフ・衝突判定を利用
+- 🧊 **Pyxel Cube 3D（デスクトップ・ブラウザ）** — 公式 Pyxel 3.0.0 のソフトウェア3D描画・シーングラフ・衝突判定を利用
 - 🦀 **Rust 製コア** — 型安全で高速なゲームエンジン
 - 🌐 **WASM 対応** — `wasm-bindgen` / `wasm-pack` でブラウザ向けにビルド（`wasm32-unknown-unknown`）
 - 🖼️ **Canvas 2D 統合** — ブラウザでは `web-sys` 経由で Canvas 2D API を使用
@@ -113,7 +113,7 @@ cargo run --example cubeboy
 cargo build --no-default-features --features wgpu-backend
 ```
 
-### Pyxel 3.0.0 / レトロ3D（デスクトップ）
+### Pyxel 3.0.0 / レトロ3D
 
 デフォルトのSDL2バックエンドは、公式Pyxel **3.0.0** のリリースコミット
 `e0b528f9a6f98bfc92bb47ebe1c7623cb3f609fd` に固定しています。
@@ -142,14 +142,50 @@ cargo test --locked --no-default-features --features wgpu-backend --test wgpu_co
 `pyxel_rust::cube` は公式の `Vec3` / `Mat4` / `Quat` / `Camera` /
 `Mesh` / `Node` / `Scene` / 衝突判定と描画関数を公開します。
 `prelude::render_3d(&target, &camera, |ctx| { ... })` で画面やオフスクリーン画像に描画できます。
-画面は `pyxel_rust::screen()`、オフスクリーン画像は `Image::new(width, height)` で取得します。
+SDL2の画面は `pyxel_rust::screen()`、各バックエンドのオフスクリーン画像は `Image::new(width, height)` で取得します。
 使用例は [`examples/retro3d.rs`](examples/retro3d.rs) を参照してください。
 
 `render_3d` はフレームごとに深度をリセットし、カメラのバッファを再利用します。
-`camera.clear_color = None` なら既存の2D背景を保持し、描画後に `text` などでHUDを重ねられます。
+`camera.clear_color = None` なら描画先画像の既存ピクセルを保持します。
+SDL2の画面に直接描く場合は既存の2D背景を保持し、描画後に `text` などでHUDを重ねられます。
 公式Python版のNodeコールバックはこのRustラッパーでは自動実行しません。
-この更新はデスクトップのCube描画対応であり、公式Python API全体との互換性を保証するものではありません。
-`wasm-backend` / `wgpu-backend` は従来の2D実装を使い、Cubeは公開しません。
+公式Python API全体との互換性を保証するものではありません。
+`wasm-backend` でも同じ `cube` / `Image` / `render_3d` を利用できます。
+描画した画像を `blit_3d(&target, x, y)` でCanvas用フレームバッファへ転送し、
+転送は画像全体を上書きするため、その後に2Dの文字やUIを重ねます。`wgpu-backend` のCube接続は未対応です。
+
+### ブラウザ3Dデモ
+
+```bash
+wasm-pack build --target web --out-dir docs/examples/retro3d/pkg \
+  -- --locked --no-default-features --features wasm-backend
+python3 -m http.server 8765 --bind 127.0.0.1 --directory docs
+# http://127.0.0.1:8765/examples/retro3d/
+```
+
+3つの立方体を回転し、一時停止・距離変更できます。
+左右キー / Space / R、または画面のタッチボタンで操作します。
+実装は [`src/games/retro3d.rs`](src/games/retro3d.rs)、
+公開ページは [`docs/examples/retro3d/`](docs/examples/retro3d/) です。
+ビルド済みWASM/JSを同梱しているため、プレビューだけならHTTPサーバーの起動で確認できます。
+
+ブラウザ版は公式3.0.0の固定ソースを
+[`vendor/pyxel-cube-core`](vendor/pyxel-cube-core/UPSTREAM.md) に同梱しています。
+Cubeの描画・数学・衝突判定を維持し、SDL2との接続を切り離して既存のCanvasバックエンドへ接続します。
+PythonのNodeコールバックや、ファイル名を指定するモデル/リソース読込用の仮想ファイルシステムは提供しません。
+
+```bash
+# ブラウザ用のプラットフォーム非依存レンダラーも同じ描画テストを実行
+cargo test --locked --no-default-features --features wasm-backend --test retro3d
+
+# ブラウザで表示・操作・モバイルレイアウトを検証（HTTPサーバーを起動した状態）
+npm install --no-save playwright@1.62.1
+npx playwright install chromium
+node scripts/playtest-retro3d.cjs
+```
+
+スクリーンショットは一時ディレクトリの `pyxel-retro3d-smoke` に保存します。
+`PYXEL_TEST_URL` と `PYXEL_TEST_OUTPUT` でテスト先と出力先を指定できます。
 
 公式3.0.0では旧MML構文と2.0以前のリソース読込が削除されています。
 古いデスクトップ用アセットは移行が必要です。

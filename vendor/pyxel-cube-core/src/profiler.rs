@@ -1,0 +1,136 @@
+pub struct Profiler {
+    measure_frame_count: u32,
+    measured_frame_count: u32,
+    start_time: u32,
+    total_time: u32,
+    average_time: f32,
+    average_fps: f32,
+}
+
+impl Profiler {
+    pub fn new(measure_frame_count: u32) -> Self {
+        assert!(
+            measure_frame_count >= 1,
+            "measure_frame_count must be greater than 0"
+        );
+
+        Self {
+            measure_frame_count,
+            measured_frame_count: 0,
+            start_time: 0,
+            total_time: 0,
+            average_time: 0.0,
+            average_fps: 0.0,
+        }
+    }
+
+    // Metrics
+
+    pub const fn average_time(&self) -> f32 {
+        self.average_time
+    }
+
+    pub const fn average_fps(&self) -> f32 {
+        self.average_fps
+    }
+
+    // Measurement
+
+    pub fn start(&mut self, tick_count: u32) {
+        self.start_time = tick_count;
+    }
+
+    pub fn end(&mut self, tick_count: u32) {
+        // The tick counter wraps at u32::MAX (~49.7 days); wrapping_sub keeps the delta correct.
+        self.total_time += tick_count.wrapping_sub(self.start_time);
+        self.measured_frame_count += 1;
+
+        if self.measured_frame_count >= self.measure_frame_count {
+            self.average_time = self.total_time as f32 / self.measured_frame_count as f32;
+            self.average_fps = 1000.0 / self.average_time;
+
+            self.measured_frame_count = 0;
+            self.total_time = 0;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let p = Profiler::new(5);
+        assert_eq!(p.average_time(), 0.0);
+        assert_eq!(p.average_fps(), 0.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "measure_frame_count must be greater than 0")]
+    fn test_new_zero_frames_panics() {
+        Profiler::new(0);
+    }
+
+    #[test]
+    fn test_single_measurement_cycle() {
+        let mut p = Profiler::new(1);
+        p.start(100);
+        p.end(110);
+        assert_eq!(p.average_time(), 10.0);
+        assert_eq!(p.average_fps(), 100.0);
+    }
+
+    #[test]
+    fn test_multi_frame_average() {
+        let mut p = Profiler::new(3);
+        p.start(0);
+        p.end(10);
+        assert_eq!(p.average_time(), 0.0, "should not update before 3 frames");
+
+        p.start(100);
+        p.end(120);
+        assert_eq!(p.average_time(), 0.0, "should not update before 3 frames");
+
+        p.start(200);
+        p.end(230);
+        assert_eq!(p.average_time(), 20.0);
+        assert_eq!(p.average_fps(), 1000.0 / 20.0);
+    }
+
+    #[test]
+    fn test_consecutive_cycles() {
+        let mut p = Profiler::new(2);
+        p.start(0);
+        p.end(10);
+        p.start(100);
+        p.end(120);
+        assert_eq!(p.average_time(), 15.0);
+
+        p.start(200);
+        p.end(205);
+        assert_eq!(p.average_time(), 15.0, "mid-cycle retains previous average");
+
+        p.start(300);
+        p.end(305);
+        assert_eq!(p.average_time(), 5.0);
+        assert_eq!(p.average_fps(), 200.0);
+    }
+
+    #[test]
+    fn test_zero_time_frame() {
+        let mut p = Profiler::new(1);
+        p.start(100);
+        p.end(100);
+        assert_eq!(p.average_time(), 0.0);
+        assert_eq!(p.average_fps(), f32::INFINITY);
+    }
+
+    #[test]
+    fn test_tick_count_wraparound() {
+        let mut p = Profiler::new(1);
+        p.start(u32::MAX - 5);
+        p.end(4);
+        assert_eq!(p.average_time(), 10.0);
+    }
+}

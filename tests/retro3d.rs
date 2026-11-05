@@ -1,4 +1,4 @@
-#![cfg(feature = "pyxel-core-backend")]
+#![cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
 
 use pyxel_rust::cube::{draw, Camera, Mat4, Vec3};
 use pyxel_rust::{api::render_3d, Image};

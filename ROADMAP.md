@@ -14,7 +14,8 @@
 **コア実装**
 - Rust プロジェクト基盤・Cargo.toml 設定
 - 公式 Pyxel 3.0.0（pyxel-core）の固定コミットをCargoのGit依存で統合
-- Pyxel CubeのRust API公開・`render_3d`・回転立方体サンプル・オフスクリーン描画テスト（SDL2）
+- Pyxel CubeのRust API公開・`render_3d`・回転立方体サンプル・オフスクリーン描画テスト（SDL2 / WASM）
+- ブラウザ3Dデモ — 回転・一時停止・ズーム、キーボードとタッチ操作、Playwrightでの表示/操作確認
 - System API: `init` / `run` / `quit` / `width` / `height` / `frame_count`
 - Graphics API: `cls` / `pset` / `pget` / `line` / `rect` / `rectfill` / `circ` / `circfill` / `text` / `blt` / `bltm` / `clip` / `camera` / `pal` / `dither`
 - Input API: `btn` / `btnp` / `btnr` / `mouse_x` / `mouse_y` / `mouse_wheel`
@@ -50,7 +51,7 @@
 - **GitHub Actions** — CI / GitHub Pages 自動デプロイのワークフロー未設定
 - **Audio（WASM）** — ブラウザでのオーディオ再生は未検証
 - **Tilemap / Image ロード** — `.pyxres` リソースファイルの WASM 対応
-- **Cubeブラウザ対応** — 現状のCube連携はSDL2のみ。`wasm32-unknown-unknown` / wgpuへの接続とNodeライフサイクル実装は今後対応
+- **Cube連携拡充** — wgpuへの接続、Nodeライフサイクル、ブラウザ用GLB/リソース読込は今後対応
 - **API カバレッジ拡充** — Pyxel 全 API との差分を埋める
 
 ### 🎮 ゲーム・デモ

@@ -17,6 +17,9 @@ crate-type = ["cdylib", "rlib"]
 # Official Pyxel 3.0.0; pin the release commit for reproducible updates.
 pyxel-core = { git = "https://github.com/kitao/pyxel.git", rev = "e0b528f9a6f98bfc92bb47ebe1c7623cb3f609fd", optional = true }
 
+# Platform-free official Cube renderer used by the browser backend.
+pyxel-cube-core = { path = "vendor/pyxel-cube-core", optional = true }
+
 # WgpuBackend (optional, native + WASM)
 pixels  = { version = "0.17.2", optional = true }
 winit   = { version = "0.30.13", optional = true }
@@ -58,12 +61,13 @@ sdl2_dynamic       = ["dep:pyxel-core", "pyxel-core/sdl2_dynamic", "pyxel-core-b
 wgpu-backend = ["dep:pixels", "dep:winit"]
 
 # WasmBackend (browser canvas, wasm32-unknown-unknown)
-wasm-backend = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:js-sys", "dep:web-sys"]
+wasm-backend = ["dep:pyxel-cube-core", "dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:js-sys", "dep:web-sys"]
 
 [profile.release]
 lto = true
 opt-level = "z"
-strip = true
+# Preserve target_features so wasm-bindgen/wasm-opt detect modern WASM instructions.
+strip = "debuginfo"
 
 [[example]]
 name = "retro3d"
