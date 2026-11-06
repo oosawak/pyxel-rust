@@ -252,6 +252,34 @@ pyxel-rust rust_package <PROJECT_NAME>  # .pyxapp にパッケージング
 pyxel-rust rust_app2wasm <PROJECT_NAME> # WASM ビルド＆ローカルサーバー起動
 ```
 
+### 公式CubeデモのRust移植と比較
+
+[`docs/examples/cube/`](docs/examples/cube/) で公式の6デモをRust版／公式Python版に切り替えて確認できます。
+Hello Cube、Basic Shapes、Custom Shapes、Mesh and Motion、3D Collision、3D Physicsを公式3.0.0のコードから移植しています。
+Rust実装は [`src/games/cube_examples/`](src/games/cube_examples/) です。基本図形・レーザー・GLBモーション・庭園のコイン/ゴール判定・2段ジャンプ・物理応答と投射体に対応します。
+タッチ操作・ゲームパッド入力・一時停止を追加し、Qは画面を閉じる代わりに停止します。
+比較画面を切り替えると各デモを再起動します。両ランタイムのフレーム時刻は同期しません。
+
+モデルは公式配布GLBをそのまま使用します。Gazelle by monkus（CC BY 4.0）のクレジットを画面と
+[`assets/gazelle.md`](src/games/cube_examples/assets/gazelle.md) に表示しています。
+効果音は公式MMLから公式シンセサイザーで生成したWAVを、音声オン操作後にWeb Audioで再生します。
+汎用のNodeコールバックAPIを追加したものではなく、サンプル内で更新・描画・衝突通知の順序を実装しています。
+
+```bash
+# SDL2でも同じ6シーンを実行（1〜6を指定）
+cargo run --locked --example cube_examples -- 1
+cargo test --locked --test cube_examples
+# ブラウザ向けの同じシーンを検証
+cargo test --locked --no-default-features --features wasm-backend --test cube_examples
+cargo test --locked --no-default-features --features wasm-backend --lib games::cube_examples
+# 公式MMLの効果音を再生成（SDL2ビルド環境が必要）
+cargo run --locked --example cube_audio
+# 公式PNGをPyxel色インデックスへ変換
+python3 scripts/prepare-cube-textures.py --upstream /path/to/pyxel
+# ブラウザ比較テスト（ローカルHTTPサーバーと外部の公式ページへ接続）
+node scripts/playtest-cube-examples.cjs
+```
+
 ### ローカル確認（GitHub Pages 相当）
 
 ```bash

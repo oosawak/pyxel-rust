@@ -72,3 +72,11 @@ strip = "debuginfo"
 [[example]]
 name = "retro3d"
 required-features = ["pyxel-core-backend"]
+
+[[example]]
+name = "cube_audio"
+required-features = ["pyxel-core-backend"]
+
+[[example]]
+name = "cube_examples"
+required-features = ["pyxel-core-backend"]
