@@ -6,7 +6,7 @@
   "scope": "公式3.0.0の2D/共通・Cube APIリファレンスの全見出し（描画グループと定数は個別展開）。CLI・エディタUI・非公開APIは対象外。",
   "sourceHashes": {
     "Cargo.lock": "110c964e77d209ec559193cd064494de0f5f451aa2d88fa70de8203b603c8740",
-    "Cargo.toml": "093a659b86fe44614807afd9c74b9be8f40697b72c30e5b044835cad0ef76b3b",
+    "Cargo.toml": "98c643bba7ef4ecc208fa32d3f4d3dd674402721201486cb01da32b01f3bdfd9",
     "src/api/animation3d.rs": "40b40d53bfd272ed4845ca45716fb81e521c5b5520f17ecbfbde1d6a38e7d20d",
     "src/api/audio.rs": "493f348c01d976c1e4994d6afbd070040b0f7ad1ed6f9898a2e92c8230827734",
     "src/api/constants.rs": "84837cf32ebdab5075bcddd17a48166f92c4f51be6358760808e48f8cff2652c",

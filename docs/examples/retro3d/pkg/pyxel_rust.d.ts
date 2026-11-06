@@ -25,6 +25,12 @@ export enum ChromaSampling {
 
 export function clear_retro3d_model(): void;
 
+export function cube_example_info(): string;
+
+export function cube_example_input(json: string): void;
+
+export function cube_example_sounds(): string;
+
 export function get_bg_idx(): number;
 
 export function get_enemy_flash(): number;
@@ -75,6 +81,8 @@ export function main_aobacastle(): void;
  * Separate from main() — arisa state is completely unaffected.
  */
 export function main_nanoteras(): void;
+
+export function pause_cube_example(paused: boolean): void;
 
 export function reset_retro3d(): void;
 
@@ -127,6 +135,8 @@ export function set_retro3d_paused(paused: boolean): void;
  */
 export function start_battle_from_js(idx: number): void;
 
+export function start_cube_example(id: number): void;
+
 export function start_retro3d(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -134,6 +144,9 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly clear_retro3d_model: () => void;
+    readonly cube_example_info: () => [number, number];
+    readonly cube_example_input: (a: number, b: number) => [number, number];
+    readonly cube_example_sounds: () => [number, number];
     readonly get_bg_idx: () => number;
     readonly get_enemy_flash: () => number;
     readonly get_enemy_hp: () => number;
@@ -151,6 +164,7 @@ export interface InitOutput {
     readonly main: () => void;
     readonly main_aobacastle: () => void;
     readonly main_nanoteras: () => void;
+    readonly pause_cube_example: (a: number) => void;
     readonly reset_retro3d: () => void;
     readonly retro3d_angle: () => number;
     readonly retro3d_animation_duration: () => number;
@@ -173,9 +187,10 @@ export interface InitOutput {
     readonly set_retro3d_distance: (a: number) => void;
     readonly set_retro3d_paused: (a: number) => void;
     readonly start_battle_from_js: (a: number) => void;
+    readonly start_cube_example: (a: number) => [number, number];
     readonly start_retro3d: () => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__42: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__47: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

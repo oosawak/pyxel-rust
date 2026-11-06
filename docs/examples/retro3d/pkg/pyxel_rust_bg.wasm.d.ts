@@ -2,6 +2,9 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const clear_retro3d_model: () => void;
+export const cube_example_info: () => [number, number];
+export const cube_example_input: (a: number, b: number) => [number, number];
+export const cube_example_sounds: () => [number, number];
 export const get_bg_idx: () => number;
 export const get_enemy_flash: () => number;
 export const get_enemy_hp: () => number;
@@ -19,6 +22,7 @@ export const load_retro3d_glb: (a: number, b: number) => [number, number, number
 export const main: () => void;
 export const main_aobacastle: () => void;
 export const main_nanoteras: () => void;
+export const pause_cube_example: (a: number) => void;
 export const reset_retro3d: () => void;
 export const retro3d_angle: () => number;
 export const retro3d_animation_duration: () => number;
@@ -41,9 +45,10 @@ export const set_retro3d_auto_rotate: (a: number) => void;
 export const set_retro3d_distance: (a: number) => void;
 export const set_retro3d_paused: (a: number) => void;
 export const start_battle_from_js: (a: number) => void;
+export const start_cube_example: (a: number) => [number, number];
 export const start_retro3d: () => void;
 export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__42: (a: number, b: number, c: any) => void;
+export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__47: (a: number, b: number, c: any) => void;
 export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
