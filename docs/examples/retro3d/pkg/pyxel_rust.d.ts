@@ -23,6 +23,10 @@ export enum ChromaSampling {
     Cs400 = 3,
 }
 
+export function api_coverage_cursor(visible: boolean): void;
+
+export function api_coverage_info(): string;
+
 export function clear_retro3d_model(): void;
 
 export function cube_example_info(): string;
@@ -129,6 +133,8 @@ export function set_retro3d_distance(distance: number): void;
 
 export function set_retro3d_paused(paused: boolean): void;
 
+export function start_api_coverage(): void;
+
 /**
  * Called from JS to start a battle against enemy at given index.
  * The game loop picks this up next frame and transitions to Battle state.
@@ -145,6 +151,8 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly api_coverage_cursor: (a: number) => void;
+    readonly api_coverage_info: () => [number, number];
     readonly clear_retro3d_model: () => void;
     readonly cube_example_info: () => [number, number];
     readonly cube_example_input: (a: number, b: number) => [number, number];
@@ -188,12 +196,15 @@ export interface InitOutput {
     readonly set_retro3d_auto_rotate: (a: number) => void;
     readonly set_retro3d_distance: (a: number) => void;
     readonly set_retro3d_paused: (a: number) => void;
+    readonly start_api_coverage: () => void;
     readonly start_battle_from_js: (a: number) => void;
     readonly start_cube_example: (a: number) => [number, number];
     readonly start_cube_example_resolution: (a: number, b: number) => [number, number];
     readonly start_retro3d: () => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__48: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__51: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__52: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__53: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

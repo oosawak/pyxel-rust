@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>基本APIの動作確認 — Pyxel Rust</title>
+<style>:root{color-scheme:dark;font-family:system-ui;background:#101421;color:#eef0f7}body{max-width:900px;margin:auto;padding:20px}a{color:#a9c1ff}p{line-height:1.7;color:#aeb8ce}canvas{display:block;width:100%;height:auto;image-rendering:pixelated;border:1px solid #495477}pre{padding:16px;background:#080c14;overflow:auto;font-size:13px}button{font:inherit;padding:12px;color:inherit;background:#222b40;border:1px solid #495477;border-radius:8px;min-height:44px}</style>
+<a href="../../">← デモ一覧</a> · <a href="../retro3d/#compatibility">全機能の対応状況</a>
+<h1>基本APIの動作確認</h1>
+<p>楕円・三角形・輪郭・塗りつぶしと、公式のノイズ関数を描画します。画面上でマウスを動かし、クリック・ホイール・Aキーの長押し・Shiftキーを試せます。標準マッピングのゲームパッドは4台まで接続できます。</p>
+<p id="status" role="status">読み込み中…</p>
+<canvas id="pyxel_canvas" tabindex="0" aria-label="APIの描画と入力の確認画面"></canvas>
+<p>ゲームパッドはブラウザに認識させるため、一度ボタンを押してください。下に左スティックX軸とAボタンの状態を表示します。</p>
+<button id="cursor" aria-pressed="true">カーソルを隠す</button>
+<pre id="input" aria-label="現在の入力状態"></pre>
+<script type="module">
+import init, * as api from '../retro3d/pkg/pyxel_rust.js?build=81ee665b25fd';
+try {
+  await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=81ee665b25fd',import.meta.url)});
+  api.start_api_coverage();window.demo=api;
+  document.querySelector('#status').textContent='実行中';
+  let cursor=true;
+  document.querySelector('#cursor').onclick=()=>{cursor=!cursor;api.api_coverage_cursor(cursor);document.querySelector('#cursor').textContent=cursor?'カーソルを隠す':'カーソルを表示';document.querySelector('#cursor').setAttribute('aria-pressed',String(cursor));};
+  setInterval(()=>document.querySelector('#input').textContent=JSON.stringify(JSON.parse(api.api_coverage_info()),null,2),100);
+}catch(error){document.querySelector('#status').textContent=`起動できません：${error.message||error}`;document.querySelector('#status').setAttribute('role','alert');}
+</script></html>

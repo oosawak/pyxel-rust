@@ -35,8 +35,28 @@ pub trait Backend {
     fn circ(&mut self, x: f32, y: f32, r: f32, col: u8);
     fn circfill(&mut self, x: f32, y: f32, r: f32, col: u8);
     fn text(&mut self, x: f32, y: f32, s: &str, col: u8);
-    fn blt(&mut self, x: f32, y: f32, img: u32, sx: f32, sy: f32, sw: f32, sh: f32, colkey: Option<u8>);
-    fn bltm(&mut self, x: f32, y: f32, tm: u32, mx: f32, my: f32, mw: f32, mh: f32, colkey: Option<u8>);
+    fn blt(
+        &mut self,
+        x: f32,
+        y: f32,
+        img: u32,
+        sx: f32,
+        sy: f32,
+        sw: f32,
+        sh: f32,
+        colkey: Option<u8>,
+    );
+    fn bltm(
+        &mut self,
+        x: f32,
+        y: f32,
+        tm: u32,
+        mx: f32,
+        my: f32,
+        mw: f32,
+        mh: f32,
+        colkey: Option<u8>,
+    );
     fn clip(&mut self, x: f32, y: f32, w: f32, h: f32);
     fn clip_reset(&mut self);
     fn pal(&mut self, col1: u8, col2: u8);
@@ -59,3 +79,10 @@ pub trait Backend {
     fn stop(&mut self, ch: Option<u32>);
     fn is_playing(&self, ch: u32) -> bool;
 }
+
+#[cfg(any(feature = "wgpu-backend", feature = "wasm-backend"))]
+pub(crate) mod gamepad_keys;
+#[cfg(any(feature = "wgpu-backend", feature = "wasm-backend"))]
+pub mod input;
+#[cfg(any(feature = "wgpu-backend", feature = "wasm-backend"))]
+pub(crate) mod keymap;

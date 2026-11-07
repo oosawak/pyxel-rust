@@ -31,7 +31,8 @@ js-sys                = { version = "0.3",  optional = true }
 web-sys               = { version = "0.3",  optional = true, features = [
     "Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement",
     "CanvasRenderingContext2d", "ImageData", "EventTarget",
-    "KeyboardEvent", "MouseEvent", "Performance",
+    "KeyboardEvent", "MouseEvent", "Performance", "WheelEvent", "DomRect",
+    "CssStyleDeclaration", "Navigator", "Gamepad", "GamepadButton", "GamepadMappingType",
 ] }
 
 # CLI utilities
