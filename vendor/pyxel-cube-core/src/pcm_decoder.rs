@@ -18,6 +18,21 @@ pub fn load_pcm(filename: &str, target_rate: u32) -> Result<PcmData, String> {
     // Open and probe audio file
     let file = File::open(filename).map_err(|_| format!("Failed to open file '{filename}'"))?;
     let media_stream = MediaSourceStream::new(Box::new(file), MediaSourceStreamOptions::default());
+    decode_pcm_stream(media_stream, filename, target_rate)
+}
+
+pub fn load_pcm_bytes(bytes: &[u8], extension: &str, target_rate: u32) -> Result<PcmData, String> {
+    let stream = MediaSourceStream::new(
+        Box::new(std::io::Cursor::new(bytes.to_vec())),
+        MediaSourceStreamOptions::default(),
+    );
+    decode_pcm_stream(stream, &format!("memory.{extension}"), target_rate)
+}
+fn decode_pcm_stream(
+    media_stream: MediaSourceStream,
+    filename: &str,
+    target_rate: u32,
+) -> Result<PcmData, String> {
     let mut hint = Hint::new();
     if let Some(ext) = Path::new(filename).extension().and_then(|s| s.to_str()) {
         hint.with_extension(ext);

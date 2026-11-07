@@ -51,7 +51,7 @@ mod wasm_impl {
     pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
         wasm_backend::run(Box::new(update), Box::new(draw));
     }
-    pub fn quit() { wasm_backend::state().should_quit = true; }
+    pub fn quit() { crate::api::audio::stop(None); wasm_backend::state().should_quit = true; }
     pub fn width() -> u32 { wasm_backend::state().width }
     pub fn height() -> u32 { wasm_backend::state().height }
     pub fn frame_count() -> u32 { wasm_backend::state().frame_count }

@@ -48,11 +48,35 @@ impl Font {
         Ok(new_rc_type!(font))
     }
 
+    pub fn from_bytes(
+        bytes: &[u8],
+        extension: &str,
+        font_size: Option<f32>,
+    ) -> Result<RcFont, String> {
+        let font = if extension.eq_ignore_ascii_case("bdf") {
+            Self::parse_bdf_reader(std::io::Cursor::new(bytes), "memory.bdf")?
+        } else {
+            let font = FontdueFont::from_bytes(bytes, FontSettings::default())
+                .map_err(|e| e.to_string())?;
+            let size = font_size.unwrap_or(DEFAULT_SIZE);
+            if !size.is_finite() || size <= 0. {
+                return Err("Font size must be positive and finite".into());
+            }
+            Font::Fontdue {
+                font,
+                cache: HashMap::new(),
+                size,
+            }
+        };
+        Ok(new_rc_type!(font))
+    }
     fn parse_bdf(filename: &str) -> Result<Font, String> {
+        let file = File::open(filename).map_err(|_| format!("Failed to open file '{filename}'"))?;
+        Self::parse_bdf_reader(BufReader::new(file), filename)
+    }
+    fn parse_bdf_reader(reader: impl BufRead, filename: &str) -> Result<Font, String> {
         let parse_err = || format!("Failed to parse file '{filename}'");
         let read_err = || format!("Failed to read file '{filename}'");
-        let file = File::open(filename).map_err(|_| format!("Failed to open file '{filename}'"))?;
-
         let mut bounding_box = BdfBoundingBox::default();
         let mut glyphs = HashMap::new();
         let mut code = None;
@@ -60,7 +84,7 @@ impl Font {
         let mut dwidth = 0;
         let mut bbx = BdfBoundingBox::default();
 
-        for line in BufReader::new(file).lines() {
+        for line in reader.lines() {
             let line = line.map_err(|_| read_err())?;
             if line.starts_with("FONTBOUNDINGBOX") {
                 bounding_box = Self::parse_bdf_bbox(&line, &parse_err)?;
@@ -98,7 +122,7 @@ impl Font {
             } else if let Some(ref mut rows) = bitmap {
                 let hex = line.trim();
                 // More than 8 hex digits would underflow the alignment shift below
-                if hex.len() > 8 {
+                if hex.is_empty() || hex.len() > 8 {
                     return Err(parse_err());
                 }
                 let bits = u32::from_str_radix(hex, 16).map_err(|_| parse_err())?;

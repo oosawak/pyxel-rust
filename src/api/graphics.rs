@@ -104,8 +104,10 @@ pub fn set_palette_color(idx: u8, rgb: u32) {
                 (rgb & 0xff) as u8,
                 0xff,
             ];
+            #[cfg(feature="wasm-backend")]
+            if let Some(color)=pyxel::colors().get_mut(i) {*color=rgb & 0xffffff;}
         },
-        pyxel: { let _ = (idx, rgb); }
+        pyxel: { let colors=&mut *pyxel::colors(); if let Some(color)=colors.get_mut(idx as usize) {*color=rgb & 0xffffff;} }
     );
 }
 pub fn get_palette_color(idx: u8) -> u32 {
@@ -115,37 +117,37 @@ pub fn get_palette_color(idx: u8) -> u32 {
             let [r, g, b, _] = s().palette[i];
             ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
         },
-        pyxel: { let _ = idx; 0 }
+        pyxel: pyxel::colors().get(idx as usize).copied().unwrap_or(0)
     )
 }
 
 /// Image bank: draw filled rect into offscreen image buffer
 pub fn image_rect(bank: u32, x: f32, y: f32, w: f32, h: f32, col: u8) {
-    dispatch!(soft: s().image_rect(bank, x, y, w, h, col), pyxel: { let _ = (bank,x,y,w,h,col); });
+    dispatch!(soft: s().image_rect(bank, x, y, w, h, col), pyxel: { if let Some(i)=pyxel::images().get(bank as usize) {i.borrow_mut().draw_rect(x,y,w,h,col);} });
 }
 /// Image bank: set single pixel
 pub fn image_pset(bank: u32, x: f32, y: f32, col: u8) {
-    dispatch!(soft: s().image_pset(bank, x, y, col), pyxel: { let _ = (bank,x,y,col); });
+    dispatch!(soft: s().image_pset(bank, x, y, col), pyxel: { if let Some(i)=pyxel::images().get(bank as usize) {i.borrow_mut().set_pixel(x,y,col);} });
 }
 /// Image bank: draw line
 pub fn image_line(bank: u32, x1: f32, y1: f32, x2: f32, y2: f32, col: u8) {
-    dispatch!(soft: s().image_line(bank, x1, y1, x2, y2, col), pyxel: { let _ = (bank,x1,y1,x2,y2,col); });
+    dispatch!(soft: s().image_line(bank, x1, y1, x2, y2, col), pyxel: { if let Some(i)=pyxel::images().get(bank as usize) {i.borrow_mut().draw_line(x1,y1,x2,y2,col);} });
 }
 /// Image bank: draw filled triangle
 pub fn image_tri(bank: u32, x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32, col: u8) {
-    dispatch!(soft: s().image_tri(bank, x1, y1, x2, y2, x3, y3, col), pyxel: { let _ = (bank,x1,y1,x2,y2,x3,y3,col); });
+    dispatch!(soft: s().image_tri(bank, x1, y1, x2, y2, x3, y3, col), pyxel: { if let Some(i)=pyxel::images().get(bank as usize) {i.borrow_mut().draw_triangle(x1,y1,x2,y2,x3,y3,col);} });
 }
 /// Tilemap: clear all tiles
 pub fn tilemap_cls(tm: u32, tile: (u8, u8)) {
-    dispatch!(soft: s().tilemap_cls(tm, tile), pyxel: { let _ = (tm, tile); });
+    dispatch!(soft: s().tilemap_cls(tm, tile), pyxel: { if let Some(m)=pyxel::tilemaps().get(tm as usize) {m.borrow_mut().clear((tile.0.into(),tile.1.into()));} });
 }
 /// Tilemap: get tile at (x, y)
 pub fn tilemap_pget(tm: u32, x: u32, y: u32) -> (u8, u8) {
-    dispatch!(soft: s().tilemap_pget(tm, x, y), pyxel: { let _ = (tm,x,y); (0,0) })
+    dispatch!(soft: s().tilemap_pget(tm, x, y), pyxel: { pyxel::tilemaps().get(tm as usize).map_or((0,0),|m| {let t=m.borrow().tile(x as f32,y as f32);(t.0 as u8,t.1 as u8)}) })
 }
 /// Tilemap: set tile at (x, y)
 pub fn tilemap_pset(tm: u32, x: u32, y: u32, tile: (u8, u8)) {
-    dispatch!(soft: s().tilemap_pset(tm, x, y, tile), pyxel: { let _ = (tm,x,y,tile); });
+    dispatch!(soft: s().tilemap_pset(tm, x, y, tile), pyxel: { if let Some(m)=pyxel::tilemaps().get(tm as usize) {m.borrow_mut().set_tile(x as f32,y as f32,(tile.0.into(),tile.1.into()));} });
 }
 
 /// Official outline spellings. Legacy rect/circ remain outlines for existing Rust games.
@@ -194,4 +196,56 @@ pub fn fill(x: f32, y: f32, col: Color) {
     s().raster_core(|image| image.flood_fill(x, y, col));
     #[cfg(feature = "pyxel-core-backend")]
     pyxel::pyxel().flood_fill(x, y, col);
+}
+
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub fn text_with_font(x: f32, y: f32, msg: &str, col: Color, font: Option<&crate::RcFont>) {
+    #[cfg(feature = "wasm-backend")]
+    s().raster_core(|image| image.draw_text(x, y, msg, col, font));
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().draw_text(x, y, msg, col, font);
+}
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub fn blt_transform(
+    x: f32,
+    y: f32,
+    img: u32,
+    sx: f32,
+    sy: f32,
+    w: f32,
+    h: f32,
+    colkey: Option<Color>,
+    rotate: Option<f32>,
+    scale: Option<f32>,
+) {
+    #[cfg(feature = "wasm-backend")]
+    if let Some(source) = pyxel::images().get(img as usize).cloned() {
+        s().raster_core(|image| {
+            image.draw_image(x, y, &source, sx, sy, w, h, colkey, rotate, scale)
+        });
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().draw_image(x, y, img, sx, sy, w, h, colkey, rotate, scale);
+}
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub fn bltm_transform(
+    x: f32,
+    y: f32,
+    tm: u32,
+    sx: f32,
+    sy: f32,
+    w: f32,
+    h: f32,
+    colkey: Option<Color>,
+    rotate: Option<f32>,
+    scale: Option<f32>,
+) {
+    #[cfg(feature = "wasm-backend")]
+    if let Some(source) = pyxel::tilemaps().get(tm as usize).cloned() {
+        s().raster_core(|image| {
+            image.draw_tilemap(x, y, &source, sx, sy, w, h, colkey, rotate, scale)
+        });
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().draw_tilemap(x, y, tm, sx, sy, w, h, colkey, rotate, scale);
 }

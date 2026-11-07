@@ -64,4 +64,40 @@ impl Music {
         }
         Audio::save_samples(filename, &samples, use_ffmpeg.unwrap_or(false))
     }
+
+    pub fn wav_bytes(&self, duration_sec: f32) -> Result<Vec<u8>, String> {
+        let num_samples = Audio::duration_samples(duration_sec)?;
+        let pyxel_sounds = pyxel::sounds();
+        let render_channels: Vec<_> =
+            self.seqs
+                .iter()
+                .filter(|seq| !seq.is_empty())
+                .map(|seq| {
+                    let sounds =
+                        seq.iter()
+                            .map(|&index| {
+                                pyxel_sounds.get(index as usize).cloned().ok_or_else(|| {
+                                    "Music contains an invalid sound index".to_string()
+                                })
+                            })
+                            .collect::<Result<_, _>>()?;
+
+                    let channel = Channel::new();
+                    audio_mut!(channel).play(sounds, None, true, false)?;
+                    Ok(channel)
+                })
+                .collect::<Result<_, String>>()?;
+        drop(pyxel_sounds);
+
+        let mut samples = vec![0; num_samples as usize];
+        let mut blip_buf = BlipBuf::new(num_samples);
+        blip_buf
+            .set_rates(AUDIO_CLOCK_RATE as f64, AUDIO_SAMPLE_RATE as f64)
+            .expect("blip_buf rates must be valid");
+
+        if !render_channels.is_empty() {
+            Audio::render_samples(&render_channels, &mut blip_buf, &mut samples);
+        }
+        Audio::samples_wav_bytes(&samples)
+    }
 }

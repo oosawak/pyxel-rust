@@ -32,6 +32,8 @@ web-sys               = { version = "0.3",  optional = true, features = [
     "Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement",
     "CanvasRenderingContext2d", "ImageData", "EventTarget",
     "KeyboardEvent", "MouseEvent", "Performance", "WheelEvent", "DomRect",
+    "AudioContext", "AudioContextOptions", "AudioContextState", "ScriptProcessorNode",
+    "AudioProcessingEvent", "AudioBuffer", "AudioNode", "AudioDestinationNode",
     "CssStyleDeclaration", "Navigator", "Gamepad", "GamepadButton", "GamepadMappingType",
 ] }
 

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>リソースと音声の動作確認 — Pyxel Rust</title>
+<style>:root{color-scheme:dark;font-family:system-ui;background:#101421;color:#eef0f7}body{max-width:900px;margin:auto;padding:20px}a{color:#a9c1ff}p{line-height:1.7;color:#aeb8ce}canvas{display:block;width:100%;height:auto;image-rendering:pixelated;border:1px solid #495477}pre{padding:16px;background:#080c14;overflow:auto;font-size:13px}.controls{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}button,label{font:inherit;padding:12px;color:inherit;background:#222b40;border:1px solid #495477;border-radius:8px;min-height:44px}label input[type=file]{display:block;max-width:100%;margin-top:8px}button{cursor:pointer}label{box-sizing:border-box;max-width:100%}button:focus-visible,a:focus-visible{outline:3px solid #70c6a9;outline-offset:3px}</style>
+<a href="../../">← デモ一覧</a> · <a href="../retro3d/#compatibility">全機能の対応状況</a>
+<h1>リソースと音声の動作確認</h1>
+<p>画像バンクを編集すると、スプライト・タイルマップ・回転表示へ同時に反映されます。フォントとPCMもバイト列から読み込みます。</p>
+<p id="status" role="status">読み込み中…</p><canvas id="pyxel_canvas" aria-label="共有リソースの描画" tabindex="0"></canvas>
+<div class="controls"><button id="edit" disabled>画像バンクを編集</button><button id="png" disabled>PNGを保存</button><label>画像を読み込む<input id="file" type="file" accept="image/*" disabled></label></div>
+<p id="file-status" role="status">保存したPNGを読み戻して確認できます。</p>
+<p>音声はボタンを押して開始します。公式シンセサイザーからWeb Audioへ出力し、再生位置と出力サンプルのピークを下に表示します。</p>
+<div class="controls"><button id="sound" disabled>MMLを再生</button><button id="pcm" disabled>PCMを再生</button><button id="music" disabled>2チャンネルの曲</button><label><input id="loop" type="checkbox">ループ</label><button id="seek" disabled>0.1秒から再生</button><button id="stop0" disabled>チャンネル0を停止</button><button id="stop" disabled>全停止</button><button id="wav" disabled>WAVを保存</button></div>
+<p id="audio-status" role="status">音声：未開始</p><pre id="details" aria-label="リソースと音声の状態"></pre>
+<script type="module">
+import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=aa69d3bcbefc';
+const showError=(id,error)=>{const el=document.querySelector(id);el.textContent=String(error.message||error);el.setAttribute('role','alert');};
+function download(bytes,type,name){const url=URL.createObjectURL(new Blob([bytes],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+try {
+ await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=aa69d3bcbefc',import.meta.url)});api.start_resources_audio();window.demo=api;
+ document.querySelector('#status').textContent='実行中';document.querySelectorAll('button,input[type=file]').forEach(el=>el.disabled=false);
+ document.querySelector('#edit').onclick=()=>api.resources_audio_edit();
+ document.querySelector('#png').onclick=()=>{try{download(api.resources_audio_png(),'image/png','pyxel-image.png')}catch(e){showError('#file-status',e)}};
+ document.querySelector('#file').onchange=async event=>{try{const file=event.target.files[0];if(!file)return;api.resources_audio_load_png(new Uint8Array(await file.arrayBuffer()));const status=document.querySelector('#file-status');status.textContent=`${file.name} を読み込みました`;status.setAttribute('role','status');}catch(e){showError('#file-status',e)}};
+ const play=async(kind,start=0)=>{try{await api.resume_browser_audio();api.resources_audio_play(kind,document.querySelector('#loop').checked,start);const status=document.querySelector('#audio-status');status.textContent='音声：再生を開始しました';status.setAttribute('role','status');}catch(e){showError('#audio-status',e)}};
+ document.querySelector('#sound').onclick=()=>play(0);document.querySelector('#pcm').onclick=()=>play(2);document.querySelector('#music').onclick=()=>play(3);document.querySelector('#seek').onclick=()=>play(0,0.1);
+ document.querySelector('#stop0').onclick=()=>api.resources_audio_stop(0);document.querySelector('#stop').onclick=()=>api.resources_audio_stop();
+ document.querySelector('#wav').onclick=()=>{try{download(api.resources_audio_wav(),'audio/wav','pyxel-sound.wav')}catch(e){showError('#audio-status',e)}};
+ setInterval(()=>document.querySelector('#details').textContent=JSON.stringify(JSON.parse(api.resources_audio_info()),null,2),100);
+}catch(e){showError('#status',e)}
+</script></html>

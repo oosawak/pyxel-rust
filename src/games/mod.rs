@@ -14,3 +14,6 @@ pub mod cube_examples;
 
 #[cfg(feature = "wasm-backend")]
 pub mod api_coverage;
+
+#[cfg(feature = "wasm-backend")]
+pub mod resources_audio;
