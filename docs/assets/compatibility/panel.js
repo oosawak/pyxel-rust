@@ -42,6 +42,9 @@ function buildPanel() {
   const provenance = element('p', undefined, 'compat-meta');
   provenance.append('実装の確認基準：', link(data.engineRevision.slice(0, 8), repo + data.engineRevision), '。確認基準に固定したスナップショットです。現在のブラウザ確認とは別に表示します。');
   body.append(provenance);
+  const exercise = element('p');
+  exercise.append(link('入力・基本描画・数学の動作確認を開く ↗', new URL('../api-coverage/', location.href).href));
+  body.append(exercise);
   const filters = element('div', undefined, 'compat-filters');
   const [backendField, backend] = select('バックエンド', 'compat-backend', backends);
   const categories = Object.fromEntries([...new Set(data.entries.map(row => row.category))].map(value => [value, value]));
@@ -113,7 +116,7 @@ function buildPanel() {
       const test = element('p', '個別動作：未検証。ソース確認による表示です。');
       if (assessment.verification) {
         test.textContent = '関連テストあり（一部の条件）。';
-        const path = assessment.verification === 'glb' ? 'tests/glb_browser.rs' : 'tests/animation_browser.rs';
+        const path = { glb:'tests/glb_browser.rs', animation:'tests/animation_browser.rs', math:'tests/math_compatibility.rs', drawing:'scripts/playtest-api-coverage.cjs', 'browser-input':'scripts/playtest-api-coverage.cjs' }[assessment.verification];
         test.append(' ', link('検証内容を見る', repo + data.engineRevision + '/' + path));
       }
       item.append(test);
@@ -161,7 +164,7 @@ function addLiveChecks(body) {
     try {
       let demo;
       await check('WASM起動', async () => {
-        demo = await import('../../examples/retro3d/pkg/pyxel_rust.js');
+        demo = await import(document.body.dataset.wasmModule || '../../examples/retro3d/pkg/pyxel_rust.js');
         // Do not initialize a second WASM instance or restart the active game loop.
         if (!document.getElementById('status').textContent.match(/^(実行中|一時停止中)$/)) throw new Error('デモの起動が完了していません');
         if (!Number.isFinite(demo.retro3d_angle())) throw new Error('状態を取得できません');

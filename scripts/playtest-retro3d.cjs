@@ -33,7 +33,7 @@ async function pixels(page) {
     assert.equal(response.status(), 200);
     await page.waitForFunction(() => document.querySelector('#status').textContent === '実行中');
     await page.evaluate(async () => {
-      window.demo = await import('./pkg/pyxel_rust.js');
+      window.demo = await import(document.body.dataset.wasmModule);
     });
     const angle = await page.evaluate(() => demo.retro3d_angle());
     await page.waitForFunction(start => demo.retro3d_angle() !== start, angle);
@@ -95,7 +95,7 @@ async function pixels(page) {
     mobile.on('pageerror', error => errors.push(error.message));
     await mobile.goto(`${base}/examples/retro3d/`);
     await mobile.waitForFunction(() => document.querySelector('#status').textContent === '実行中');
-    await mobile.evaluate(async () => { window.demo = await import('./pkg/pyxel_rust.js'); });
+    await mobile.evaluate(async () => { window.demo = await import(document.body.dataset.wasmModule); });
     await mobile.locator('#pause').tap();
     await mobile.waitForFunction(() => demo.retro3d_paused());
     const beforeTouch = await mobile.evaluate(() => demo.retro3d_angle());
@@ -172,7 +172,7 @@ async function pixels(page) {
 
     // An unavailable WASM binary must display a recoverable error, not hang on loading.
     const failurePage = await browser.newPage();
-    await failurePage.route('**/pyxel_rust_bg.wasm', route => route.abort());
+    await failurePage.route(/\/pyxel_rust_bg\.wasm(?:\?.*)?$/, route => route.abort());
     await failurePage.goto(`${base}/examples/retro3d/`);
     await failurePage.waitForFunction(() => document.querySelector('#status').getAttribute('role') === 'alert');
     assert.ok(await failurePage.locator('#pause').isDisabled());

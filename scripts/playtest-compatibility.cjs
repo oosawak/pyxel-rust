@@ -19,6 +19,10 @@ const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibilit
     assert.match(await page.locator('#compat-verdict').textContent(), /全機能対応ではありません/);
     assert.match(await page.locator('#compat-count').textContent(), /741/);
     assert.equal(await page.locator('.compat-row[data-api]').count(), 30);
+    assert.equal(await page.locator('.compat-stat[data-support="missing"] strong').textContent(),'104');
+    await page.locator('#compat-search').fill('mouse_wheel');
+    assert.equal(await page.locator('[data-api="mouse_wheel"] .compat-badge').textContent(),'実装あり');
+    await page.locator('#compat-search').fill('');
     await page.locator('#compat-next').click();
     assert.equal(await page.locator('#compat-page').textContent(), '2 / 25 ページ');
     await page.locator('#compat-search').fill('playm');
@@ -68,7 +72,7 @@ const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibilit
     await mobile.goto(`${base}/examples/retro3d/#compatibility`);
     await mobile.waitForSelector('#compat-search');
     await mobile.locator('#compat-search').fill('mouse_wheel');
-    assert.match(await mobile.locator('[data-api="mouse_wheel"]').textContent(), /常に0/);
+    assert.match(await mobile.locator('[data-api="mouse_wheel"]').textContent(), /毎フレームリセット/);
     assert.ok(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await mobile.locator('#compatibility').screenshot({ path: `${output}/mobile-panel.png` });
     // API report failures must remain independent of the running game.
@@ -89,7 +93,7 @@ const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibilit
     // The inventory still works if the game itself cannot load WASM.
     const noWasm = await browser.newPage();
     noWasm.on('pageerror', error => errors.push(error.message));
-    await noWasm.route('**/*.wasm', route => route.abort());
+    await noWasm.route(/\.wasm(?:\?.*)?$/, route => route.abort());
     await noWasm.goto(`${base}/examples/retro3d/#compatibility`);
     await noWasm.waitForSelector('#status[role="alert"]');
     await noWasm.waitForSelector('#compat-run');
