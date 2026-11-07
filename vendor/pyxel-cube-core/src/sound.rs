@@ -221,6 +221,13 @@ impl Sound {
         Ok(())
     }
 
+    pub fn load_pcm_bytes(&mut self, bytes: &[u8], extension: &str) -> Result<(), String> {
+        let pcm = crate::pcm_decoder::load_pcm_bytes(bytes, extension, AUDIO_SAMPLE_RATE)?;
+        self.clear_mml();
+        self.pcm = Some(pcm);
+        Ok(())
+    }
+
     pub fn clear_pcm(&mut self) {
         self.pcm = None;
     }
@@ -247,6 +254,22 @@ impl Sound {
 
         Audio::render_samples(&[render_channel], &mut blip_buf, &mut samples);
         Audio::save_samples(filename, &samples, use_ffmpeg.unwrap_or(false))
+    }
+
+    pub fn wav_bytes(&self, duration_sec: f32) -> Result<Vec<u8>, String> {
+        let num_samples = Audio::duration_samples(duration_sec)?;
+        let render_sound = new_audio_type!(self.clone());
+        let render_channel = Channel::new();
+        audio_mut!(render_channel).play(vec![render_sound], None, true, false)?;
+
+        let mut samples = vec![0; num_samples as usize];
+        let mut blip_buf = BlipBuf::new(num_samples);
+        blip_buf
+            .set_rates(AUDIO_CLOCK_RATE as f64, AUDIO_SAMPLE_RATE as f64)
+            .expect("blip_buf rates must be valid");
+
+        Audio::render_samples(&[render_channel], &mut blip_buf, &mut samples);
+        Audio::samples_wav_bytes(&samples)
     }
 
     pub fn total_seconds(&self) -> Option<f32> {

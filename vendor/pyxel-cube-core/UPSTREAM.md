@@ -4,7 +4,7 @@ Source: https://github.com/kitao/pyxel/tree/e0b528f9a6f98bfc92bb47ebe1c7623cb3f6
 Version: Pyxel 3.0.0 (MIT; see LICENSE).
 
 This copy keeps the official Cube geometry, rasterizer, scene graph, image,
-and font code unchanged. The model importer adds a byte-slice entry point. Cube depends on internal image/canvas/resource
+and font implementations. Local memory-I/O and streaming entry points are listed below. Cube depends on internal image/canvas/resource
 types, so the core source is retained together rather than reimplementing its
 rasterizer. The SDL2 desktop backend continues to use the original Git dependency.
 
@@ -15,6 +15,11 @@ Local adaptations:
 - graphics.rs uses glow::Texture so its unused GL code also type-checks on WASM.
 - cube/mesh.rs adds Mesh::from_glb_bytes; cube/glb_parser.rs shares the existing
   importer between file and memory input, rejecting image URIs before decoder I/O.
+- audio.rs exposes a platform-free AudioRenderer for Web Audio. Sound/Music expose
+  WAV bytes using the same official renderer; no sound algorithm is replaced.
+- Image adds from_image_bytes/load_bytes/png_bytes, Font adds from_bytes for
+  BDF/TTF/OTF, and Sound adds load_pcm_bytes through the shared PCM decoder.
+  Image quantization and font/PCM decoding reuse the original implementations.
 - Browser RNG backends are enabled for dependencies using getrandom.
 
 For upstream updates, compare the source with the pinned commit, reapply these

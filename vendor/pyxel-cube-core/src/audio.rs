@@ -67,6 +67,22 @@ impl AudioStreamRenderer {
     }
 }
 
+/// Platform-free streaming renderer used by the Canvas/Web Audio adapter.
+pub struct AudioRenderer(AudioStreamRenderer);
+impl Default for AudioRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl AudioRenderer {
+    pub fn new() -> Self {
+        Self(AudioStreamRenderer::new())
+    }
+    pub fn render(&mut self, output: &mut [i16]) {
+        self.0.render(output);
+    }
+}
+
 impl Audio {
     // Audio output
 
@@ -202,6 +218,22 @@ impl Audio {
                 channel.mix_pcm(&mut out[start..]);
             }
         }
+    }
+
+    pub(crate) fn samples_wav_bytes(samples: &[i16]) -> Result<Vec<u8>, String> {
+        let mut output = std::io::Cursor::new(Vec::new());
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: AUDIO_SAMPLE_RATE,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::new(&mut output, spec).map_err(|e| e.to_string())?;
+        for sample in samples {
+            writer.write_sample(*sample).map_err(|e| e.to_string())?;
+        }
+        writer.finalize().map_err(|e| e.to_string())?;
+        Ok(output.into_inner())
     }
 
     // File export

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::path::Path;
 use std::{array, ptr};
 
 use image::imageops;
@@ -59,9 +58,16 @@ impl Image {
     }
 
     pub fn from_image(filename: &str, include_colors: Option<bool>) -> Result<RcImage, String> {
+        let bytes =
+            std::fs::read(filename).map_err(|_| format!("Failed to open file '{filename}'"))?;
+        Self::from_image_bytes(&bytes, include_colors)
+    }
+
+    /// Decode an image supplied by a browser file picker or fetch.
+    pub fn from_image_bytes(bytes: &[u8], include_colors: Option<bool>) -> Result<RcImage, String> {
         let include_colors = include_colors.unwrap_or(false);
-        let file_image = image::open(Path::new(&filename))
-            .map_err(|_| format!("Failed to open file '{filename}'"))?
+        let file_image = image::load_from_memory(bytes)
+            .map_err(|e| e.to_string())?
             .to_rgb8();
 
         let mut colors = pyxel::colors();
@@ -84,10 +90,11 @@ impl Image {
                     } else {
                         let mut closest_color: Color = 0;
                         if include_colors {
-                            assert!(
-                                extracted_colors.len() < MAX_COLORS as usize,
-                                "Number of colors must be between 1 and {MAX_COLORS}"
-                            );
+                            if extracted_colors.len() >= MAX_COLORS as usize {
+                                return Err(format!(
+                                    "Number of colors must be between 1 and {MAX_COLORS}"
+                                ));
+                            }
                             closest_color = extracted_colors.len() as Color;
                             extracted_colors.push(
                                 ((src_rgb.0 as Rgb24) << 16)
@@ -124,6 +131,36 @@ impl Image {
         }
 
         Ok(rc)
+    }
+
+    pub fn load_bytes(&mut self, x: f32, y: f32, bytes: &[u8]) -> Result<(), String> {
+        let source = Self::from_image_bytes(bytes, Some(false))?;
+        let (w, h) = {
+            let i = source.borrow();
+            (i.width(), i.height())
+        };
+        self.draw_image(x, y, &source, 0., 0., w as f32, h as f32, None, None, None);
+        Ok(())
+    }
+    pub fn png_bytes(&self) -> Result<Vec<u8>, String> {
+        let colors = pyxel::colors();
+        let mut source = self.clone();
+        source.reset_clip_rect();
+        let mut rgb = image::RgbImage::new(self.width(), self.height());
+        for y in 0..self.height() {
+            for x in 0..self.width() {
+                let c = colors
+                    .get(source.canvas.value(x as f32, y as f32) as usize)
+                    .copied()
+                    .unwrap_or(0);
+                rgb.put_pixel(x, y, image::Rgb([(c >> 16) as u8, (c >> 8) as u8, c as u8]));
+            }
+        }
+        let mut output = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(rgb)
+            .write_to(&mut output, image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
+        Ok(output.into_inner())
     }
 
     // Accessors

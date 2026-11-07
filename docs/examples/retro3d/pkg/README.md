@@ -300,6 +300,26 @@ cargo test --locked --no-default-features --features wasm-backend --lib --test m
 node scripts/playtest-api-coverage.cjs
 ```
 
+### リソースとブラウザ音声
+
+[リソースと音声の確認ページ](https://oosawak.github.io/pyxel-rust/examples/resources-audio/) で共有バンクの編集、PNG読込・保存、MML・PCM・曲の再生、チャンネル別停止とWAV保存を試せます。
+
+`images()` / `tilemaps()` / `sounds()` / `musics()` / `channels()` / `tones()` は、描画・音声が参照する共有ハンドルのVecを返します。ハンドルの内容を編集すると即時に反映します。返り値Vec自体の要素差し替えやバンク数変更は反映しません。Canvasの`bltm`はタイル(0,0)と`ImageSource::Index`/`Image`の両方を公式コアで描画します。
+
+Canvas版では`Image::from_image_bytes` / `load_bytes` / `png_bytes`、`Font::from_bytes`（BDF/TTF/OTF）、`Sound::load_pcm_bytes`、`Sound::wav_bytes` / `Music::wav_bytes`を提供します。ページ側でFile/Fetch/Blobを扱うことで、仮想ファイルシステムなしに読込・ダウンロードできます。ファイルパス指定、TMX読込、画像保存時scale、FFmpegによる動画保存は未対応です。表示パレットは16色です。
+
+`blt_transform` / `bltm_transform`で回転・拡大縮小、`text_with_font`で任意フォントを使えます。SDL2のパレット・image_*・tilemap_*補助関数も実際のリソースに接続しています。
+
+Canvas音声は公式シンセサイザーをWeb Audioへストリーミングします。初回はユーザー操作から`resume_browser_audio()`を呼んでください。`play` / `playm` / `stop` / `play_pos` / `is_playing`を実装し、エラーを扱う`try_play` / `try_playm`も提供します。内部サンプルレートは22,050Hzで、現時点の出力アダプターはScriptProcessorNodeを使用します。ブラウザが音声出力を許可しない場合は`browser_audio_status()`で状態を確認できます。
+
+従来の`window.pyxelPlaySound` / `pyxelPlayMusic` / `pyxelStopSound`があれば優先して呼び、既存ページとの互換性を維持します。再生位置・状態は内蔵エンジンの情報で、外部JSフックの音声状態は含みません。wgpuの音声出力は引き続き未対応です。
+
+```bash
+cargo test --locked --no-default-features --features wasm-backend --test browser_resources
+cargo test --locked --test native_resources
+node scripts/playtest-resources-audio.cjs
+```
+
 ### ローカル確認（GitHub Pages 相当）
 
 ```bash

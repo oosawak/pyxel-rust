@@ -27,6 +27,8 @@ export function api_coverage_cursor(visible: boolean): void;
 
 export function api_coverage_info(): string;
 
+export function browser_audio_status(): string;
+
 export function clear_retro3d_model(): void;
 
 export function cube_example_info(): string;
@@ -90,6 +92,25 @@ export function pause_cube_example(paused: boolean): void;
 
 export function reset_retro3d(): void;
 
+export function resources_audio_edit(): void;
+
+export function resources_audio_info(): string;
+
+export function resources_audio_load_png(bytes: Uint8Array | number[]): void;
+
+export function resources_audio_play(kind: number, loop_: boolean, start: number): void;
+
+export function resources_audio_png(): Uint8Array;
+
+export function resources_audio_stop(channel?: number | null): void;
+
+export function resources_audio_wav(): Uint8Array;
+
+/**
+ * Call from a user gesture to satisfy browser audio autoplay policy.
+ */
+export function resume_browser_audio(): Promise<void>;
+
 export function retro3d_angle(): number;
 
 export function retro3d_animation_duration(): number;
@@ -145,6 +166,8 @@ export function start_cube_example(id: number): void;
 
 export function start_cube_example_resolution(id: number, scale: number): void;
 
+export function start_resources_audio(): void;
+
 export function start_retro3d(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -153,6 +176,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly api_coverage_cursor: (a: number) => void;
     readonly api_coverage_info: () => [number, number];
+    readonly browser_audio_status: () => [number, number];
     readonly clear_retro3d_model: () => void;
     readonly cube_example_info: () => [number, number];
     readonly cube_example_input: (a: number, b: number) => [number, number];
@@ -176,6 +200,14 @@ export interface InitOutput {
     readonly main_nanoteras: () => void;
     readonly pause_cube_example: (a: number) => void;
     readonly reset_retro3d: () => void;
+    readonly resources_audio_edit: () => void;
+    readonly resources_audio_info: () => [number, number];
+    readonly resources_audio_load_png: (a: number, b: number) => [number, number];
+    readonly resources_audio_play: (a: number, b: number, c: number) => [number, number];
+    readonly resources_audio_png: () => [number, number, number, number];
+    readonly resources_audio_stop: (a: number) => void;
+    readonly resources_audio_wav: () => [number, number, number, number];
+    readonly resume_browser_audio: () => any;
     readonly retro3d_angle: () => number;
     readonly retro3d_animation_duration: () => number;
     readonly retro3d_animation_index: () => number;
@@ -200,11 +232,15 @@ export interface InitOutput {
     readonly start_battle_from_js: (a: number) => void;
     readonly start_cube_example: (a: number) => [number, number];
     readonly start_cube_example_resolution: (a: number, b: number) => [number, number];
+    readonly start_resources_audio: () => [number, number];
     readonly start_retro3d: () => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__51: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__52: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__53: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___js_sys_e23d1d6365e9eae___Function_fn_wasm_bindgen_cf0989641d10091a___JsValue_____wasm_bindgen_cf0989641d10091a___sys__Undefined___js_sys_e23d1d6365e9eae___Function_fn_wasm_bindgen_cf0989641d10091a___JsValue_____wasm_bindgen_cf0989641d10091a___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___wasm_bindgen_cf0989641d10091a___JsValue__core_8896a31dc0048bac___result__Result_____wasm_bindgen_cf0989641d10091a___JsError___true_: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true__63: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true__64: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true__65: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true__66: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

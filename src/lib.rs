@@ -10,8 +10,8 @@ extern crate pyxel;
 #[cfg(all(feature = "wasm-backend", not(feature = "pyxel-core-backend")))]
 extern crate pyxel_cube_core as pyxel;
 
-pub mod backend;
 pub mod api;
+pub mod backend;
 pub mod games;
 
 /// Official Pyxel 3.0 Cube types, scene graph, collisions, and software renderer.
@@ -20,12 +20,15 @@ pub mod games;
 pub use pyxel::cube;
 #[cfg(feature = "pyxel-core-backend")]
 pub use pyxel::screen;
-#[cfg(all(feature = "wasm-backend", not(feature = "pyxel-core-backend")))]
-pub use pyxel::Image;
 
 // Re-export pyxel-core types when using pyxel-core-backend
 #[cfg(feature = "pyxel-core-backend")]
-pub use pyxel::{Color, Image, Tilemap, Sound, Music, Channel};
+pub use pyxel::Color;
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub use pyxel::{
+    Channel, Font, Image, ImageSource, Music, RcChannel, RcFont, RcImage, RcMusic, RcSound,
+    RcTilemap, RcTone, Sound, Tilemap, Tone, ToneMode,
+};
 
 // Generic Color type for wgpu-backend
 #[cfg(not(feature = "pyxel-core-backend"))]

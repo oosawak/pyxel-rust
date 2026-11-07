@@ -8,7 +8,7 @@ pub mod resource;
 pub mod system;
 
 // Re-export all public functions
-pub use audio::{is_playing, play, playm, stop};
+pub use audio::{is_playing, play, play_pos, playm, stop, try_play, try_playm};
 pub use constants::*;
 pub use graphics::{
     blt, bltm, camera, camera_reset, circ, circb, circfill, clip, clip_reset, cls, dither,
@@ -39,4 +39,7 @@ pub use animation3d::MeshAnimationPlayer;
 pub use math::{noise, nseed};
 
 #[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
-pub use graphics::{elli, ellib, fill, tri, trib};
+pub use graphics::{blt_transform, bltm_transform, elli, ellib, fill, text_with_font, tri, trib};
+
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub use resource::*;
