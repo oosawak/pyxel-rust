@@ -254,7 +254,8 @@ pyxel-rust rust_app2wasm <PROJECT_NAME> # WASM ビルド＆ローカルサーバ
 
 ### 公式CubeデモのRust移植と比較
 
-[`docs/examples/cube/`](docs/examples/cube/) で公式の6デモをRust版／公式Python版に切り替えて確認できます。
+[`docs/examples/cube/`](docs/examples/cube/) で公式の6デモをRust版／公式Python版で並べて比較できます。
+PCでは横並び、狭い画面では縦並びになり、単独表示にも切り替えられます。左右の再生時刻と入力は同期せず、それぞれ操作できます。
 Hello Cube、Basic Shapes、Custom Shapes、Mesh and Motion、3D Collision、3D Physicsを公式3.0.0のコードから移植しています。
 Rust実装は [`src/games/cube_examples/`](src/games/cube_examples/) です。基本図形・レーザー・GLBモーション・庭園のコイン/ゴール判定・2段ジャンプ・物理応答と投射体に対応します。
 タッチ操作・ゲームパッド入力・一時停止を追加し、Qは画面を閉じる代わりに停止します。
@@ -278,7 +279,10 @@ cargo run --locked --example cube_audio
 python3 scripts/prepare-cube-textures.py --upstream /path/to/pyxel
 # ブラウザ比較テスト（ローカルHTTPサーバーと外部の公式ページへ接続）
 node scripts/playtest-cube-examples.cjs
+node scripts/playtest-cube-comparison.cjs
 ```
+
+Rust版の公式Cubeデモでは、描画解像度を標準・2倍・4倍に変更できます。3D形状を実際に高解像度で描画し、HUDと入力は元の座標系を保ちます。解像度変更時はRust版だけを再起動します。ネイティブ版は `cargo run --example cube_examples -- 1 2` の第2引数で倍率を指定できます。
 
 ### ローカル確認（GitHub Pages 相当）
 

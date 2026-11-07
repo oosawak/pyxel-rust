@@ -4,6 +4,7 @@ const path=require('node:path');
 const os=require('node:os');
 const {chromium}=require('playwright');
 const base=process.env.PYXEL_TEST_URL||'http://127.0.0.1:8765';
+const resolution=Number(process.env.PYXEL_TEST_RESOLUTION||1);
 const output=process.env.PYXEL_TEST_OUTPUT||path.join(os.tmpdir(),'pyxel-official-cube');
 const slugs=['c01-hello-cube','c02-basic-shapes','c03-custom-shapes','c04-mesh-and-motion','c05-3d-collision','c06-3d-physics'];
 const info=f=>f.evaluate(()=>JSON.parse(demo.cube_example_info()));
@@ -11,7 +12,7 @@ const waitFrames=(f,start,delta=2)=>f.waitForFunction(({start,delta})=>JSON.pars
 const hash=f=>f.locator('canvas').evaluate(c=>{const p=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let h=2166136261;for(let i=0;i<p.length;i+=4)h=Math.imul(h^p[i]^(p[i+1]<<8)^(p[i+2]<<16),16777619);return h;});
 (async()=>{await fs.mkdir(output,{recursive:true});const b=await chromium.launch();try{const page=await b.newPage({viewport:{width:1050,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   for(let id=0;id<6;id++){
-    await page.goto(`${base}/examples/cube/?demo=${slugs[id]}&version=rust`);
+    await page.goto(`${base}/examples/cube/?demo=${slugs[id]}&version=rust&resolution=${resolution}`);
     await page.waitForFunction(()=>document.querySelector('#load-state').textContent.startsWith('Rust版を実行中'));
     const f=page.frames().find(f=>f.url().includes('/cube/rust.html'));assert.ok(f);
     await waitFrames(f,0,3);
@@ -42,6 +43,6 @@ const hash=f=>f.locator('canvas').evaluate(c=>{const p=c.getContext('2d').getIma
     await page.locator('#show-rust').click();
     await page.waitForFunction(()=>document.querySelector('#load-state').textContent.startsWith('Rust版を実行中'));
   }
-  const mobile=await b.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});mobile.on('pageerror',e=>errors.push(e.message));await mobile.goto(`${base}/examples/cube/?demo=c05-3d-collision`);await mobile.waitForFunction(()=>document.querySelector('#load-state').textContent.startsWith('Rust版を実行中'));const mf=mobile.frames().find(f=>f.url().includes('/cube/rust.html'));await waitFrames(mf,0,3);const action=mf.locator('[data-key="action"]');await action.tap();await mf.waitForFunction(()=>JSON.parse(demo.cube_example_info()).jumps>0);assert.ok(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.ok(await mf.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await mobile.screenshot({path:path.join(output,'mobile-collision.png'),fullPage:true});
+  const mobile=await b.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});mobile.on('pageerror',e=>errors.push(e.message));await mobile.goto(`${base}/examples/cube/?demo=c05-3d-collision&version=rust&resolution=${resolution}`);await mobile.waitForFunction(()=>document.querySelector('#load-state').textContent.startsWith('Rust版を実行中'));const mf=mobile.frames().find(f=>f.url().includes('/cube/rust.html'));await waitFrames(mf,0,3);const action=mf.locator('[data-key="action"]');await action.tap();await mf.waitForFunction(()=>JSON.parse(demo.cube_example_info()).jumps>0);assert.ok(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.ok(await mf.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await mobile.screenshot({path:path.join(output,'mobile-collision.png'),fullPage:true});
   assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'passed',checks:['six Rust examples boot/render/animate','pause/resume','wireframe','drag lock/release fire','audio activation','motion keys/buttons','collision movement/double jump/reset','physics shoot/reset','six official pages start','version switching','single active frame','mobile touch/layout','no page runtime errors'],screenshots:output}));
 }finally{await b.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

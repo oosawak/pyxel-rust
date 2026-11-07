@@ -6,7 +6,7 @@ pub struct MotionDemo {
     pub model: Model,
     camera: RcCamera,
     shade: RcShading,
-    image: RcImage,
+    pub(super) image: Surface,
     yaw: f32,
     pitch: f32,
     offset: f32,
@@ -56,7 +56,7 @@ impl MotionDemo {
             model,
             camera,
             shade,
-            image: Image::new(320, 240),
+            image: Surface::new(320, 240),
             yaw: 148.,
             pitch: (119.0_f32 / 420.).atan().to_degrees(),
             offset: 0.,
@@ -101,7 +101,7 @@ impl MotionDemo {
     }
     pub fn draw(&self) -> RcImage {
         let shade = self.shade.borrow();
-        render_3d(&self.image, &self.camera, |ctx| {
+        self.image.render(&self.camera, |ctx| {
             let rotation = rot(v(-90., 0., 0.));
             let s = draw::DrawState::unshaded();
             draw::elli(ctx, &rotation, 308., 308., 5, s);
@@ -150,6 +150,6 @@ impl MotionDemo {
             7,
         );
         hud(&self.image, 8., 18., "1: Walk  2: Run  3: Eat", 7);
-        self.image.clone()
+        self.image.finish()
     }
 }

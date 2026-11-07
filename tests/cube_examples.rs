@@ -124,3 +124,49 @@ fn custom_shapes_lock_and_fire_at_projected_targets() {
         game.draw();
     }
 }
+
+#[test]
+fn high_resolution_rasterizes_geometry_and_preserves_simulation() {
+    for id in 0..6 {
+        let mut standard = CubeExample::new(id).unwrap();
+        let mut high = CubeExample::new(id).unwrap();
+        high.set_resolution(2).unwrap();
+        for _ in 0..3 {
+            standard.update(&mut Controls::default());
+            high.update(&mut Controls::default());
+        }
+        let mut expected = standard.info();
+        let actual = high.info();
+        for key in ["resolution", "render_width", "render_height"] {
+            expected[key] = actual[key].clone();
+        }
+        assert_eq!(expected, actual, "simulation differs for {id}");
+        let image = high.draw();
+        let image = image.borrow();
+        let (w, h) = standard.size();
+        assert_eq!((image.width(), image.height()), (w * 2, h * 2));
+        // A nearest-neighbor upscale would have identical colors in every 2×2 block.
+        let detail = (0..h).any(|y| {
+            (0..w).any(|x| {
+                let color = image.pixel((x * 2) as f32, (y * 2) as f32);
+                [(1, 0), (0, 1), (1, 1)]
+                    .iter()
+                    .any(|(dx, dy)| image.pixel((x * 2 + dx) as f32, (y * 2 + dy) as f32) != color)
+            })
+        });
+        assert!(detail, "example {id} must rasterize additional detail");
+        assert!(image.pixel(0., 0.) < 255);
+        drop(image);
+        assert!(high.set_resolution(3).is_err());
+        assert_eq!(high.output_size(), (w * 2, h * 2));
+        high.set_resolution(4).unwrap();
+        let large = high.draw();
+        assert_eq!(
+            (large.borrow().width(), large.borrow().height()),
+            (w * 4, h * 4)
+        );
+        high.set_resolution(1).unwrap();
+        assert_eq!(high.output_size(), (w, h));
+        high.draw();
+    }
+}

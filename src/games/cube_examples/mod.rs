@@ -16,6 +16,69 @@ use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 type RcImage = Rc<RefCell<Image>>;
 
+// Render geometry at the requested resolution while keeping HUD/input coordinates logical.
+struct Surface {
+    image: RcImage,
+    target: RcImage,
+    scale: u32,
+}
+impl std::ops::Deref for Surface {
+    type Target = RcImage;
+    fn deref(&self) -> &RcImage {
+        &self.image
+    }
+}
+impl Surface {
+    fn new(w: u32, h: u32) -> Self {
+        let image = Image::new(w, h);
+        Self {
+            target: image.clone(),
+            image,
+            scale: 1,
+        }
+    }
+    fn set_scale(&mut self, scale: u32) {
+        self.scale = scale;
+        self.target = if scale == 1 {
+            self.image.clone()
+        } else {
+            let image = self.image.borrow();
+            Image::new(image.width() * scale, image.height() * scale)
+        };
+    }
+    fn render(&self, camera: &RcCamera, draw: impl FnOnce(&mut DrawContext)) {
+        if self.scale > 1 {
+            let mut hud = self.image.borrow_mut();
+            if camera.borrow().clear_color.is_none() {
+                self.target.borrow_mut().clear(hud.pixel(0., 0.));
+            }
+            hud.clear(255);
+        }
+        render_3d(&self.target, camera, draw);
+    }
+    fn finish(&self) -> RcImage {
+        if self.scale > 1 {
+            let hud = self.image.borrow();
+            let mut target = self.target.borrow_mut();
+            for y in 0..hud.height() {
+                for x in 0..hud.width() {
+                    let color = hud.pixel(x as f32, y as f32);
+                    if color != 255 {
+                        target.draw_rect(
+                            (x * self.scale) as f32,
+                            (y * self.scale) as f32,
+                            self.scale as f32,
+                            self.scale as f32,
+                            color,
+                        );
+                    }
+                }
+            }
+        }
+        self.target.clone()
+    }
+}
+
 pub(super) fn v(x: f32, y: f32, z: f32) -> Vec3 {
     Vec3 { x, y, z }
 }
@@ -300,6 +363,37 @@ impl CubeExample {
             _ => (320, 240),
         }
     }
+    fn surface(&self) -> &Surface {
+        match self {
+            Self::Hello(d) => &d.image,
+            Self::Shapes(d) => &d.image,
+            Self::Custom(d) => &d.image,
+            Self::Motion(d) => &d.image,
+            Self::Collision(d) => &d.image,
+            Self::Physics(d) => &d.image,
+        }
+    }
+    /// Select actual raster resolution; simulation and HUD coordinates remain unchanged.
+    pub fn set_resolution(&mut self, scale: u32) -> Result<(), String> {
+        if ![1, 2, 4].contains(&scale) {
+            return Err("Resolution must be 1, 2, or 4".into());
+        }
+        let surface = match self {
+            Self::Hello(d) => &mut d.image,
+            Self::Shapes(d) => &mut d.image,
+            Self::Custom(d) => &mut d.image,
+            Self::Motion(d) => &mut d.image,
+            Self::Collision(d) => &mut d.image,
+            Self::Physics(d) => &mut d.image,
+        };
+        surface.set_scale(scale);
+        Ok(())
+    }
+    pub fn output_size(&self) -> (u32, u32) {
+        let (w, h) = self.size();
+        let scale = self.surface().scale;
+        (w * scale, h * scale)
+    }
     pub fn update(&mut self, input: &mut Controls) {
         match self {
             Self::Hello(d) => d.update(),
@@ -321,7 +415,7 @@ impl CubeExample {
         }
     }
     pub fn info(&self) -> serde_json::Value {
-        match self {
+        let mut info = match self {
             Self::Hello(d) => serde_json::json!({"frame":d.frame}),
             Self::Shapes(d) => serde_json::json!({"frame":d.frame,"wire":d.wire}),
             Self::Custom(d) => {
@@ -332,7 +426,12 @@ impl CubeExample {
             }
             Self::Collision(d) => d.info(),
             Self::Physics(d) => d.info(),
-        }
+        };
+        let (w, h) = self.output_size();
+        info["resolution"] = self.surface().scale.into();
+        info["render_width"] = w.into();
+        info["render_height"] = h.into();
+        info
     }
 }
 
@@ -341,13 +440,21 @@ thread_local! {static EXAMPLE:RefCell<Option<CubeExample>>=const{RefCell::new(No
 #[cfg(feature = "wasm-backend")]
 #[wasm_bindgen]
 pub fn start_cube_example(id: usize) -> Result<(), JsValue> {
+    start_cube_example_resolution(id, 1)
+}
+#[cfg(feature = "wasm-backend")]
+#[wasm_bindgen]
+pub fn start_cube_example_resolution(id: usize, scale: u32) -> Result<(), JsValue> {
     if EXAMPLE.with(|e| e.borrow().is_some()) {
         return Err(JsValue::from_str(
             "Reload the demo frame to start another example",
         ));
     }
-    let example = CubeExample::new(id).map_err(|e| JsValue::from_str(&e))?;
-    let (w, h) = example.size();
+    let mut example = CubeExample::new(id).map_err(|e| JsValue::from_str(&e))?;
+    example
+        .set_resolution(scale)
+        .map_err(|e| JsValue::from_str(&e))?;
+    let (w, h) = example.output_size();
     EXAMPLE.with(|e| *e.borrow_mut() = Some(example));
     crate::api::init(w, h, "Official Cube example — Rust", 30);
     crate::api::run(

@@ -6,7 +6,7 @@ pub struct CollisionDemo {
     root: RcNode,
     camera: RcCamera,
     shade: RcShading,
-    image: RcImage,
+    pub(super) image: Surface,
     stage: Model,
     platform: Model,
     platform_start: Vec3,
@@ -95,7 +95,7 @@ impl CollisionDemo {
             root,
             camera,
             shade,
-            image: Image::new(320, 240),
+            image: Surface::new(320, 240),
             stage,
             platform,
             platform_start,
@@ -373,7 +373,7 @@ impl CollisionDemo {
     pub fn draw(&self) -> RcImage {
         self.image.borrow_mut().clear(6);
         let shade = self.shade.borrow();
-        render_3d(&self.image, &self.camera, |ctx| {
+        self.image.render(&self.camera, |ctx| {
             let s = state(self.lit.then_some(&shade));
             self.stage.draw(ctx, s);
             self.platform.draw(ctx, s);
@@ -420,7 +420,7 @@ impl CollisionDemo {
             "Arrows: Move  Space: Jump x2  S: Shading  Q: Quit",
             7,
         );
-        self.image.clone()
+        self.image.finish()
     }
     fn outlined_text(&self, x: f32, y: f32, text: &str) {
         for dy in -1..=1 {

@@ -5,22 +5,37 @@
   <title>公式Cubeデモを比較 — Pyxel Rust</title>
   <style>
     :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101421;color:#eef0f7}*{box-sizing:border-box}body{margin:0;padding:24px 16px}main{max-width:900px;margin:auto}a{color:#a9c1ff}p{color:#aeb8ce;line-height:1.7}h1{font-size:clamp(25px,5vw,38px);letter-spacing:-.04em;margin:18px 0}label{display:block;font-size:14px}select,button{font:inherit;color:inherit;background:#222b40;border:1px solid #495477;border-radius:8px;padding:12px;min-height:44px}select{width:100%;margin-top:8px}button{cursor:pointer}button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #70c6a9;outline-offset:3px}.controls{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.controls button[aria-pressed="true"]{background:#345547;border-color:#70c6a9}.viewer{border:1px solid #495477;border-radius:12px;overflow:hidden;background:#080c14}iframe{display:block;border:0;width:100%;height:min(78vh,820px);min-height:500px;background:#101421}.viewer-head{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #33415f}.badge{font-size:13px;color:#70c6a9}#description{margin-bottom:8px}#load-state{font-size:13px}.links{display:flex;gap:12px 20px;flex-wrap:wrap;margin:18px 0}.notes{font-size:13px;border-top:1px solid #33415f;padding-top:12px}details{margin-top:18px}summary{cursor:pointer;min-height:44px;padding:12px 0}.catalog{padding-left:20px}.catalog li{margin:12px 0}.catalog button{padding:8px 12px;text-align:left}.eyebrow{font-size:12px;letter-spacing:.15em;color:#70c6a9}@media(max-width:480px){body{padding:16px 12px}iframe{min-height:560px;height:80vh}.controls button{flex:1}.viewer-head{padding:12px}}
+    body[data-mode="compare"] main{max-width:1400px}
+    .frame-panel{min-width:0}
+    .frame-label{margin:0;padding:12px 16px;font-size:14px;border-bottom:1px solid #33415f;color:#70c6a9}
+    .frame-status{margin:0;padding:10px 16px;font-size:12px;overflow-wrap:anywhere}
+    .frame-status[role="alert"]{color:#ff9798}
+    #frame-host.compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:#495477}
+    .frame-panel{background:#101421}
+    #frame-host.compare .frame-panel{display:flex;flex-direction:column}
+    #frame-host.compare .frame-status{margin-top:auto}
+    #rust-frame{min-height:0}
+    #official-frame{width:calc(100% - 24px);margin:12px;height:auto;min-height:0;aspect-ratio:var(--demo-aspect)}
+    @media(max-width:820px){#frame-host.compare{grid-template-columns:1fr}}
   </style>
 </head>
 <body><main>
   <a href="../../">← デモ一覧</a> · <a href="../retro3d/#compatibility">全機能の対応状況</a>
-  <header><p class="eyebrow">PYXEL CUBE / OFFICIAL EXAMPLES</p><h1>公式の6デモを、Rustで。</h1><p>同じモデルとシーンを使ったRust移植版です。公式版に切り替えて、描画や操作、衝突・物理の動きを見比べられます。</p></header>
+  <header><p class="eyebrow">PYXEL CUBE / OFFICIAL EXAMPLES</p><h1>公式の6デモを、Rustで。</h1><p>同じモデルとシーンを使ったRust移植版です。Rust版と公式版を並べて、描画や操作、衝突・物理の動きを見比べられます。</p></header>
   <label for="example">デモを選ぶ<select id="example"></select></label>
   <p id="description"></p><p id="help"></p>
   <div class="controls" role="group" aria-label="実行するバージョン">
-    <button id="show-rust" aria-pressed="true">Rust移植版</button><button id="show-official" aria-pressed="false">Pyxel公式版</button><button id="restart">最初から</button>
+    <button id="show-compare" aria-pressed="true">並べて比較</button><button id="show-rust" aria-pressed="false">Rustのみ</button><button id="show-official" aria-pressed="false">公式のみ</button><button id="restart">最初から</button>
   </div>
+  <label for="resolution">Rust版の描画解像度<select id="resolution"></select></label>
+  <p class="notes">3Dを指定した解像度で描画します。解像度を変更するとRust版だけを最初から開始します。公式版は元の解像度のままです。</p>
   <div class="viewer"><div class="viewer-head"><strong id="viewer-title"></strong><span class="badge" id="version"></span></div><div id="frame-host"></div></div>
-  <p id="load-state" role="status">Rust版を読み込み中…</p>
+  <p id="load-state" role="status">デモを読み込み中…</p>
+  <p class="notes">左右の画面はそれぞれクリック／タップして操作できます。公式版は開始画面をクリックしてください。再生時刻と入力は同期しません。狭い画面では縦に並びます。</p>
   <nav class="links" aria-label="参照リンク"><a id="official-link" target="_blank" rel="noopener">公式版を別タブで開く ↗</a><a id="python-source" target="_blank" rel="noopener">公式Pythonソース ↗</a><a href="https://github.com/oosawak/pyxel-rust/tree/master/src/games/cube_examples" target="_blank" rel="noopener">Rustソース ↗</a></nav>
   <p class="notes">Rust版は公式Pyxel 3.0.0を基準に移植しています。描画・操作・モーション・衝突／物理に加え、効果音は同じMMLを公式シンセサイザーでWAV化して再生します。公式公開ページは更新される場合があります。切り替えると、そのバージョンを最初から開始します。</p>
   <details><summary>6本の一覧・アセットのクレジット</summary><ol id="catalog" class="catalog"></ol><p class="notes">公式サンプルコードと庭園アセット：Takashi Kitao / Pyxel（MIT）。Gazelle：<a href="https://blockbenchworkshop.com/model/monkus/gazelle" target="_blank" rel="noopener">monkus</a> / <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>。公式配布モデルを変更せず使用しています。<a href="https://github.com/oosawak/pyxel-rust/blob/master/src/games/cube_examples/assets/gazelle.md" target="_blank" rel="noopener">モデルの帰属・変更履歴</a></p></details>
   <noscript><p>比較表示にはJavaScriptが必要です。<a href="https://kitao.github.io/pyxel/web/showcase/">公式Showcase</a>から各デモを開けます。</p></noscript>
 </main>
-<script type="module" src="./viewer.js"></script>
+<script type="module" src="./viewer.js?v=highres-1"></script>
 </body></html>
