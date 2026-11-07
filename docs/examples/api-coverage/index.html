@@ -11,9 +11,9 @@
 <button id="cursor" aria-pressed="true">カーソルを隠す</button>
 <pre id="input" aria-label="現在の入力状態"></pre>
 <script type="module">
-import init, * as api from '../retro3d/pkg/pyxel_rust.js?build=aa69d3bcbefc';
+import init, * as api from '../retro3d/pkg/pyxel_rust.js?build=6ec861cb29d2';
 try {
-  await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=aa69d3bcbefc',import.meta.url)});
+  await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=6ec861cb29d2',import.meta.url)});
   api.start_api_coverage();window.demo=api;
   document.querySelector('#status').textContent='実行中';
   let cursor=true;

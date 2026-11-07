@@ -29,6 +29,42 @@ export function api_coverage_info(): string;
 
 export function browser_audio_status(): string;
 
+export function browser_demo_bgm(): string;
+
+export function browser_demo_edit(): void;
+
+export function browser_demo_flags(integer: boolean, monitor: boolean): void;
+
+export function browser_demo_icon(): void;
+
+export function browser_demo_info(): string;
+
+export function browser_demo_load(bytes: Uint8Array | number[]): void;
+
+export function browser_demo_palette(text: string): void;
+
+export function browser_demo_palette_text(): string;
+
+export function browser_demo_reset_palette(): void;
+
+export function browser_demo_resize(w: number, h: number): void;
+
+export function browser_demo_save(): Uint8Array;
+
+export function browser_demo_stop(): void;
+
+export function browser_demo_title(value: string): void;
+
+export function browser_demo_tmx(text: string): void;
+
+export function browser_fullscreen(enabled: boolean): Promise<void>;
+
+export function browser_screenshot(scale: number): Promise<Uint8Array>;
+
+export function browser_text_input(enabled: boolean): void;
+
+export function browser_window_error(): string | undefined;
+
 export function clear_retro3d_model(): void;
 
 export function cube_example_info(): string;
@@ -162,6 +198,8 @@ export function start_api_coverage(): void;
  */
 export function start_battle_from_js(idx: number): void;
 
+export function start_browser_system(): void;
+
 export function start_cube_example(id: number): void;
 
 export function start_cube_example_resolution(id: number, scale: number): void;
@@ -177,6 +215,24 @@ export interface InitOutput {
     readonly api_coverage_cursor: (a: number) => void;
     readonly api_coverage_info: () => [number, number];
     readonly browser_audio_status: () => [number, number];
+    readonly browser_demo_bgm: () => [number, number, number, number];
+    readonly browser_demo_edit: () => [number, number];
+    readonly browser_demo_flags: (a: number, b: number) => void;
+    readonly browser_demo_icon: () => [number, number];
+    readonly browser_demo_info: () => [number, number];
+    readonly browser_demo_load: (a: number, b: number) => [number, number];
+    readonly browser_demo_palette: (a: number, b: number) => [number, number];
+    readonly browser_demo_palette_text: () => [number, number];
+    readonly browser_demo_reset_palette: () => void;
+    readonly browser_demo_resize: (a: number, b: number) => [number, number];
+    readonly browser_demo_save: () => [number, number, number, number];
+    readonly browser_demo_stop: () => void;
+    readonly browser_demo_title: (a: number, b: number) => void;
+    readonly browser_demo_tmx: (a: number, b: number) => [number, number];
+    readonly browser_fullscreen: (a: number) => any;
+    readonly browser_screenshot: (a: number) => any;
+    readonly browser_text_input: (a: number) => [number, number];
+    readonly browser_window_error: () => [number, number];
     readonly clear_retro3d_model: () => void;
     readonly cube_example_info: () => [number, number];
     readonly cube_example_input: (a: number, b: number) => [number, number];
@@ -230,17 +286,22 @@ export interface InitOutput {
     readonly set_retro3d_paused: (a: number) => void;
     readonly start_api_coverage: () => void;
     readonly start_battle_from_js: (a: number) => void;
+    readonly start_browser_system: () => [number, number];
     readonly start_cube_example: (a: number) => [number, number];
     readonly start_cube_example_resolution: (a: number, b: number) => [number, number];
     readonly start_resources_audio: () => [number, number];
     readonly start_retro3d: () => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___js_sys_e23d1d6365e9eae___Function_fn_wasm_bindgen_cf0989641d10091a___JsValue_____wasm_bindgen_cf0989641d10091a___sys__Undefined___js_sys_e23d1d6365e9eae___Function_fn_wasm_bindgen_cf0989641d10091a___JsValue_____wasm_bindgen_cf0989641d10091a___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___wasm_bindgen_cf0989641d10091a___JsValue__core_8896a31dc0048bac___result__Result_____wasm_bindgen_cf0989641d10091a___JsError___true_: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true__63: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true__64: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true__65: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_bad5fcda91e6a9fc___features__gen_MouseEvent__MouseEvent______true__66: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_625e329666d65daa___features__gen_Blob__Blob_______true_: (a: number, b: number, c: number) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__82: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__83: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__84: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__85: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__86: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__87: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__88: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

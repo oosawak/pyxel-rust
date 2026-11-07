@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ブラウザ・ファイルAPIの確認 — Pyxel Rust</title>
+<style>:root{color-scheme:dark;font-family:system-ui;background:#101421;color:#eef0f7}body{max-width:940px;margin:auto;padding:20px}a{color:#a9c1ff}p{line-height:1.7;color:#aeb8ce}canvas{display:block;width:100%;height:auto;max-width:100%;image-rendering:pixelated;object-fit:contain;border:1px solid #495477}pre{padding:16px;background:#080c14;overflow:auto;font-size:13px}.controls{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}button,label,input,select{font:inherit;color:inherit;background:#222b40;border:1px solid #495477;border-radius:8px;padding:12px;min-height:44px;box-sizing:border-box;max-width:100%}label{display:block}label:has(input[type=checkbox]){display:flex;align-items:center;gap:6px}input[type=checkbox]{min-height:0;padding:0;margin:0}label input[type=file]{display:block;padding:4px;margin-top:8px;min-height:0}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #70c6a9;outline-offset:3px}.note{font-size:13px}[role=alert]{color:#ff9798}canvas:fullscreen{border:0;background:#080c14}</style>
+<a href="../../">← デモ一覧</a> · <a href="../retro3d/#compatibility">全機能の対応状況</a>
+<h1>ブラウザ・ファイルAPIの確認</h1><p>画面サイズ・全画面・タイトル・アイコン、256色、文字入力とファイルの読み書きを試せます。ファイルはこのブラウザ内で処理します。</p>
+<p id="status" role="status">読み込み中…</p><canvas id="pyxel_canvas" tabindex="0" aria-label="256色とブラウザAPIの確認画面"></canvas>
+<div class="controls"><input id="title" aria-label="ウィンドウタイトル" value="Pyxel Rust / Browser APIs"><button id="set-title" disabled>タイトルを変更</button><button id="icon" disabled>アイコンを変更</button><select id="size" disabled aria-label="画面サイズ"><option value="320,192">320×192</option><option value="400,240">400×240</option><option value="256,192">256×192</option></select><button id="fullscreen" disabled>全画面にする</button><label><input id="integer" type="checkbox" disabled>整数倍表示</label><label><input id="monitor" type="checkbox" disabled>性能表示</label><button id="capture" disabled>画面PNGを保存（2倍）</button></div>
+<p id="window-status" role="status">全画面表示はブラウザの許可が必要です。</p>
+<div class="controls"><button id="text" disabled>文字入力を開始</button><button id="text-end" disabled>文字入力を終了</button></div><p>入力を開始すると、日本語IMEでの入力も受け付けます。確定した文字を下の状態欄に表示します。通常の英数字は画面をクリックしても入力できます。</p>
+<div class="controls"><button id="edit" disabled>バンクを編集</button><button id="save" disabled>pyxresを保存</button><label>pyxresを読み込む<input id="load" type="file" accept=".pyxres" disabled></label><button id="save-pal" disabled>パレットを保存</button><label>パレットを読み込む<input id="load-pal" type="file" accept=".pyxpal,.txt" disabled></label><label>TMXを読み込む<input id="tmx" type="file" accept=".tmx" disabled></label></div>
+<p class="note">pyxresは公式の画像・タイルマップ・従来の音声配列・曲配列を保存します。MML・PCM・Tone・Font・Nodeは含みません。パレットは別ファイルです。TMXは公式コアと同じく、埋め込みタイルセット・8×8タイル・CSV層に対応します。</p><p>画面へファイルをドロップすると、名前・バイト数・先頭部分を状態欄に表示します。</p>
+<p id="file-status" role="status">ファイル操作を試せます。</p><div class="controls"><button id="bgm" disabled>BGMを自動生成して再生</button><button id="stop" disabled>音声を停止</button></div><pre id="details" aria-label="ブラウザAPIの状態"></pre>
+<script type="module">
+import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=6ec861cb29d2';
+const output=(id,text,error=false)=>{const el=document.querySelector(id);el.textContent=text;el.setAttribute('role',error?'alert':'status');};
+const fail=(id,error)=>output(id,String(error.message||error),true);
+function download(bytes,type,name){const url=URL.createObjectURL(new Blob([bytes],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+try{
+ await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=6ec861cb29d2',import.meta.url)});api.start_browser_system();window.demo=api;output('#status','実行中');document.querySelectorAll('button,input[type=file],input[type=checkbox],select').forEach(el=>el.disabled=false);
+ document.querySelector('#set-title').onclick=()=>{api.browser_demo_title(document.querySelector('#title').value);output('#window-status','タイトルを変更しました');};
+ document.querySelector('#icon').onclick=()=>{try{api.browser_demo_icon();output('#window-status','アイコンを変更しました');}catch(e){fail('#window-status',e)}};
+ document.querySelector('#size').onchange=event=>{try{api.browser_demo_resize(...event.target.value.split(',').map(Number));output('#window-status','画面サイズを変更しました');}catch(e){fail('#window-status',e)}};
+ document.addEventListener('fullscreenchange',()=>{const active=!!document.fullscreenElement;document.querySelector('#fullscreen').textContent=active?'全画面を終了':'全画面にする';output('#window-status',active?'全画面表示中（Escで戻れます）':'全画面を終了しました');});
+ document.querySelector('#fullscreen').onclick=async()=>{try{await api.browser_fullscreen(!document.fullscreenElement);output('#window-status',document.fullscreenElement?'全画面表示中':'全画面を終了しました');}catch(e){fail('#window-status',e)}};
+ for(const id of ['integer','monitor'])document.querySelector('#'+id).onchange=()=>api.browser_demo_flags(document.querySelector('#integer').checked,document.querySelector('#monitor').checked);
+ document.querySelector('#capture').onclick=async()=>{try{download(await api.browser_screenshot(2),'image/png','pyxel-screen.png')}catch(e){fail('#window-status',e)}};
+ document.querySelector('#text').onclick=()=>api.browser_text_input(true);document.querySelector('#text-end').onclick=()=>api.browser_text_input(false);
+ document.querySelector('#edit').onclick=()=>{try{api.browser_demo_edit()}catch(e){fail('#file-status',e)}};
+ document.querySelector('#save').onclick=()=>{try{download(api.browser_demo_save(),'application/octet-stream','pyxel-resource.pyxres')}catch(e){fail('#file-status',e)}};
+ document.querySelector('#load').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;api.browser_demo_load(new Uint8Array(await file.arrayBuffer()));output('#file-status',`${file.name} を読み込みました`);}catch(e){fail('#file-status',e)}};
+ document.querySelector('#save-pal').onclick=()=>download(api.browser_demo_palette_text(),'text/plain','pyxel-palette.pyxpal');
+ document.querySelector('#load-pal').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;api.browser_demo_palette(await file.text());output('#file-status',`${file.name} を読み込みました`);}catch(e){fail('#file-status',e)}};
+ document.querySelector('#tmx').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;api.browser_demo_tmx(await file.text());output('#file-status',`${file.name} を読み込みました`);}catch(e){fail('#file-status',e)}};
+ document.querySelector('#bgm').onclick=async()=>{try{await api.resume_browser_audio();api.browser_demo_bgm();output('#file-status','BGMを生成しました。4チャンネルでループ再生します。')}catch(e){fail('#file-status',e)}};
+ document.querySelector('#stop').onclick=()=>api.browser_demo_stop();setInterval(()=>document.querySelector('#details').textContent=JSON.stringify(JSON.parse(api.browser_demo_info()),null,2),100);
+}catch(e){fail('#status',e)}
+</script></html>

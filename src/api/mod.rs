@@ -43,3 +43,14 @@ pub use graphics::{blt_transform, bltm_transform, elli, ellib, fill, text_with_f
 
 #[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
 pub use resource::*;
+
+#[cfg(feature = "wasm-backend")]
+pub use input::dropped_file_bytes;
+pub use input::{dropped_files, input_text, set_dropped_files, set_input_text};
+
+#[cfg(feature = "wasm-backend")]
+pub use crate::backend::wasm_backend::system::browser_screenshot as screenshot_png;
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub use audio::gen_bgm;
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub use system::{fullscreen, icon, integer_scale, perf_monitor, resize, title};

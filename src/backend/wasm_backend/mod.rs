@@ -12,6 +12,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
 pub mod audio;
+pub mod system;
+pub mod text_files;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
@@ -192,8 +194,8 @@ pub struct WasmState {
     pub fps: u32,
     pub pixel_buffer: Vec<u8>,
     pub rgba_buffer: Vec<u8>, // pre-allocated RGBA output
-    pub palette: [[u8; 4]; 16],
-    pub color_map: [u8; 16],
+    pub palette: [[u8; 4]; 256],
+    pub color_map: [u8; 256],
     pub clip_rect: Option<[i32; 4]>,
     pub camera_x: f32,
     pub camera_y: f32,
@@ -201,15 +203,20 @@ pub struct WasmState {
     pub input: InputState,
     pub should_quit: bool,
     pub frame_count: u32,
+    pub integer_scale: bool,
+    pub perf_monitor: bool,
+    pub actual_fps: f64,
+    pub update_ms: f64,
+    pub draw_ms: f64,
+    pub dropped_bytes: Vec<(String, Vec<u8>)>,
     pub text_overlay: Vec<(i32, i32, String, u8)>, // non-ASCII text drawn via fillText
 }
 
 impl WasmState {
     fn new(width: u32, height: u32, fps: u32) -> Self {
-        let mut color_map = [0u8; 16];
-        for i in 0..16u8 {
-            color_map[i as usize] = i;
-        }
+        let color_map = std::array::from_fn(|i| i as u8);
+        let mut palette = [[0, 0, 0, 255]; 256];
+        palette[..16].copy_from_slice(&DEFAULT_PALETTE);
         let pixels = (width * height) as usize;
         Self {
             width,
@@ -218,7 +225,7 @@ impl WasmState {
             fps,
             pixel_buffer: vec![0u8; pixels],
             rgba_buffer: vec![0u8; pixels * 4],
-            palette: DEFAULT_PALETTE,
+            palette,
             color_map,
             clip_rect: None,
             camera_x: 0.0,
@@ -227,10 +234,33 @@ impl WasmState {
             input: InputState::new(),
             should_quit: false,
             frame_count: 0,
+            integer_scale: false,
+            perf_monitor: false,
+            actual_fps: 0.,
+            update_ms: 0.,
+            draw_ms: 0.,
+            dropped_bytes: Vec::new(),
             text_overlay: Vec::new(),
         }
     }
 
+    pub(crate) fn resize(&mut self, width: u32, height: u32) -> Result<(), String> {
+        let count = width
+            .checked_mul(height)
+            .filter(|n| *n > 0 && *n <= 16 * 1024 * 1024)
+            .ok_or("Invalid screen dimensions")? as usize;
+        self.width = width;
+        self.height = height;
+        self.display_scale = compute_scale(width, height);
+        self.pixel_buffer = vec![0; count];
+        self.rgba_buffer = vec![0; count * 4];
+        self.clip_rect = None;
+        self.camera_x = 0.;
+        self.camera_y = 0.;
+        self.dither_alpha = 1.;
+        self.text_overlay.clear();
+        Ok(())
+    }
     /// Reuse the official 2D rasterizer, preserving the software screen's state.
     pub(crate) fn raster_core(&mut self, draw: impl FnOnce(&mut crate::Image)) {
         let image = crate::Image::new(self.width, self.height);
@@ -244,6 +274,9 @@ impl WasmState {
         }
         image.set_camera(self.camera_x, self.camera_y);
         image.set_dithering(self.dither_alpha);
+        for (from, to) in self.color_map.iter().enumerate() {
+            image.map_color(from as u8, *to);
+        }
         draw(&mut image);
         let pixels =
             unsafe { std::slice::from_raw_parts(image.data_ptr(), self.pixel_buffer.len()) };
@@ -264,7 +297,8 @@ impl WasmState {
                 return;
             }
         }
-        self.pixel_buffer[(y as u32 * self.width + x as u32) as usize] = col & 0x0f;
+        self.pixel_buffer[(y as u32 * self.width + x as u32) as usize] =
+            self.color_map[col as usize];
     }
 
     fn cam(&self, x: f32, y: f32) -> (i32, i32) {
@@ -272,7 +306,7 @@ impl WasmState {
     }
 
     pub fn clear(&mut self, col: u8) {
-        let c = col & 0x0f;
+        let c = self.color_map[col as usize];
         for px in self.pixel_buffer.iter_mut() {
             *px = c;
         }
@@ -372,7 +406,8 @@ impl WasmState {
         // Non-ASCII (Japanese etc.) → defer to Canvas fillText overlay
         if s.chars().any(|c| c as u32 > 127) {
             let (cx, cy) = self.cam(x, y);
-            self.text_overlay.push((cx, cy, s.to_string(), col));
+            self.text_overlay
+                .push((cx, cy, s.to_string(), self.color_map[col as usize]));
             return;
         }
         let (mut cx, cy) = self.cam(x, y);
@@ -482,9 +517,13 @@ impl WasmState {
     }
 
     fn compose_rgba(&mut self) {
+        let colors = pyxel::colors();
+        for i in 0..256 {
+            let rgb = colors.get(i).copied().unwrap_or(0);
+            self.palette[i] = [(rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8, 255];
+        }
         for (i, &idx) in self.pixel_buffer.iter().enumerate() {
-            let mapped = self.color_map[idx as usize & 0x0f];
-            let rgba = self.palette[mapped as usize];
+            let rgba = self.palette[idx as usize];
             let base = i * 4;
             self.rgba_buffer[base..base + 4].copy_from_slice(&rgba);
         }
@@ -528,6 +567,9 @@ pub fn init(width: u32, height: u32, _title: &str, fps: u32) {
 
     // Register keyboard input
     register_keyboard_events();
+    text_files::register();
+    system::register();
+    system::title(_title);
 }
 
 fn get_canvas() -> Option<HtmlCanvasElement> {
@@ -561,20 +603,37 @@ fn register_keyboard_events() {
 
     let keydown = Closure::<dyn FnMut(KeyboardEvent)>::new(|e: KeyboardEvent| {
         // Form controls retain native arrow/space behavior for timeline and clip UI.
-        if e.target()
-            .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
-            .and_then(|target| {
-                target
-                    .closest("input, select, textarea, button, [contenteditable]")
-                    .ok()
-                    .flatten()
-            })
-            .is_some()
+        let is_editor = e
+            .target()
+            .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+            .is_some_and(|e| e.id() == "pyxel_text_input");
+        if !is_editor
+            && e.target()
+                .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
+                .and_then(|target| {
+                    target
+                        .closest("input, select, textarea, button, [contenteditable]")
+                        .ok()
+                        .flatten()
+                })
+                .is_some()
         {
             return;
         }
         let idx = code_to_idx(&e.code());
         state().input.set_key(idx, true);
+        if !is_editor
+            && !e.is_composing()
+            && !e.ctrl_key()
+            && !e.meta_key()
+            && e.key().chars().count() == 1
+        {
+            state().input.input_text.push_str(&e.key());
+        }
+        if is_editor {
+            return;
+        }
+
         // Prevent default for arrow keys and space to avoid page scroll
         match idx {
             1 | 5 | 6 | 7 | 8 => e.prevent_default(),
@@ -741,8 +800,15 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
                     },
                 );
             }
+            let start = perf.now();
             update();
+            let after_update = perf.now();
             draw();
+            let after_draw = perf.now();
+            state().actual_fps = 1000. / elapsed;
+            state().update_ms = after_update - start;
+            state().draw_ms = after_draw - after_update;
+            system::update_monitor();
 
             // Render pixel_buffer → canvas
             if let Some(ctx) = get_context() {
@@ -754,7 +820,6 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
                 let rgba = s.rgba_buffer.clone();
                 let overlays: Vec<(i32, i32, String, u8)> = s.text_overlay.drain(..).collect();
                 let palette = s.palette;
-                let color_map = s.color_map;
 
                 if let Ok(img_data) =
                     ImageData::new_with_u8_clamped_array_and_sh(wasm_bindgen::Clamped(&rgba), w, h)
@@ -798,8 +863,7 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
                     ));
                     ctx.set_text_baseline("top");
                     for (x, y, text, col) in &overlays {
-                        let mapped = color_map[(col & 0x0f) as usize] as usize;
-                        let [r, g, b, _] = palette[mapped];
+                        let [r, g, b, _] = palette[*col as usize];
                         ctx.set_fill_style(&JsValue::from_str(&format!("rgb({},{},{})", r, g, b)));
                         let _ =
                             ctx.fill_text(text, *x as f64 * scale as f64, *y as f64 * scale as f64);
@@ -826,6 +890,32 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
 #[cfg(test)]
 mod coverage_tests {
     use super::*;
+    #[test]
+    fn extended_palette_and_resize_preserve_state_on_invalid_requests() {
+        let mut screen = WasmState::new(8, 8, 30);
+        let old = pyxel::colors().clone();
+        {
+            let mut colors = pyxel::colors();
+            colors.resize(256, 0);
+            colors[200] = 0x123456;
+        }
+        screen.color_map[8] = 200;
+        screen.pset(2., 2., 8);
+        screen.color_map[8] = 8;
+        assert_eq!(
+            screen.pixel_buffer[18], 200,
+            "pal maps at draw time, not presentation time"
+        );
+        screen.compose_rgba();
+        assert_eq!(&screen.rgba_buffer[72..76], &[0x12, 0x34, 0x56, 255]);
+        assert!(screen.resize(0, 8).is_err());
+        assert_eq!((screen.width, screen.height), (8, 8));
+        assert_eq!(screen.pixel_buffer[18], 200);
+        screen.resize(10, 6).unwrap();
+        assert_eq!(screen.pixel_buffer.len(), 60);
+        assert!(screen.pixel_buffer.iter().all(|&p| p == 0));
+        *pyxel::colors() = old;
+    }
     #[test]
     fn official_shapes_preserve_background_clip_camera_and_dither() {
         let mut screen = WasmState::new(80, 60, 30);

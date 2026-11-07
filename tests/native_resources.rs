@@ -6,6 +6,9 @@ fn native_helpers_edit_the_public_resource_banks() {
     set_palette_color(8, 0x123456);
     assert_eq!(get_palette_color(8), 0x123456);
     set_palette_color(8, old);
+    assert_eq!(colors()[8], old);
+    let original = images()[1].clone();
+    with_images(|banks| banks[1] = Image::new(32, 32));
     image_rect(1, 0., 0., 8., 8., 8);
     assert_eq!(images()[1].borrow().pixel(2., 2.), 8);
     image_pset(1, 2., 2., 11);
@@ -27,4 +30,6 @@ fn native_helpers_edit_the_public_resource_banks() {
     )
     .unwrap();
     assert_eq!(font.borrow_mut().text_width("AA"), 8);
+    with_images(|banks| banks[1] = original);
+    assert!(gen_bgm(99, 0, 3, 123, false).is_err());
 }
