@@ -85,7 +85,7 @@ try {
   document.getElementById('action').textContent= id===1?'ワイヤー表示':id===2?'ロック／発射':id===4?'ジャンプ':id===5?'発射':'アクション';
   document.getElementById('action').hidden=[0,3].includes(id);
   // A versioned URL avoids mixing a cached pre-port loader/WASM with this page.
-  const build='c207837e9508';
+  const build='81ee665b25fd';
   wasm=await import(`../retro3d/pkg/pyxel_rust.js?build=${build}`);
   await wasm.default({module_or_path:new URL(`../retro3d/pkg/pyxel_rust_bg.wasm?build=${build}`,import.meta.url)});
   const requestedResolution = Number(new URLSearchParams(location.search).get("resolution")) || 1;

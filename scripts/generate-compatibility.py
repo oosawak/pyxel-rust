@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/pyxel-3.0-api.json'
 OUTPUT = ROOT / 'docs/assets/compatibility/data.json'
-ENGINE_REV = '557d5e762de5c50a7f557ccfe1526ec0d9cf3681'
+ENGINE_REV = 'bd82b72206511e75844d1b4f97c928c7520b486d'
 BACKENDS = ['wasm', 'sdl2', 'wgpu']
 
 
@@ -64,18 +64,14 @@ def classify(row, backend):
         return result('supported', '公式Cubeコアの型・演算をRustから公開。Pythonのプロパティや定数にはRustメソッドでの相当操作を含みます。個別の動作テストは未実施です。', path)
     if name.isupper():
         constants = read(api+'constants.rs')
-        if category == 'Graphics' and name.startswith('COLOR_'):
-            present = re.search(r'pub const '+re.escape(name)+r'\b', constants)
-        elif native:
-            block = constants.split('mod keys_pyxel {', 1)[1]
-            present = re.search(r'\b'+re.escape(name)+r'\b', block)
-        else:
-            present = re.search(r'pub const '+re.escape(name)+r'\b', constants)
-        if not present:
+        declared = re.search(r'pub const '+re.escape(name)+r'\b', constants)
+        exported = native and re.search(r'\b'+re.escape(name)+r'\b', constants.split('mod keys_pyxel {', 1)[1])
+        if not (declared or exported):
             return missing(api+'constants.rs')
-        if soft and name.startswith('MOUSE_'):
-            return result('partial', '定数はありますが、座標・ホイール定数は仮値、ボタンイベントは未接続です。座標はmouse_x/y()を使用します。', api+'constants.rs', name)
-        return result('supported', 'この名前の定数を公開しています。入力イベントや個別デバイスの動作確認とは別です。', api+'constants.rs', name)
+        note = 'この名前の定数を公開しています。入力イベントや個別デバイスの動作確認とは別です。'
+        if soft and name.startswith(('KEY_', 'MOUSE_', 'GAMEPAD')):
+            note += 'キー番号はバックエンド固有です。ブラウザは対応する物理キーと標準マッピングのゲームパッド4台に接続します。wgpuのゲームパッド入力は未接続です。'
+        return result('supported', note, api+'constants.rs', name)
     if category == 'System':
         path = api+'system.rs'
         if name in ['width', 'height', 'frame_count', 'run', 'quit']:
@@ -86,17 +82,25 @@ def classify(row, backend):
     if category == 'Input':
         path = api+'input.rs'
         if name == 'btnp':
-            return result('partial' if soft else 'supported', 'btnp_holdはhold/repeatを無視します。単発のbtnpのみ実装。' if soft else 'btnp / btnp_holdで単発・リピートを処理します。', path, 'pub fn btnp_hold')
+            return result('supported', 'btnp / btnp_holdで単発・ゲームフレーム数に基づくhold/repeatを処理します。', path, 'pub fn btnp_hold', 'browser-input' if backend == 'wasm' else None)
         if name in ['btn', 'btnr', 'mouse_x', 'mouse_y']:
-            return result('supported', 'キーボード／マウス座標のバックエンドに接続。ゲームパッド等の入力経路すべての対応を意味しません。', path, 'pub fn '+name)
+            return result('supported', 'キーボード／マウス座標のバックエンドに接続。ゲームパッド等の入力経路すべての対応を意味しません。', path, 'pub fn '+name, 'browser-input' if backend == 'wasm' else None)
         if name in ['mouse_wheel', 'mouse']:
-            return result('missing' if soft else 'supported', ('mouse_wheelは常に0、set_mouse_visibleは空処理です。' if soft else '公式コアへ接続。mouseのRust名はset_mouse_visibleです。'), path, 'pub fn '+('set_mouse_visible' if name == 'mouse' else name))
+            return result('supported', '公式コアへ接続。' if native else 'マウスイベント／カーソル表示に接続。ホイールは方向を整数ステップに正規化し、毎フレームリセットします。', path, 'pub fn '+name, 'browser-input' if backend == 'wasm' else None)
+        if name in ['btnv', 'set_btn', 'set_btnv', 'input_keys']:
+            return result('supported', '公式コアへ接続。' if native else 'デジタル・アナログ入力状態とキー押下一覧を読み書きできます。ブラウザの標準ゲームパッドは毎フレーム取得し、切断時に解除します。wgpuのゲームパッドイベントは未接続です。', path, 'pub fn '+name)
+        if name == 'set_mouse_pos':
+            return result('supported' if native else 'partial', '公式コアでカーソル位置を変更します。' if native else '論理座標の変更に対応します。ブラウザ／wgpuのOSカーソルは移動しません。次のマウス移動で座標が更新されます。', path, 'pub fn '+name)
         return missing(path)
     if category == 'Graphics':
         path = api+'graphics.rs'
         if name in ['clip', 'camera', 'pal', 'dither', 'cls', 'pget', 'pset', 'line']:
             return result('supported', '描画バックエンドへ接続。引数なしのリセットは*_reset()を使用します。', path, 'pub fn '+name)
-        if name in ['rect', 'rectb', 'circ', 'circb']:
+        if name in ['rectb', 'circb']:
+            return result('supported', '公式名の輪郭描画APIを公開しています。', path, 'pub fn '+name, 'drawing' if backend == 'wasm' else None)
+        if name in ['elli', 'ellib', 'tri', 'trib', 'fill'] and backend != 'wgpu':
+            return result('supported', '公式コアのラスタライザーで楕円・三角形・塗りつぶしを描画。既存画素・クリップ・カメラ・ディザを維持します。', path, 'pub fn '+name, 'drawing' if backend == 'wasm' else None)
+        if name in ['rect', 'circ']:
             return result('partial', '公式と名前が異なります。塗りつぶしはrectfill/circfill、輪郭はrect/circです。公式名をそのまま移植できません。', path, 'pub fn '+('rect' if name.startswith('rect') else 'circ'))
         if name in ['blt', 'bltm', 'text']:
             return result('partial', '基本描画のみ。blt/bltmのrotate/scale、textの任意Font引数は公開していません。', path, 'pub fn '+name)
@@ -109,10 +113,12 @@ def classify(row, backend):
         return missing(path)
     if category == 'Math':
         path = api+'math.rs'
-        if name in ['sgn', 'sqrt', 'sin', 'cos', 'floor', 'clamp']:
-            return result('supported', 'Rustの実装あり。floor等の戻り値型はPython APIと異なります。', path, 'pub fn '+name)
+        if name in ['sgn', 'sqrt', 'sin', 'cos', 'floor', 'ceil', 'atan2', 'clamp']:
+            return result('supported', 'Rustの実装あり。floor等の戻り値型はPython APIと異なります。', path, 'pub fn '+name, 'math' if name in ['ceil', 'atan2'] and backend != 'wgpu' else None)
         if name in ['rseed', 'rndi', 'rndf']:
-            return result('partial', '独自xorshift乱数で公式の乱数列とは一致しません。rndiの相当関数はrnd_intです。', path, 'pub fn '+('rnd_int' if name == 'rndi' else name))
+            return result('supported' if backend != 'wgpu' else 'partial', '公式コアの乱数生成器に接続。同一seedの整数・小数の列を比較テスト済みです。' if backend != 'wgpu' else '独自xorshift乱数で公式の乱数列とは一致しません。', path, 'pub fn '+name, 'math' if backend != 'wgpu' else None)
+        if name in ['nseed', 'noise'] and backend != 'wgpu':
+            return result('supported', '公式コアのPerlinノイズに接続。noiseのy/zはOptionで省略でき、既定値は0です。', path, 'pub fn '+name, 'math')
         return missing(path)
     if category == 'Audio':
         path = api+'audio.rs'

@@ -284,6 +284,22 @@ node scripts/playtest-cube-comparison.cjs
 
 Rust版の公式Cubeデモでは、描画解像度を標準・2倍・4倍に変更できます。3D形状を実際に高解像度で描画し、HUDと入力は元の座標系を保ちます。解像度変更時はRust版だけを再起動します。ネイティブ版は `cargo run --example cube_examples -- 1 2` の第2引数で倍率を指定できます。
 
+### 共通APIの追加対応
+
+[基本APIの動作確認](https://oosawak.github.io/pyxel-rust/examples/api-coverage/) で楕円・三角形・塗りつぶし、キーボード、マウス、標準ゲームパッド4台の状態を確認できます。
+
+- 入力：`btnp_hold`のhold/repeat、`btnv`、`set_btn`、`set_btnv`、`input_keys`、マウスボタン・ホイール・カーソル表示。ブラウザのマウス座標はCSSの表示サイズを考慮します。フォーカスを失った場合は押下を解除します。
+- 描画：`elli`、`ellib`、`tri`、`trib`、`fill`をSDL2とCanvas/WASMで公開し、公式ラスタライザーを使用します。`rectb` / `circb`も追加。既存Rustゲーム用に`rect` / `circ`の輪郭描画の意味は維持しています。
+- 数学：`ceil`、度数の`atan2`、`rndi`、`nseed`、`noise`。SDL2とCanvasの乱数・ノイズは公式コアを使用します。従来の`rnd_int`が常に0になる不具合も修正しました。
+- 定数：不足していた260件を公開しました。定数の存在と機器の入力対応は別です。キー番号はバックエンド固有なので、数値を直書きせず定数名を使用してください。ブラウザのゲームパッドは標準マッピングに対応し、wgpuのゲームパッドイベントは引き続き未対応です。
+
+`set_mouse_pos`はブラウザ／wgpuでは論理座標の変更のみで、OSのポインターは移動しません。ブラウザのホイールは方向を整数ステップに正規化します。ゲームパッドの自動テストは模擬Web Gamepadオブジェクトを使い、実機の全モデルの確認を意味しません。
+
+```bash
+cargo test --locked --no-default-features --features wasm-backend --lib --test math_compatibility
+node scripts/playtest-api-coverage.cjs
+```
+
 ### ローカル確認（GitHub Pages 相当）
 
 ```bash

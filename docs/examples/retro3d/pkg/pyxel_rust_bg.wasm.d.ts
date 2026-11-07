@@ -1,6 +1,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const api_coverage_cursor: (a: number) => void;
+export const api_coverage_info: () => [number, number];
 export const clear_retro3d_model: () => void;
 export const cube_example_info: () => [number, number];
 export const cube_example_input: (a: number, b: number) => [number, number];
@@ -44,12 +46,15 @@ export const set_retro3d_animation_speed: (a: number) => [number, number];
 export const set_retro3d_auto_rotate: (a: number) => void;
 export const set_retro3d_distance: (a: number) => void;
 export const set_retro3d_paused: (a: number) => void;
+export const start_api_coverage: () => void;
 export const start_battle_from_js: (a: number) => void;
 export const start_cube_example: (a: number) => [number, number];
 export const start_cube_example_resolution: (a: number, b: number) => [number, number];
 export const start_retro3d: () => void;
-export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__48: (a: number, b: number, c: any) => void;
+export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
+export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__51: (a: number, b: number, c: any) => void;
+export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__52: (a: number, b: number, c: any) => void;
+export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__53: (a: number, b: number, c: any) => void;
 export const wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

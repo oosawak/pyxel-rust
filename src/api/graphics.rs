@@ -1,5 +1,4 @@
 /// Graphics API - Drawing primitives
-
 use crate::Color;
 
 #[cfg(feature = "wasm-backend")]
@@ -13,8 +12,14 @@ fn s() -> &'static mut crate::backend::wgpu_backend::WgpuState {
 
 macro_rules! dispatch {
     (soft: $soft:expr, pyxel: $p:expr) => {{
-        #[cfg(any(feature = "wgpu-backend", feature = "wasm-backend"))] { $soft }
-        #[cfg(feature = "pyxel-core-backend")] { $p }
+        #[cfg(any(feature = "wgpu-backend", feature = "wasm-backend"))]
+        {
+            $soft
+        }
+        #[cfg(feature = "pyxel-core-backend")]
+        {
+            $p
+        }
     }};
 }
 
@@ -141,4 +146,52 @@ pub fn tilemap_pget(tm: u32, x: u32, y: u32) -> (u8, u8) {
 /// Tilemap: set tile at (x, y)
 pub fn tilemap_pset(tm: u32, x: u32, y: u32, tile: (u8, u8)) {
     dispatch!(soft: s().tilemap_pset(tm, x, y, tile), pyxel: { let _ = (tm,x,y,tile); });
+}
+
+/// Official outline spellings. Legacy rect/circ remain outlines for existing Rust games.
+pub fn rectb(x: f32, y: f32, w: f32, h: f32, col: Color) {
+    rect(x, y, w, h, col);
+}
+pub fn circb(x: f32, y: f32, r: f32, col: Color) {
+    circ(x, y, r, col);
+}
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn elli(x: f32, y: f32, w: f32, h: f32, col: Color) {
+    #[cfg(feature = "wasm-backend")]
+    s().raster_core(|image| image.draw_ellipse(x, y, w, h, col));
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().draw_ellipse(x, y, w, h, col);
+}
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn ellib(x: f32, y: f32, w: f32, h: f32, col: Color) {
+    #[cfg(feature = "wasm-backend")]
+    s().raster_core(|image| image.draw_ellipse_border(x, y, w, h, col));
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().draw_ellipse_border(x, y, w, h, col);
+}
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn tri(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32, col: Color) {
+    #[cfg(feature = "wasm-backend")]
+    s().raster_core(|image| image.draw_triangle(x1, y1, x2, y2, x3, y3, col));
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().draw_triangle(x1, y1, x2, y2, x3, y3, col);
+}
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn trib(x1: f32, y1: f32, x2: f32, y2: f32, x3: f32, y3: f32, col: Color) {
+    #[cfg(feature = "wasm-backend")]
+    s().raster_core(|image| image.draw_triangle_border(x1, y1, x2, y2, x3, y3, col));
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().draw_triangle_border(x1, y1, x2, y2, x3, y3, col);
+}
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn fill(x: f32, y: f32, col: Color) {
+    #[cfg(feature = "wasm-backend")]
+    s().raster_core(|image| image.flood_fill(x, y, col));
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().flood_fill(x, y, col);
 }

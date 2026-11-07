@@ -23,6 +23,29 @@ export const ChromaSampling = Object.freeze({
     Cs400: 3, "3": "Cs400",
 });
 
+/**
+ * @param {boolean} visible
+ */
+export function api_coverage_cursor(visible) {
+    wasm.api_coverage_cursor(visible);
+}
+
+/**
+ * @returns {string}
+ */
+export function api_coverage_info() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.api_coverage_info();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
 export function clear_retro3d_model() {
     wasm.clear_retro3d_model();
 }
@@ -397,6 +420,10 @@ export function set_retro3d_paused(paused) {
     wasm.set_retro3d_paused(paused);
 }
 
+export function start_api_coverage() {
+    wasm.start_api_coverage();
+}
+
 /**
  * Called from JS to start a battle against enemy at given index.
  * The game loop picks this up next frame and transitions to Battle state.
@@ -444,6 +471,12 @@ function __wbg_get_imports() {
             const ret = arg0 === undefined;
             return ret;
         },
+        __wbg___wbindgen_number_get_934b640d0889af78: function(arg0, arg1) {
+            const obj = arg1;
+            const ret = typeof(obj) === 'number' ? obj : undefined;
+            getDataViewMemory0().setFloat64((arg0 >>> 0) + 8 * 1, isLikeNone(ret) ? 0 : ret, true);
+            getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 0, !isLikeNone(ret), true);
+        },
         __wbg___wbindgen_throw_4c88d8bf264fd984: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
@@ -457,9 +490,29 @@ function __wbg_get_imports() {
             const ret = arg0.appendChild(arg1);
             return ret;
         }, arguments); },
+        __wbg_axes_27b88b4eb3f1c9e8: function(arg0) {
+            const ret = arg0.axes;
+            return ret;
+        },
         __wbg_body_5f971cbc6950ca4f: function(arg0) {
             const ret = arg0.body;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
+        },
+        __wbg_button_653210370515dd71: function(arg0) {
+            const ret = arg0.button;
+            return ret;
+        },
+        __wbg_buttons_94a35f2b0c63a35a: function(arg0) {
+            const ret = arg0.buttons;
+            return ret;
+        },
+        __wbg_clientX_7207eed549b03753: function(arg0) {
+            const ret = arg0.clientX;
+            return ret;
+        },
+        __wbg_clientY_3371139730cd6f74: function(arg0) {
+            const ret = arg0.clientY;
+            return ret;
         },
         __wbg_closest_39824b16065066bc: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = arg0.closest(getStringFromWasm0(arg1, arg2));
@@ -472,10 +525,22 @@ function __wbg_get_imports() {
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 1, len1, true);
             getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 0, ptr1, true);
         },
+        __wbg_connected_26ebb89ef63ebae6: function(arg0) {
+            const ret = arg0.connected;
+            return ret;
+        },
         __wbg_createElement_de4a31ed2fb252be: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = arg0.createElement(getStringFromWasm0(arg1, arg2));
             return ret;
         }, arguments); },
+        __wbg_deltaX_6ad2483f3f4c0349: function(arg0) {
+            const ret = arg0.deltaX;
+            return ret;
+        },
+        __wbg_deltaY_37dc0a54748a91f4: function(arg0) {
+            const ret = arg0.deltaY;
+            return ret;
+        },
         __wbg_document_3b5c3071b43e97ee: function(arg0) {
             const ret = arg0.document;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
@@ -486,6 +551,10 @@ function __wbg_get_imports() {
         __wbg_fillText_89d353a9ad9f4a1a: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
             arg0.fillText(getStringFromWasm0(arg1, arg2), arg3, arg4);
         }, arguments); },
+        __wbg_getBoundingClientRect_329ca748ec918b0c: function(arg0) {
+            const ret = arg0.getBoundingClientRect();
+            return ret;
+        },
         __wbg_getContext_d93f904b714852ae: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = arg0.getContext(getStringFromWasm0(arg1, arg2));
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
@@ -493,6 +562,21 @@ function __wbg_get_imports() {
         __wbg_getElementById_7ee213db584f37b0: function(arg0, arg1, arg2) {
             const ret = arg0.getElementById(getStringFromWasm0(arg1, arg2));
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
+        },
+        __wbg_getGamepads_5be880521b3ecfaa: function() { return handleError(function (arg0) {
+            const ret = arg0.getGamepads();
+            return ret;
+        }, arguments); },
+        __wbg_getRandomValues_8b6f1f663e6f188d: function() { return handleError(function (arg0, arg1) {
+            globalThis.crypto.getRandomValues(getArrayU8FromWasm0(arg0, arg1));
+        }, arguments); },
+        __wbg_get_d7176cfb76d71114: function(arg0, arg1) {
+            const ret = arg0[arg1 >>> 0];
+            return ret;
+        },
+        __wbg_height_ce5f2b5901ba05ab: function(arg0) {
+            const ret = arg0.height;
+            return ret;
         },
         __wbg_instanceof_CanvasRenderingContext2d_72a60be8aaadecab: function(arg0) {
             let result;
@@ -508,6 +592,26 @@ function __wbg_get_imports() {
             let result;
             try {
                 result = arg0 instanceof Element;
+            } catch (_) {
+                result = false;
+            }
+            const ret = result;
+            return ret;
+        },
+        __wbg_instanceof_GamepadButton_db22ff43074e1ad4: function(arg0) {
+            let result;
+            try {
+                result = arg0 instanceof GamepadButton;
+            } catch (_) {
+                result = false;
+            }
+            const ret = result;
+            return ret;
+        },
+        __wbg_instanceof_Gamepad_7900b439501ad012: function(arg0) {
+            let result;
+            try {
+                result = arg0 instanceof Gamepad;
             } catch (_) {
                 result = false;
             }
@@ -534,6 +638,18 @@ function __wbg_get_imports() {
             const ret = result;
             return ret;
         },
+        __wbg_left_9df47701ff317a35: function(arg0) {
+            const ret = arg0.left;
+            return ret;
+        },
+        __wbg_mapping_6c3a7915decb8fdd: function(arg0) {
+            const ret = arg0.mapping;
+            return (__wbindgen_enum_GamepadMappingType.indexOf(ret) + 1 || 3) - 1;
+        },
+        __wbg_navigator_c17f443a6fe5d38d: function(arg0) {
+            const ret = arg0.navigator;
+            return ret;
+        },
         __wbg_new_with_u8_clamped_array_and_sh_e5d757b60792d996: function() { return handleError(function (arg0, arg1, arg2, arg3) {
             const ret = new ImageData(getClampedArrayU8FromWasm0(arg0, arg1), arg2 >>> 0, arg3 >>> 0);
             return ret;
@@ -542,17 +658,13 @@ function __wbg_get_imports() {
             const ret = arg0.now();
             return ret;
         },
-        __wbg_offsetX_b3f88f70dc639385: function(arg0) {
-            const ret = arg0.offsetX;
-            return ret;
-        },
-        __wbg_offsetY_8037bf2718ef7393: function(arg0) {
-            const ret = arg0.offsetY;
-            return ret;
-        },
         __wbg_performance_50e6a3f8dc80bbca: function(arg0) {
             const ret = arg0.performance;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
+        },
+        __wbg_pressed_5508f4e84425b2ee: function(arg0) {
+            const ret = arg0.pressed;
+            return ret;
         },
         __wbg_preventDefault_cfb06b02e7406899: function(arg0) {
             arg0.preventDefault();
@@ -563,6 +675,9 @@ function __wbg_get_imports() {
         __wbg_requestAnimationFrame_9ba49d36a19ca83c: function() { return handleError(function (arg0, arg1) {
             const ret = arg0.requestAnimationFrame(arg1);
             return ret;
+        }, arguments); },
+        __wbg_setProperty_3fe74e09d53acb0b: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
+            arg0.setProperty(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
         }, arguments); },
         __wbg_set_fillStyle_f2819d67645a21ba: function(arg0, arg1) {
             arg0.fillStyle = arg1;
@@ -601,26 +716,52 @@ function __wbg_get_imports() {
             const ret = typeof window === 'undefined' ? undefined : window;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
+        __wbg_style_f499e599ac70277f: function(arg0) {
+            const ret = arg0.style;
+            return ret;
+        },
         __wbg_target_e5cd9c7aa87dd8df: function(arg0) {
             const ret = arg0.target;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
+        __wbg_top_2d45cda4e060d8bf: function(arg0) {
+            const ret = arg0.top;
+            return ret;
+        },
+        __wbg_value_6c3df9cc1c6b6185: function(arg0) {
+            const ret = arg0.value;
+            return ret;
+        },
+        __wbg_width_d3c8d417d821d2fd: function(arg0) {
+            const ret = arg0.width;
+            return ret;
+        },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 26, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("Event")], shim_idx: 31, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true_);
             return ret;
         },
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("MouseEvent")], shim_idx: 26, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__48);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 31, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__51);
             return ret;
         },
         __wbindgen_generic_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 25, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("MouseEvent")], shim_idx: 31, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__52);
             return ret;
         },
         __wbindgen_generic_0000000000000004: function(arg0, arg1) {
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("WheelEvent")], shim_idx: 31, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__53);
+            return ret;
+        },
+        __wbindgen_generic_0000000000000005: function(arg0, arg1) {
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 30, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_);
+            return ret;
+        },
+        __wbindgen_generic_0000000000000006: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
             return ret;
@@ -644,13 +785,24 @@ function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true
     wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_(arg0, arg1);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true_(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true_(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__48(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__48(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__51(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__51(arg0, arg1, arg2);
 }
+
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__52(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__52(arg0, arg1, arg2);
+}
+
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__53(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_5953b4331768412d___features__gen_MouseEvent__MouseEvent______true__53(arg0, arg1, arg2);
+}
+
+
+const __wbindgen_enum_GamepadMappingType = ["", "standard"];
 
 function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();
@@ -718,6 +870,11 @@ function debugString(val) {
         // Per MDN: 'This list of values is exhaustive.'
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof#description
     }
+}
+
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
 function getClampedArrayU8FromWasm0(ptr, len) {

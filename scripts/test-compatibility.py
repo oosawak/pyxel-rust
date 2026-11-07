@@ -46,14 +46,26 @@ class CompatibilityTests(unittest.TestCase):
 
     def test_semantic_and_backend_limitations_are_visible(self):
         self.assertEqual(self.find('rect', 'wasm')['status'], 'partial')
-        self.assertEqual(self.find('btnp', 'wasm')['status'], 'partial')
-        self.assertEqual(self.find('mouse_wheel', 'wasm')['status'], 'missing')
+        self.assertEqual(self.find('btnp', 'wasm')['status'], 'supported')
+        self.assertEqual(self.find('mouse_wheel', 'wasm')['status'], 'supported')
         self.assertEqual(self.find('Node.update', 'wasm')['status'], 'missing')
         self.assertEqual(self.find('Node.raycast', 'wgpu')['status'], 'missing')
         self.assertEqual(self.find('Mesh.from_glb', 'wasm')['status'], 'partial')
         self.assertIsNone(self.find('Mesh.from_glb', 'sdl2')['verification'])
         self.assertEqual(self.find('Tilemap', 'wasm')['status'], 'missing')
         self.assertEqual(self.find('Font', 'sdl2')['status'], 'missing')
+
+    def test_new_api_support_preserves_real_platform_limits(self):
+        for name in ['elli','ellib','tri','trib','fill','ceil','atan2','noise','nseed','rndi','btnv','set_btn','input_keys','mouse']:
+            self.assertEqual(self.find(name,'wasm')['status'],'supported',name)
+        self.assertEqual(self.find('set_mouse_pos','wasm')['status'],'partial')
+        self.assertEqual(self.find('noise','wgpu')['status'],'missing')
+        self.assertEqual(self.find('tri','wgpu')['status'],'missing')
+        self.assertEqual(self.find('rndi','wgpu')['status'],'partial')
+        self.assertIn('未接続',self.find('GAMEPAD4_BUTTON_DPAD_RIGHT','wgpu')['note'])
+        for backend in inventory.BACKENDS:
+            self.assertEqual(self.find('KEY_F24',backend)['status'],'supported')
+            self.assertEqual(self.find('MOUSE_POS_X',backend)['status'],'supported')
 
     def test_published_report_matches_reviewed_source(self):
         self.assertEqual(json.loads(inventory.OUTPUT.read_text()), self.data)
