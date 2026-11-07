@@ -54,6 +54,24 @@ impl Tilemap {
         parse_tmx(filename, layer_index)
     }
 
+    pub fn from_tmx_text(text: &str, layer_index: u32) -> Result<RcTilemap, String> {
+        crate::tmx_parser::parse_tmx_text(text, layer_index)
+    }
+    pub fn load_tmx_text(
+        &mut self,
+        x: f32,
+        y: f32,
+        text: &str,
+        layer_index: u32,
+    ) -> Result<(), String> {
+        let source = Self::from_tmx_text(text, layer_index)?;
+        let (w, h) = {
+            let map = source.borrow();
+            (map.width(), map.height())
+        };
+        self.draw_tilemap(x, y, &source, 0., 0., w as f32, h as f32, None, None, None);
+        Ok(())
+    }
     // Accessors
 
     pub const fn width(&self) -> u32 {

@@ -54,6 +54,11 @@ pub fn parse_tmx(path: &str, layer_index: u32) -> Result<RcTilemap, String> {
     file.read_to_string(&mut tmx_text)
         .map_err(|_| err("Failed to read file"))?;
 
+    parse_tmx_text(&tmx_text, layer_index)
+}
+pub fn parse_tmx_text(tmx_text: &str, layer_index: u32) -> Result<RcTilemap, String> {
+    let path = "memory.tmx";
+    let err = |msg| format!("{msg} '{path}'");
     let tmx: TmxMap = serde_xml_rs::from_str(&tmx_text).map_err(|_| err("Failed to parse file"))?;
     if tmx.tilewidth != TILE_SIZE || tmx.tileheight != TILE_SIZE {
         return Err(err("Invalid tile size in file"));

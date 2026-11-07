@@ -8,8 +8,18 @@ mod pyxel_core_impl {
     use pyxel::{Pyxel, PyxelCallback};
 
     pub fn init(width: u32, height: u32, title: &str, fps: u32) {
-        pyxel::init(width, height, Some(title), Some(fps), None, None, None, None, None)
-            .expect("Failed to initialize Pyxel");
+        pyxel::init(
+            width,
+            height,
+            Some(title),
+            Some(fps),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("Failed to initialize Pyxel");
     }
 
     pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
@@ -32,10 +42,18 @@ mod pyxel_core_impl {
         Pyxel::run(callback);
     }
 
-    pub fn quit() { Pyxel::quit(); }
-    pub fn width() -> u32 { *pyxel::width() }
-    pub fn height() -> u32 { *pyxel::height() }
-    pub fn frame_count() -> u32 { *pyxel::frame_count() }
+    pub fn quit() {
+        Pyxel::quit();
+    }
+    pub fn width() -> u32 {
+        *pyxel::width()
+    }
+    pub fn height() -> u32 {
+        *pyxel::height()
+    }
+    pub fn frame_count() -> u32 {
+        *pyxel::frame_count()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -51,10 +69,19 @@ mod wasm_impl {
     pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
         wasm_backend::run(Box::new(update), Box::new(draw));
     }
-    pub fn quit() { crate::api::audio::stop(None); wasm_backend::state().should_quit = true; }
-    pub fn width() -> u32 { wasm_backend::state().width }
-    pub fn height() -> u32 { wasm_backend::state().height }
-    pub fn frame_count() -> u32 { wasm_backend::state().frame_count }
+    pub fn quit() {
+        crate::api::audio::stop(None);
+        wasm_backend::state().should_quit = true;
+    }
+    pub fn width() -> u32 {
+        wasm_backend::state().width
+    }
+    pub fn height() -> u32 {
+        wasm_backend::state().height
+    }
+    pub fn frame_count() -> u32 {
+        wasm_backend::state().frame_count
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -70,10 +97,18 @@ mod wgpu_impl {
     pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
         wgpu_backend::run(Box::new(update), Box::new(draw));
     }
-    pub fn quit() { wgpu_backend::state().should_quit = true; }
-    pub fn width() -> u32 { wgpu_backend::state().width }
-    pub fn height() -> u32 { wgpu_backend::state().height }
-    pub fn frame_count() -> u32 { wgpu_backend::state().frame_count }
+    pub fn quit() {
+        wgpu_backend::state().should_quit = true;
+    }
+    pub fn width() -> u32 {
+        wgpu_backend::state().width
+    }
+    pub fn height() -> u32 {
+        wgpu_backend::state().height
+    }
+    pub fn frame_count() -> u32 {
+        wgpu_backend::state().frame_count
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -81,40 +116,130 @@ mod wgpu_impl {
 // ---------------------------------------------------------------------------
 
 pub fn init(width: u32, height: u32, title: &str, fps: u32) {
-    #[cfg(feature = "wasm-backend")]        wasm_impl::init(width, height, title, fps);
-    #[cfg(feature = "wgpu-backend")]        wgpu_impl::init(width, height, title, fps);
-    #[cfg(feature = "pyxel-core-backend")] pyxel_core_impl::init(width, height, title, fps);
+    #[cfg(feature = "wasm-backend")]
+    wasm_impl::init(width, height, title, fps);
+    #[cfg(feature = "wgpu-backend")]
+    wgpu_impl::init(width, height, title, fps);
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel_core_impl::init(width, height, title, fps);
 }
 
 pub fn run(update: impl FnMut() + 'static, draw: impl FnMut() + 'static) {
-    #[cfg(feature = "wasm-backend")]        wasm_impl::run(update, draw);
-    #[cfg(feature = "wgpu-backend")]        wgpu_impl::run(update, draw);
-    #[cfg(feature = "pyxel-core-backend")] pyxel_core_impl::run(update, draw);
+    #[cfg(feature = "wasm-backend")]
+    wasm_impl::run(update, draw);
+    #[cfg(feature = "wgpu-backend")]
+    wgpu_impl::run(update, draw);
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel_core_impl::run(update, draw);
 }
 
 pub fn quit() {
-    #[cfg(feature = "wasm-backend")]        wasm_impl::quit();
-    #[cfg(feature = "wgpu-backend")]        wgpu_impl::quit();
-    #[cfg(feature = "pyxel-core-backend")] pyxel_core_impl::quit();
+    #[cfg(feature = "wasm-backend")]
+    wasm_impl::quit();
+    #[cfg(feature = "wgpu-backend")]
+    wgpu_impl::quit();
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel_core_impl::quit();
 }
 
 pub fn width() -> u32 {
-    #[cfg(feature = "wasm-backend")]        { return wasm_impl::width(); }
-    #[cfg(feature = "wgpu-backend")]        { return wgpu_impl::width(); }
-    #[cfg(feature = "pyxel-core-backend")] { return pyxel_core_impl::width(); }
-    #[allow(unreachable_code)] 0
+    #[cfg(feature = "wasm-backend")]
+    {
+        return wasm_impl::width();
+    }
+    #[cfg(feature = "wgpu-backend")]
+    {
+        return wgpu_impl::width();
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        return pyxel_core_impl::width();
+    }
+    #[allow(unreachable_code)]
+    0
 }
 
 pub fn height() -> u32 {
-    #[cfg(feature = "wasm-backend")]        { return wasm_impl::height(); }
-    #[cfg(feature = "wgpu-backend")]        { return wgpu_impl::height(); }
-    #[cfg(feature = "pyxel-core-backend")] { return pyxel_core_impl::height(); }
-    #[allow(unreachable_code)] 0
+    #[cfg(feature = "wasm-backend")]
+    {
+        return wasm_impl::height();
+    }
+    #[cfg(feature = "wgpu-backend")]
+    {
+        return wgpu_impl::height();
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        return pyxel_core_impl::height();
+    }
+    #[allow(unreachable_code)]
+    0
 }
 
 pub fn frame_count() -> u32 {
-    #[cfg(feature = "wasm-backend")]        { return wasm_impl::frame_count(); }
-    #[cfg(feature = "wgpu-backend")]        { return wgpu_impl::frame_count(); }
-    #[cfg(feature = "pyxel-core-backend")] { return pyxel_core_impl::frame_count(); }
-    #[allow(unreachable_code)] 0
+    #[cfg(feature = "wasm-backend")]
+    {
+        return wasm_impl::frame_count();
+    }
+    #[cfg(feature = "wgpu-backend")]
+    {
+        return wgpu_impl::frame_count();
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        return pyxel_core_impl::frame_count();
+    }
+    #[allow(unreachable_code)]
+    0
+}
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn title(text: &str) {
+    #[cfg(feature = "wasm-backend")]
+    crate::backend::wasm_backend::system::title(text);
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().set_title(text);
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn resize(width: u32, height: u32) -> Result<(), String> {
+    #[cfg(feature = "wasm-backend")]
+    {
+        crate::backend::wasm_backend::system::resize(width, height)
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        pyxel::pyxel().set_screen_size(width, height)
+    }
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn fullscreen(enabled: bool) {
+    #[cfg(feature = "wasm-backend")]
+    crate::backend::wasm_backend::system::fullscreen(enabled);
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().set_fullscreen(enabled);
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn integer_scale(enabled: bool) {
+    #[cfg(feature = "wasm-backend")]
+    crate::backend::wasm_backend::system::integer_scale(enabled);
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().set_integer_scale(enabled);
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn perf_monitor(enabled: bool) {
+    #[cfg(feature = "wasm-backend")]
+    crate::backend::wasm_backend::system::perf_monitor(enabled);
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::pyxel().set_perf_monitor(enabled);
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn icon<S: AsRef<str>>(data: &[S], scale: u32, transparent: Option<u8>) -> Result<(), String> {
+    #[cfg(feature = "wasm-backend")]
+    {
+        crate::backend::wasm_backend::system::icon(data, scale, transparent)
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        pyxel::pyxel().set_icon(data, scale, transparent)
+    }
 }

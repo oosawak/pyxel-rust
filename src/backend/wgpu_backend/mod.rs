@@ -132,6 +132,7 @@ impl ApplicationHandler for WgpuApp {
                 .create_window(attributes)
                 .expect("Failed to create window"),
         );
+        window.set_ime_allowed(true);
         let size = window.inner_size();
         let surface = SurfaceTexture::new(size.width, size.height, window.clone());
         self.pixels =
@@ -143,6 +144,11 @@ impl ApplicationHandler for WgpuApp {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == ElementState::Pressed {
+                    if let Some(text) = &event.text {
+                        state().input.input_text.push_str(text);
+                    }
+                }
                 if let PhysicalKey::Code(key) = event.physical_key {
                     let pressed = event.state == ElementState::Pressed;
                     state().input.set_key(vk_to_idx(key), pressed);
@@ -198,6 +204,13 @@ impl ApplicationHandler for WgpuApp {
                     );
                 }
             }
+            WindowEvent::Ime(winit::event::Ime::Commit(text)) => {
+                state().input.input_text.push_str(&text)
+            }
+            WindowEvent::DroppedFile(path) => state()
+                .input
+                .dropped_files
+                .push(path.to_string_lossy().into_owned()),
             WindowEvent::Focused(false) => state().input.release_all(),
             WindowEvent::Resized(size) if size.width > 0 && size.height > 0 => {
                 if let Some(pixels) = &mut self.pixels {

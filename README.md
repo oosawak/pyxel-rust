@@ -304,9 +304,9 @@ node scripts/playtest-api-coverage.cjs
 
 [リソースと音声の確認ページ](https://oosawak.github.io/pyxel-rust/examples/resources-audio/) で共有バンクの編集、PNG読込・保存、MML・PCM・曲の再生、チャンネル別停止とWAV保存を試せます。
 
-`images()` / `tilemaps()` / `sounds()` / `musics()` / `channels()` / `tones()` は、描画・音声が参照する共有ハンドルのVecを返します。ハンドルの内容を編集すると即時に反映します。返り値Vec自体の要素差し替えやバンク数変更は反映しません。Canvasの`bltm`はタイル(0,0)と`ImageSource::Index`/`Image`の両方を公式コアで描画します。
+`images()` / `tilemaps()` / `sounds()` / `musics()` / `channels()` / `tones()` は、描画・音声が参照する共有ハンドルのVecを返します。ハンドルの内容を編集すると即時に反映します。返り値Vec自体の要素差し替えやバンク数変更は反映しません。これらの変更には`with_images` / `with_tilemaps` / `with_sounds` / `with_musics` / `with_channels` / `with_tones`を使用できます。Canvasの`bltm`はタイル(0,0)と`ImageSource::Index`/`Image`の両方を公式コアで描画します。
 
-Canvas版では`Image::from_image_bytes` / `load_bytes` / `png_bytes`、`Font::from_bytes`（BDF/TTF/OTF）、`Sound::load_pcm_bytes`、`Sound::wav_bytes` / `Music::wav_bytes`を提供します。ページ側でFile/Fetch/Blobを扱うことで、仮想ファイルシステムなしに読込・ダウンロードできます。ファイルパス指定、TMX読込、画像保存時scale、FFmpegによる動画保存は未対応です。表示パレットは16色です。
+Canvas版では`Image::from_image_bytes` / `load_bytes` / `png_bytes`、`Font::from_bytes`（BDF/TTF/OTF）、`Sound::load_pcm_bytes`、`Sound::wav_bytes` / `Music::wav_bytes`を提供します。ページ側でFile/Fetch/Blobを扱うことで、仮想ファイルシステムなしに読込・ダウンロードできます。ファイルパス指定、画像保存時scale、FFmpegによる動画保存は未対応です。表示パレットは最大256色で、`colors()`から直接編集できます。
 
 `blt_transform` / `bltm_transform`で回転・拡大縮小、`text_with_font`で任意フォントを使えます。SDL2のパレット・image_*・tilemap_*補助関数も実際のリソースに接続しています。
 
@@ -318,6 +318,23 @@ Canvas音声は公式シンセサイザーをWeb Audioへストリーミング�
 cargo test --locked --no-default-features --features wasm-backend --test browser_resources
 cargo test --locked --test native_resources
 node scripts/playtest-resources-audio.cjs
+```
+
+### ブラウザの画面・文字・ファイル操作
+
+[ブラウザAPIの確認ページ](https://oosawak.github.io/pyxel-rust/examples/browser-system/) で画面サイズ、タイトル、アイコン、全画面、整数倍表示、性能表示、256色描画を確認できます。SDL2/Canvasの共通APIは`title` / `icon` / `resize` / `fullscreen` / `integer_scale` / `perf_monitor`です。ブラウザの全画面化はユーザー操作とブラウザの許可が必要で、失敗は非同期の`browser_fullscreen`で受け取れます。
+
+`input_text` / `set_input_text`と`dropped_files` / `set_dropped_files`を公開しています。Canvasは`browser_text_input(true)`でIME用の入力欄を有効にできます。文字・ドロップ名はフレームごとにリセットされます。ブラウザは絶対パスを取得できないため、ドロップしたファイルの内容は`dropped_file_bytes(index)`で取得し、次のドロップまで保持します。wgpuも文字・IME・ファイルドロップのイベントに接続しました。IMEの自動検証は合成イベントを使用しており、OSごとのIME実機検証は別です。
+
+Canvasの`load_bytes` / `save_bytes`は`ResourceOptions`で除外バンクを指定でき、公式`.pyxres`のZIP/TOMLを直接読み書きします。保存対象は画像・タイルマップ・従来のSound配列・Music配列で、MML・PCM・Tone・Font・Nodeは含みません。パレットは`load_pal_text` / `save_pal_text`で別に保存します。破損データは変更前に検証し、選択した全バンクの検証に失敗した場合は既存リソースを維持します。マニフェストは32MiB、読込画像・タイルマップは合計1,600万セルに制限します。
+
+`Tilemap::from_tmx_text` / `load_tmx_text`は公式コアと同じ埋め込みタイルセット・8×8タイル・CSV層を使用します。`browser_screenshot(scale)`（Rustでは`screenshot_png`）はテキストを含む表示CanvasをPNGバイト列にし、1〜16倍で保存できます。ファイル選択・ダウンロードはページ側で行います。SDL2には通常のファイルパスによる`load` / `save` / `load_pal` / `save_pal` / `screenshot`を公開しました。
+
+`gen_bgm(preset, transpose, instrumentation, seed, play)`で公式生成器のMMLを取得し、`play=true`で再生できます。ブラウザの初回再生にはユーザー操作からの音声有効化が必要です。
+
+```bash
+cargo test --locked --no-default-features --features wasm-backend --lib --test browser_files
+node scripts/playtest-browser-system.cjs
 ```
 
 ### ローカル確認（GitHub Pages 相当）

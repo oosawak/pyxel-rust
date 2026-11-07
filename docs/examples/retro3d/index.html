@@ -91,7 +91,7 @@
       <noscript><p>対応表の表示にはJavaScriptが必要です。<a href="../../assets/compatibility/data.json">対応表データを開く</a></p></noscript>
     </details>
   </main>
-  <script type="module" src="../../assets/compatibility/panel.js?v=resources-audio-1"></script>
+  <script type="module" src="../../assets/compatibility/panel.js?v=system-files-1"></script>
   <script type="module">
     const compatibility = document.getElementById('compatibility');
     const revealCompatibility = () => { if (location.hash === '#compatibility') compatibility.open = true; };
@@ -102,14 +102,14 @@
     const pause = document.getElementById('pause');
     const distance = document.getElementById('distance');
     try {
-      document.body.dataset.wasmModule = new URL("./pkg/pyxel_rust.js?build=aa69d3bcbefc", import.meta.url).href;
+      document.body.dataset.wasmModule = new URL("./pkg/pyxel_rust.js?build=6ec861cb29d2", import.meta.url).href;
       const { default: init, start_retro3d, set_retro3d_paused, retro3d_paused, retro3d_distance,
         rotate_retro3d, reset_retro3d, set_retro3d_distance, load_retro3d_glb,
         clear_retro3d_model, retro3d_has_model, retro3d_animation_names, select_retro3d_animation,
         retro3d_animation_index, retro3d_animation_time, retro3d_animation_duration, retro3d_animation_playing,
         set_retro3d_animation_playing, seek_retro3d_animation, set_retro3d_animation_loop,
         set_retro3d_animation_speed, set_retro3d_auto_rotate, retro3d_auto_rotate } = await import(document.body.dataset.wasmModule);
-      await init({module_or_path:new URL('./pkg/pyxel_rust_bg.wasm?build=aa69d3bcbefc',import.meta.url)});
+      await init({module_or_path:new URL('./pkg/pyxel_rust_bg.wasm?build=6ec861cb29d2',import.meta.url)});
       start_retro3d();
       document.querySelectorAll('.toolbar button, .toolbar input, #model-file, #load-sample, #load-animated-sample').forEach(el => { el.disabled = false; });
       pause.onclick = () => set_retro3d_paused(!retro3d_paused());

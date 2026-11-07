@@ -71,3 +71,22 @@ pub fn set_mouse_pos(x: f32, y: f32) {
 pub fn mouse(visible: bool) {
     set_mouse_visible(visible);
 }
+
+pub fn input_text() -> String {
+    dispatch!(soft:s().input.input_text.clone(),pyxel:pyxel::input_text().clone())
+}
+pub fn set_input_text(text: &str) {
+    dispatch!(soft:{s().input.input_text=text.into();},pyxel:pyxel::pyxel().set_input_text(text));
+}
+pub fn dropped_files() -> Vec<String> {
+    dispatch!(soft:s().input.dropped_files.clone(),pyxel:pyxel::dropped_files().clone())
+}
+pub fn set_dropped_files(files: &[String]) {
+    #[cfg(feature = "wasm-backend")]
+    s().dropped_bytes.clear();
+    dispatch!(soft:{s().input.dropped_files=files.to_vec();},pyxel:pyxel::pyxel().set_dropped_files(files));
+}
+#[cfg(feature = "wasm-backend")]
+pub fn dropped_file_bytes(index: usize) -> Option<Vec<u8>> {
+    s().dropped_bytes.get(index).map(|(_, b)| b.clone())
+}

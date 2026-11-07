@@ -17,6 +17,8 @@ pub struct InputState {
     pub mouse_y: i32,
     pub mouse_visible: bool,
     pub input_keys: Vec<u32>,
+    pub input_text: String,
+    pub dropped_files: Vec<String>,
 }
 impl InputState {
     pub fn new() -> Self {
@@ -34,6 +36,8 @@ impl InputState {
         self.values.insert(MOUSE_WHEEL_X, 0);
         self.values.insert(MOUSE_WHEEL_Y, 0);
         self.input_keys.clear();
+        self.input_text.clear();
+        self.dropped_files.clear();
     }
     pub fn set_key(&mut self, key: u32, down: bool) {
         if key == KEY_UNKNOWN || key == KEY_NONE || key == 255 {
@@ -127,6 +131,15 @@ impl InputState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn text_and_dropped_files_are_per_frame() {
+        let mut i = InputState::new();
+        i.input_text.push_str("日本語A 🦀");
+        i.dropped_files.push("game.pyxres".into());
+        assert_eq!(i.input_text, "日本語A 🦀");
+        i.tick();
+        assert!(i.input_text.is_empty() && i.dropped_files.is_empty());
+    }
     #[test]
     fn repeat_uses_game_frames_and_ignores_duplicate_keydown() {
         let mut i = InputState::new();

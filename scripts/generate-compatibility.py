@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/pyxel-3.0-api.json'
 OUTPUT = ROOT / 'docs/assets/compatibility/data.json'
-ENGINE_REV = '2eecdce4ab12d360763d85e6c3cbe5142d99cb1c'
+ENGINE_REV = '0b865ac45cccad336a92d4664faa9cf510f3fb1d'
 BACKENDS = ['wasm', 'sdl2', 'wgpu']
 
 
@@ -76,6 +76,9 @@ def classify(row, backend):
         path = api+'system.rs'
         if name in ['width', 'height', 'frame_count', 'run', 'quit']:
             return result('supported', 'バックエンドへ接続しています。終了はイベントループ停止要求です。' if name == 'quit' else 'バックエンドへ接続しています。', path, 'pub fn '+name)
+        if name in ['title', 'icon', 'fullscreen', 'resize', 'perf_monitor', 'integer_scale'] and backend != 'wgpu':
+            note = '公式SDL2コアのウィンドウ操作へ接続します。' if native else 'document/Canvasのウィンドウ操作へ接続します。全画面はユーザー操作・ブラウザの許可が必要です。整数倍は利用可能な幅で計算し、ページ側のCSSに従います。resizeは論理画面を再作成します。'
+            return result('supported', note, path, 'pub fn '+name, 'browser-system' if backend == 'wasm' else None)
         if name == 'init':
             return result('partial', 'width/height/title/fpsのみ公開。quit_key、display_scale、キャプチャ設定、headless等は指定できません。', path, 'pub fn init')
         return missing(path)
@@ -89,6 +92,11 @@ def classify(row, backend):
             return result('supported', '公式コアへ接続。' if native else 'マウスイベント／カーソル表示に接続。ホイールは方向を整数ステップに正規化し、毎フレームリセットします。', path, 'pub fn '+name, 'browser-input' if backend == 'wasm' else None)
         if name in ['btnv', 'set_btn', 'set_btnv', 'input_keys']:
             return result('supported', '公式コアへ接続。' if native else 'デジタル・アナログ入力状態とキー押下一覧を読み書きできます。ブラウザの標準ゲームパッドは毎フレーム取得し、切断時に解除します。wgpuのゲームパッドイベントは未接続です。', path, 'pub fn '+name)
+        if name in ['input_text', 'set_input_text', 'dropped_files', 'set_dropped_files']:
+            note = '公式SDL2コアの文字入力・ドロップ情報へ接続します。' if native else 'フレーム単位の文字入力・ドロップ情報を読み書きできます。Canvasはbrowser_text_inputでIME用入力欄を有効にでき、通常キーも取得します。wgpuはwinitの文字・IME・ドロップイベントを取得します。'
+            if name == 'dropped_files' and backend == 'wasm':
+                return result('partial', note+' ブラウザでは絶対パスを取得できず、名前とdropped_file_bytesのメモリ内容を使用します。', path, 'pub fn '+name, 'browser-system')
+            return result('supported', note, path, 'pub fn '+name, 'browser-system' if backend == 'wasm' else None)
         if name == 'set_mouse_pos':
             return result('supported' if native else 'partial', '公式コアでカーソル位置を変更します。' if native else '論理座標の変更に対応します。ブラウザ／wgpuのOSカーソルは移動しません。次のマウス移動で座標が更新されます。', path, 'pub fn '+name)
         return missing(path)
@@ -109,10 +117,12 @@ def classify(row, backend):
             return result('partial', '基本描画のみ。blt/bltmのrotate/scale、textの任意Font引数は公開していません。', path, 'pub fn '+name)
         if name == 'screen' and native:
             return result('supported', 'ルートのscreen()から公式画面イメージを取得できます。', lib, 'pub use pyxel::screen')
+        if name == 'colors' and backend != 'wgpu':
+            return result('supported', 'colors()の可変参照から公式パレットを編集できます。Canvasも最大256色の表示と描画時pal変換に対応します。', api+'resource.rs', 'pub fn colors', 'browser-system' if backend == 'wasm' else None)
         if name == 'colors' and soft:
             return result('partial', '16色のパレットをset/get_palette_colorで操作。公式colors配列や多色拡張とは異なります。', path, 'pub fn set_palette_color')
         if name in ['images', 'tilemaps'] and backend != 'wgpu':
-            return result('partial', '公式リソース型の共有ハンドルを返します。内容の編集は描画に即時反映します。返り値Vecの要素差し替え・バンク数変更は反映しません。', api+'resource.rs', 'pub fn '+name, 'resources' if backend == 'wasm' else None)
+            return result('supported', '共有ハンドルから内容を編集し、with_images / with_tilemapsでバンク配列の差し替え・増減も反映できます。', api+'resource.rs', 'pub fn with_'+name, 'browser-system' if backend == 'wasm' else None)
         if name in ['images', 'tilemaps']:
             return result('partial', '固定バンクのimage_* / tilemap_*関数のみ。公式リソース型は未公開です。', path, 'pub fn image_rect')
         return missing(path)
@@ -128,7 +138,9 @@ def classify(row, backend):
     if category == 'Audio':
         path = api+'audio.rs'
         if name in ['channels', 'tones', 'sounds', 'musics'] and backend != 'wgpu':
-            return result('partial', '公式シンセサイザーが使う共有リソースハンドルを取得・編集できます。返り値Vecの要素差し替え・バンク数変更は反映しません。', api+'resource.rs', 'pub fn '+name, 'resources' if backend == 'wasm' else None)
+            return result('supported', '公式シンセサイザーの共有ハンドルを編集できます。with_'+name+'でバンク配列の差し替え・増減も反映できます。', api+'resource.rs', 'pub fn with_'+name)
+        if name == 'gen_bgm' and backend != 'wgpu':
+            return result('supported', '公式BGM生成器でseed・preset・transpose・instrumentationからMMLを生成します。play=trueで公式シンセサイザーへ接続します。ブラウザ音声の初回有効化にはユーザー操作が必要です。', path, 'pub fn gen_bgm', 'browser-system' if backend == 'wasm' else None)
         if name in ['play', 'playm', 'stop', 'play_pos']:
             if native:
                 return result('supported', '公式SDL2コアの再生・停止・再生位置へ接続。', path, 'pub fn '+name)
@@ -137,7 +149,14 @@ def classify(row, backend):
             return result('missing', 'wgpuでは音声出力・再生制御が未接続です。', path, 'pub fn '+name)
         return missing(path)
     if category == 'Resource':
-        return missing(api+'resource.rs')
+        path = api+'resource.rs'
+        if name in ['load', 'save', 'load_pal', 'save_pal', 'screenshot'] and backend != 'wgpu':
+            if native:
+                return result('supported', '公式SDL2コアのファイル操作へ接続します。', path, 'pub fn '+name)
+            token = {'load':'load_bytes', 'save':'save_bytes', 'load_pal':'load_pal_text', 'save_pal':'save_pal_text', 'screenshot':'browser_screenshot'}[name]
+            source = 'src/backend/wasm_backend/system.rs' if name == 'screenshot' else path
+            return result('partial', 'メモリI/Oの'+token+'を使用します。pyxresは公式ZIP/TOML（画像・タイルマップ・従来音声・曲配列）、パレットは別のテキスト、画面は倍率指定PNGです。任意ファイルパスにはアクセスできず、選択・保存UIはページ側で行います。MML・PCM・Tone・Font・Nodeはpyxresに含みません。', source, 'pub '+('async ' if name == 'screenshot' else '')+'fn '+token, 'browser-system')
+        return missing(path)
     if category in ['Image', 'Tilemap', 'Sound', 'Music', 'Channel', 'Font', 'Tone']:
         if backend == 'wgpu':
             return result('missing', '公式リソース型はこの構成で公開されません。プレースホルダー型やバンク関数はクラス全体の実装ではありません。', api+'resource.rs')
@@ -145,12 +164,12 @@ def classify(row, backend):
         path = f'vendor/pyxel-cube-core/src/{category.lower()}.rs'
         if backend == 'wasm':
             if category == 'Tilemap' and member in ['from_tmx', 'load']:
-                return result('missing', 'TMXのファイルパス読込はブラウザ用に接続していません。共有Tilemapの手動編集・描画は使えます。', path, 'pub fn '+member)
+                return result('partial', 'from_tmx_text / load_tmx_textでTMX文字列を読み込みます。埋め込みタイルセット・8×8タイル・CSV層に対応。ファイルパス指定は使えません。', path, 'pub fn '+('from_tmx_text' if member == 'from_tmx' else 'load_tmx_text'), 'browser-system')
             if category == 'Font' and name == 'Font':
                 return result('partial', 'Font::from_bytesでBDF/TTF/OTFを読み込みます。ファイルパスによるFont::newはブラウザで使えません。', path, 'pub fn from_bytes', 'resources')
             if category == 'Image' and member in ['from_image', 'load', 'save']:
                 token = {'from_image':'from_image_bytes','load':'load_bytes','save':'png_bytes'}[member]
-                return result('partial', 'バイト列から画像を読み込み、PNGバイト列として保存できます。ブラウザのファイル選択・ダウンロードはページ側で行います。filename指定・保存時scaleは未対応で、表示パレットは16色です。', path, 'pub fn '+token, 'resources')
+                return result('partial', 'バイト列から画像を読み込み、PNGバイト列として保存できます。ブラウザのファイル選択・ダウンロードはページ側で行います。filename指定・画像保存時scaleは未対応です。表示パレットは最大256色で、画面全体の倍率PNGはbrowser_screenshotを使用します。', path, 'pub fn '+token, 'resources')
             if category in ['Sound', 'Music'] and member == 'save':
                 return result('partial', 'wav_bytesで指定秒数を公式シンセサイザーからWAV化し、ブラウザで保存できます。ファイルパス指定・FFmpegによる動画変換は使えません。', path, 'pub fn wav_bytes', 'resources-audio')
             if category == 'Sound' and member == 'pcm':

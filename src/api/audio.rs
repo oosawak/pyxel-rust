@@ -204,3 +204,49 @@ pub fn play_pos(ch: u32) -> Option<(u32, f32)> {
 pub fn is_playing(ch: u32) -> bool {
     play_pos(ch).is_some()
 }
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn gen_bgm(
+    preset: i32,
+    transpose: i32,
+    instrumentation: i32,
+    seed: u64,
+    play: bool,
+) -> Result<Vec<String>, String> {
+    if !(0..=7).contains(&preset)
+        || !(-5..=5).contains(&transpose)
+        || !(0..=3).contains(&instrumentation)
+    {
+        return Err("Invalid BGM generator parameters".into());
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        Ok(pyxel::pyxel().gen_bgm(preset, transpose, instrumentation, seed, Some(play)))
+    }
+    #[cfg(feature = "wasm-backend")]
+    {
+        let parts = pyxel::generate_bgm_mml(preset, transpose, instrumentation, seed);
+        if play {
+            let channels = crate::api::resource::channels();
+            let mut prepared = Vec::new();
+            for mml in parts.iter().take(channels.len()) {
+                let sound = pyxel::Sound::new();
+                sound.lock().unwrap().set_mml(mml)?;
+                let probe = pyxel::Channel::new();
+                probe
+                    .lock()
+                    .unwrap()
+                    .play_sound(sound.clone(), None, true, false)?;
+                prepared.push(sound);
+            }
+            for (channel, sound) in channels.iter().zip(prepared) {
+                channel
+                    .lock()
+                    .unwrap()
+                    .play_sound(sound, None, true, false)?;
+            }
+            crate::backend::wasm_backend::audio::request_resume();
+        }
+        Ok(parts)
+    }
+}

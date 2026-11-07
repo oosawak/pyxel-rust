@@ -19,7 +19,7 @@ const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibilit
     assert.match(await page.locator('#compat-verdict').textContent(), /全機能対応ではありません/);
     assert.match(await page.locator('#compat-count').textContent(), /741/);
     assert.equal(await page.locator('.compat-row[data-api]').count(), 30);
-    assert.equal(await page.locator('.compat-stat[data-support="missing"] strong').textContent(),'37');
+    assert.equal(await page.locator('.compat-stat[data-support="missing"] strong').textContent(),'19');
     await page.locator('#compat-search').fill('mouse_wheel');
     assert.equal(await page.locator('[data-api="mouse_wheel"] .compat-badge').textContent(),'実装あり');
     await page.locator('#compat-search').fill('');
@@ -37,7 +37,7 @@ const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibilit
     await page.locator('#compat-search').fill('NO_SUCH_API_12345');
     assert.match(await page.locator('#compat-rows').textContent(), /一致する機能はありません/);
     await page.locator('#compat-search').fill('');
-    await page.locator('#compat-category').selectOption('Audio');
+    await page.locator('#compat-category').selectOption('System');
     await page.locator('#compat-status').selectOption('missing');
     assert.ok(await page.locator('.compat-row[data-api]').count() > 0);
     assert.equal(await page.locator('.compat-row .compat-badge:not([data-support="missing"])').count(), 0);

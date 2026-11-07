@@ -181,6 +181,19 @@ impl ResourceData {
         exclude_sounds: bool,
         exclude_musics: bool,
     ) -> Self {
+        Self::from_banks(
+            exclude_images,
+            exclude_tilemaps,
+            exclude_sounds,
+            exclude_musics,
+        )
+    }
+    pub fn from_banks(
+        exclude_images: bool,
+        exclude_tilemaps: bool,
+        exclude_sounds: bool,
+        exclude_musics: bool,
+    ) -> Self {
         Self {
             format_version: 1, // Write as the oldest format version for backward compatibility
             images: if exclude_images {
@@ -217,6 +230,39 @@ impl ResourceData {
         exclude_sounds: bool,
         exclude_musics: bool,
     ) -> Result<(), String> {
+        self.apply_to_banks(
+            exclude_images,
+            exclude_tilemaps,
+            exclude_sounds,
+            exclude_musics,
+        )
+    }
+    pub fn apply_to_banks(
+        &self,
+        exclude_images: bool,
+        exclude_tilemaps: bool,
+        exclude_sounds: bool,
+        exclude_musics: bool,
+    ) -> Result<(), String> {
+        let image_cells = if exclude_images {
+            0
+        } else {
+            self.images
+                .iter()
+                .map(|i| u64::from(i.width) * u64::from(i.height))
+                .sum::<u64>()
+        };
+        let tile_cells = if exclude_tilemaps {
+            0
+        } else {
+            self.tilemaps
+                .iter()
+                .map(|i| u64::from(i.width) * u64::from(i.height))
+                .sum::<u64>()
+        };
+        if image_cells.saturating_add(tile_cells) > 16 * 1024 * 1024 {
+            return Err("Resource allocation exceeds 16 million cells".into());
+        }
         // A failure in any selected bank must leave all live banks unchanged.
         if !exclude_images {
             for (index, image) in self.images.iter().enumerate() {
@@ -283,7 +329,10 @@ fn validate_grid<T>(
             "Invalid resource data: {bank}[{index}] dimensions must be greater than 0"
         ));
     }
-    if width.checked_mul(height).is_none() {
+    if width
+        .checked_mul(height)
+        .is_none_or(|size| size > 16 * 1024 * 1024)
+    {
         return Err(format!(
             "Invalid resource data: {bank}[{index}] dimensions are too large"
         ));

@@ -65,6 +65,9 @@ mod window_watcher;
 use platform::key;
 
 pub use crate::audio::{AudioLock, AudioRenderer};
+pub use crate::resource_data::ResourceData;
+pub mod memory_resource;
+pub use crate::bgm_generator::generate_bgm_mml;
 pub use crate::channel::{Channel, ChannelDetune, ChannelGain, RcChannel};
 pub use crate::font::{Font, RcFont};
 pub use crate::image::{Color, Image, RcImage, Rgb24};

@@ -31,6 +31,8 @@ js-sys                = { version = "0.3",  optional = true }
 web-sys               = { version = "0.3",  optional = true, features = [
     "Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement",
     "CanvasRenderingContext2d", "ImageData", "EventTarget",
+    "CompositionEvent", "InputEvent", "HtmlTextAreaElement", "DragEvent", "DataTransfer", "FileList", "File", "Blob",
+    "HtmlLinkElement",
     "KeyboardEvent", "MouseEvent", "Performance", "WheelEvent", "DomRect",
     "AudioContext", "AudioContextOptions", "AudioContextState", "ScriptProcessorNode",
     "AudioProcessingEvent", "AudioBuffer", "AudioNode", "AudioDestinationNode",

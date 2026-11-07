@@ -71,10 +71,15 @@ class CompatibilityTests(unittest.TestCase):
     def test_resources_do_not_hide_browser_io_and_backend_gaps(self):
         for name in ['Tilemap','Sound','Music','Channel','Tone','Font.text_width','play_pos']:
             self.assertEqual(self.find(name,'wasm')['status'],'supported',name)
-        for name in ['Font','Image.from_image','Image.load','Image.save','Sound.save','Music.save','sounds','images']:
+        for name in ['Font','Image.from_image','Image.load','Image.save','Sound.save','Music.save','load','save','load_pal','save_pal','screenshot','Tilemap.from_tmx','Tilemap.load','dropped_files']:
             self.assertEqual(self.find(name,'wasm')['status'],'partial',name)
-        for name in ['Tilemap.from_tmx','Tilemap.load','load','save','gen_bgm','Node.update']:
+        for name in ['Node.update','screencast','screen_mode']:
             self.assertEqual(self.find(name,'wasm')['status'],'missing',name)
+        for name in ['gen_bgm','colors','images','sounds','title','resize','icon','fullscreen','integer_scale','perf_monitor','input_text','set_input_text','set_dropped_files']:
+            self.assertEqual(self.find(name,'wasm')['status'],'supported',name)
+        for name in ['load','save','screenshot','load_pal','save_pal','gen_bgm']:
+            self.assertEqual(self.find(name,'sdl2')['status'],'supported',name)
+        self.assertEqual(self.find('input_text','wgpu')['status'],'supported')
         self.assertEqual(self.find('Sound','wgpu')['status'],'missing')
         self.assertIn('旧JSフック',self.find('play_pos','wasm')['note'])
 

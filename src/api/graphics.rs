@@ -79,13 +79,13 @@ pub fn camera_reset() {
 }
 pub fn pal(col1: Color, col2: Color) {
     dispatch!(
-        soft:  { s().color_map[col1 as usize & 0x0f] = col2 & 0x0f; },
+        soft:  { let st=s();let len=st.color_map.len();st.color_map[col1 as usize %len]=(col2 as usize %len) as u8; },
         pyxel: pyxel::pyxel().map_color(col1, col2)
     );
 }
 pub fn pal_reset() {
     dispatch!(
-        soft:  for i in 0..16u8 { s().color_map[i as usize] = i; },
+        soft: {let st=s();for i in 0..st.color_map.len() {st.color_map[i]=i as u8;}},
         pyxel: pyxel::pyxel().reset_color_map()
     );
 }
@@ -97,15 +97,10 @@ pub fn dither(alpha: f32) {
 pub fn set_palette_color(idx: u8, rgb: u32) {
     dispatch!(
         soft: {
-            let i = (idx & 0x0f) as usize;
-            s().palette[i] = [
-                ((rgb >> 16) & 0xff) as u8,
-                ((rgb >> 8) & 0xff) as u8,
-                (rgb & 0xff) as u8,
-                0xff,
-            ];
             #[cfg(feature="wasm-backend")]
-            if let Some(color)=pyxel::colors().get_mut(i) {*color=rgb & 0xffffff;}
+            {let mut colors=pyxel::colors();let len=colors.len().max(idx as usize+1);colors.resize(len,0);colors[idx as usize]=rgb & 0xffffff;}
+            #[cfg(feature="wgpu-backend")]
+            {let i=(idx & 15) as usize;s().palette[i]=[((rgb>>16)&255) as u8,((rgb>>8)&255) as u8,(rgb&255) as u8,255];}
         },
         pyxel: { let colors=&mut *pyxel::colors(); if let Some(color)=colors.get_mut(idx as usize) {*color=rgb & 0xffffff;} }
     );
@@ -113,9 +108,10 @@ pub fn set_palette_color(idx: u8, rgb: u32) {
 pub fn get_palette_color(idx: u8) -> u32 {
     dispatch!(
         soft: {
-            let i = (idx & 0x0f) as usize;
-            let [r, g, b, _] = s().palette[i];
-            ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
+            #[cfg(feature="wasm-backend")]
+            {pyxel::colors().get(idx as usize).copied().unwrap_or(0)}
+            #[cfg(feature="wgpu-backend")]
+            {let [r,g,b,_]=s().palette[(idx&15) as usize];((r as u32)<<16)|((g as u32)<<8)|b as u32}
         },
         pyxel: pyxel::colors().get(idx as usize).copied().unwrap_or(0)
     )

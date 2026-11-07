@@ -12,11 +12,11 @@
 <div class="controls"><button id="sound" disabled>MMLを再生</button><button id="pcm" disabled>PCMを再生</button><button id="music" disabled>2チャンネルの曲</button><label><input id="loop" type="checkbox">ループ</label><button id="seek" disabled>0.1秒から再生</button><button id="stop0" disabled>チャンネル0を停止</button><button id="stop" disabled>全停止</button><button id="wav" disabled>WAVを保存</button></div>
 <p id="audio-status" role="status">音声：未開始</p><pre id="details" aria-label="リソースと音声の状態"></pre>
 <script type="module">
-import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=aa69d3bcbefc';
+import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=6ec861cb29d2';
 const showError=(id,error)=>{const el=document.querySelector(id);el.textContent=String(error.message||error);el.setAttribute('role','alert');};
 function download(bytes,type,name){const url=URL.createObjectURL(new Blob([bytes],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 try {
- await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=aa69d3bcbefc',import.meta.url)});api.start_resources_audio();window.demo=api;
+ await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=6ec861cb29d2',import.meta.url)});api.start_resources_audio();window.demo=api;
  document.querySelector('#status').textContent='実行中';document.querySelectorAll('button,input[type=file]').forEach(el=>el.disabled=false);
  document.querySelector('#edit').onclick=()=>api.resources_audio_edit();
  document.querySelector('#png').onclick=()=>{try{download(api.resources_audio_png(),'image/png','pyxel-image.png')}catch(e){showError('#file-status',e)}};

@@ -20,6 +20,12 @@ Local adaptations:
 - Image adds from_image_bytes/load_bytes/png_bytes, Font adds from_bytes for
   BDF/TTF/OTF, and Sound adds load_pcm_bytes through the shared PCM decoder.
   Image quantization and font/PCM decoding reuse the original implementations.
+- ResourceData factors global bank access out of runtime access; memory_resource
+  reads/writes the official ZIP/TOML archive and palette text with validation before
+  bank mutation, plus manifest/cell allocation limits. Archive contents remain the
+  official classic image/tilemap/sound/music format (no MML/PCM/Tone/Font/Node).
+- TMX parsing adds from_tmx_text/load_tmx_text, sharing the official CSV parser.
+- The pure official BGM MML generator is re-exported for the browser audio adapter.
 - Browser RNG backends are enabled for dependencies using getrandom.
 
 For upstream updates, compare the source with the pinned commit, reapply these

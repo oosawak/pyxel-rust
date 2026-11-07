@@ -17,3 +17,6 @@ pub mod api_coverage;
 
 #[cfg(feature = "wasm-backend")]
 pub mod resources_audio;
+
+#[cfg(feature="wasm-backend")]
+pub mod browser_system;
