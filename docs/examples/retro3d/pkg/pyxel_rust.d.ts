@@ -137,6 +137,8 @@ export function start_battle_from_js(idx: number): void;
 
 export function start_cube_example(id: number): void;
 
+export function start_cube_example_resolution(id: number, scale: number): void;
+
 export function start_retro3d(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -188,9 +190,10 @@ export interface InitOutput {
     readonly set_retro3d_paused: (a: number) => void;
     readonly start_battle_from_js: (a: number) => void;
     readonly start_cube_example: (a: number) => [number, number];
+    readonly start_cube_example_resolution: (a: number, b: number) => [number, number];
     readonly start_retro3d: () => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__47: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_1fd09575ae271fd1___features__gen_MouseEvent__MouseEvent______true__48: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

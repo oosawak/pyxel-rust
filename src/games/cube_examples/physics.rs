@@ -157,7 +157,7 @@ pub struct PhysicsDemo {
     root: RcNode,
     camera: RcCamera,
     shade: RcShading,
-    image: RcImage,
+    pub(super) image: Surface,
     bodies: Vec<Body>,
     angle: f32,
     pitch: f32,
@@ -175,7 +175,7 @@ impl PhysicsDemo {
             root,
             camera,
             shade: shading(),
-            image: Image::new(320, 240),
+            image: Surface::new(320, 240),
             bodies: vec![],
             angle: 0.,
             pitch: 30.,
@@ -447,7 +447,7 @@ impl PhysicsDemo {
     pub fn draw(&self) -> RcImage {
         self.image.borrow_mut().clear(12);
         let shade = self.shade.borrow();
-        render_3d(&self.image, &self.camera, |ctx| {
+        self.image.render(&self.camera, |ctx| {
             let s = state(Some(&shade));
             for b in &self.bodies {
                 b.draw(ctx, s);
@@ -466,7 +466,7 @@ impl PhysicsDemo {
             "Mouse: Aim  Click/Space: Fire  Arrows: Rotate  R: Reset",
             7,
         );
-        self.image.clone()
+        self.image.finish()
     }
     pub fn info(&self) -> serde_json::Value {
         serde_json::json!({"frame":self.frame,"bodies":self.bodies.len(),"shots":self.shot_count,"dynamic_y":self.bodies.iter().filter(|b|b.mass()>0.).map(|b|pos(&b.node).y).collect::<Vec<_>>(),"angle":self.angle})

@@ -4,7 +4,7 @@ pub struct Hello {
     pub frame: u32,
     camera: RcCamera,
     shade: RcShading,
-    image: RcImage,
+    pub(super) image: Surface,
     cubes: Vec<Mat4>,
 }
 impl Hello {
@@ -16,7 +16,7 @@ impl Hello {
             frame: 0,
             camera,
             shade: shading(),
-            image: Image::new(200, 150),
+            image: Surface::new(200, 150),
             cubes: vec![identity(); 6],
         }
     }
@@ -38,7 +38,7 @@ impl Hello {
     }
     pub fn draw(&self) -> RcImage {
         let shade = self.shade.borrow();
-        render_3d(&self.image, &self.camera, |ctx| {
+        self.image.render(&self.camera, |ctx| {
             let s = state(Some(&shade));
             draw::text(
                 ctx,
@@ -53,7 +53,7 @@ impl Hello {
                 draw::box_solid(ctx, m, &v(15.6, 15.6, 15.6), col, None, None, s);
             }
         });
-        self.image.clone()
+        self.image.finish()
     }
 }
 
@@ -62,7 +62,7 @@ pub struct Shapes {
     pub wire: bool,
     camera: RcCamera,
     shade: RcShading,
-    image: RcImage,
+    pub(super) image: Surface,
     cat: RcImage,
     yaw: f32,
     pitch: f32,
@@ -77,7 +77,7 @@ impl Shapes {
             wire: false,
             camera: cam,
             shade: shading(),
-            image: Image::new(240, 240),
+            image: Surface::new(240, 240),
             cat: texture(include_bytes!("assets/cat_16x16.bin"), 16, 16),
             yaw: 0.,
             pitch: 0.,
@@ -114,7 +114,7 @@ impl Shapes {
     }
     pub fn draw(&self) -> RcImage {
         let shade = self.shade.borrow();
-        render_3d(&self.image, &self.camera, |ctx| {
+        self.image.render(&self.camera, |ctx| {
             let s = state(Some(&shade));
             for j in 0..10 {
                 let a = j as f32 * 36.;
@@ -247,7 +247,7 @@ impl Shapes {
         self.image.borrow_mut().draw_rect(85., 110., 70., 20., 0);
         hud(&self.image, 88., 113., "Mouse: Rotate", 7);
         hud(&self.image, 88., 121., "Space: Wireframe", 7);
-        self.image.clone()
+        self.image.finish()
     }
 }
 
@@ -260,7 +260,7 @@ pub struct Custom {
     flashes: Vec<u32>,
     camera: RcCamera,
     shade: RcShading,
-    image: RcImage,
+    pub(super) image: Surface,
     body: RcPrimitive,
     base: Vec<f32>,
     strip: RcPrimitive,
@@ -296,7 +296,7 @@ impl Custom {
             flashes: vec![0; 5],
             camera,
             shade,
-            image: Image::new(256, 192),
+            image: Surface::new(256, 192),
             body,
             base,
             strip,
@@ -409,7 +409,7 @@ impl Custom {
     }
     pub fn draw(&mut self) -> RcImage {
         let shade = self.shade.borrow();
-        render_3d(&self.image, &self.camera, |ctx| {
+        self.image.render(&self.camera, |ctx| {
             let s = state(Some(&shade));
             for j in 0..13 {
                 let p = -77. + 154. * j as f32 / 12.;
@@ -493,6 +493,6 @@ impl Custom {
                 .draw_circle_border(self.mouse.0, self.mouse.1, r, 7);
         }
         hud(&self.image, 76., 5., "Drag: Lock   Release: Fire", 7);
-        self.image.clone()
+        self.image.finish()
     }
 }

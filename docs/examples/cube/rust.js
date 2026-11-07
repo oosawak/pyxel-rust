@@ -72,7 +72,11 @@ function pointer(event){const box=canvas.getBoundingClientRect();const [w,h]=exa
 try {
   if(!Number.isInteger(id)||!examples[id])throw new Error('存在しないデモです');
   document.getElementById('help').textContent=examples[id].help;
-  canvas.style.width = `min(100%, ${55*examples[id].size[0]/examples[id].size[1]}vh)`;
+  const compare = new URLSearchParams(location.search).get('compare') === '1';
+  canvas.style.width = compare ? '100%' : `min(100%, ${55*examples[id].size[0]/examples[id].size[1]}vh)`;
+  if (compare) new ResizeObserver(() => {
+    parent.postMessage({type:'cube-resize',height:Math.ceil(document.body.getBoundingClientRect().height)},location.origin);
+  }).observe(document.body);
   for(const button of document.querySelectorAll('[data-key]:not(#action)'))button.hidden=[0,2].includes(id);
   document.getElementById('motion-controls').hidden=id!==3;
   document.getElementById('shade').hidden=![3,4].includes(id);
@@ -81,10 +85,11 @@ try {
   document.getElementById('action').textContent= id===1?'ワイヤー表示':id===2?'ロック／発射':id===4?'ジャンプ':id===5?'発射':'アクション';
   document.getElementById('action').hidden=[0,3].includes(id);
   // A versioned URL avoids mixing a cached pre-port loader/WASM with this page.
-  const build='19403345409e';
+  const build='c207837e9508';
   wasm=await import(`../retro3d/pkg/pyxel_rust.js?build=${build}`);
   await wasm.default({module_or_path:new URL(`../retro3d/pkg/pyxel_rust_bg.wasm?build=${build}`,import.meta.url)});
-  wasm.start_cube_example(id);
+  const requestedResolution = Number(new URLSearchParams(location.search).get("resolution")) || 1;
+  wasm.start_cube_example_resolution(id, [1,2,4].includes(requestedResolution) ? requestedResolution : 1);
   window.demo=wasm;
   const post=data=>wasm.cube_example_input(JSON.stringify(data));
   for(const event of ['keydown','keyup'])document.addEventListener(event,e=>{

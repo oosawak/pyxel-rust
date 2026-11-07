@@ -12,7 +12,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .checked_sub(1)
         .ok_or("Choose example 1..6")?;
     let game = Rc::new(RefCell::new(CubeExample::new(id)?));
-    let (w, h) = game.borrow().size();
+    let resolution = std::env::args()
+        .nth(2)
+        .unwrap_or("1".into())
+        .parse::<u32>()?;
+    game.borrow_mut().set_resolution(resolution)?;
+    let (w, h) = game.borrow().output_size();
     init(w, h, "Official Cube example — Rust", 30);
     let sounds: serde_json::Value = serde_json::from_str(include_str!(
         "../src/games/cube_examples/assets/sounds.json"
@@ -45,8 +50,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 shade: btnp(KEY_S),
                 reset: btnp(KEY_R),
                 motion: [KEY_1, KEY_2, KEY_3].iter().position(|key| btnp(*key)),
-                mouse_x: mouse_x() as f32,
-                mouse_y: mouse_y() as f32,
+                mouse_x: mouse_x() as f32 / resolution as f32,
+                mouse_y: mouse_y() as f32 / resolution as f32,
                 pointer: true,
                 ..Controls::default()
             };
