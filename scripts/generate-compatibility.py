@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/pyxel-3.0-api.json'
 OUTPUT = ROOT / 'docs/assets/compatibility/data.json'
-ENGINE_REV = 'bd82b72206511e75844d1b4f97c928c7520b486d'
+ENGINE_REV = '2eecdce4ab12d360763d85e6c3cbe5142d99cb1c'
 BACKENDS = ['wasm', 'sdl2', 'wgpu']
 
 
@@ -102,14 +102,19 @@ def classify(row, backend):
             return result('supported', '公式コアのラスタライザーで楕円・三角形・塗りつぶしを描画。既存画素・クリップ・カメラ・ディザを維持します。', path, 'pub fn '+name, 'drawing' if backend == 'wasm' else None)
         if name in ['rect', 'circ']:
             return result('partial', '公式と名前が異なります。塗りつぶしはrectfill/circfill、輪郭はrect/circです。公式名をそのまま移植できません。', path, 'pub fn '+('rect' if name.startswith('rect') else 'circ'))
+        if name in ['blt', 'bltm', 'text'] and backend != 'wgpu':
+            token = {'blt':'blt_transform','bltm':'bltm_transform','text':'text_with_font'}[name]
+            return result('supported', '基本関数に加え、blt_transform / bltm_transformで回転・拡大縮小、text_with_fontで任意Fontに対応します。既存の基本関数の引数は維持しています。', path, 'pub fn '+token, 'resources' if backend == 'wasm' else None)
         if name in ['blt', 'bltm', 'text']:
             return result('partial', '基本描画のみ。blt/bltmのrotate/scale、textの任意Font引数は公開していません。', path, 'pub fn '+name)
         if name == 'screen' and native:
             return result('supported', 'ルートのscreen()から公式画面イメージを取得できます。', lib, 'pub use pyxel::screen')
         if name == 'colors' and soft:
             return result('partial', '16色のパレットをset/get_palette_colorで操作。公式colors配列や多色拡張とは異なります。', path, 'pub fn set_palette_color')
-        if name in ['images', 'tilemaps'] and soft:
-            return result('partial', '固定バンクをimage_* / tilemap_*関数で部分的に操作できます。公式リソース配列は未公開です。', path, 'pub fn image_rect')
+        if name in ['images', 'tilemaps'] and backend != 'wgpu':
+            return result('partial', '公式リソース型の共有ハンドルを返します。内容の編集は描画に即時反映します。返り値Vecの要素差し替え・バンク数変更は反映しません。', api+'resource.rs', 'pub fn '+name, 'resources' if backend == 'wasm' else None)
+        if name in ['images', 'tilemaps']:
+            return result('partial', '固定バンクのimage_* / tilemap_*関数のみ。公式リソース型は未公開です。', path, 'pub fn image_rect')
         return missing(path)
     if category == 'Math':
         path = api+'math.rs'
@@ -122,27 +127,40 @@ def classify(row, backend):
         return missing(path)
     if category == 'Audio':
         path = api+'audio.rs'
-        if name in ['play', 'playm', 'stop']:
+        if name in ['channels', 'tones', 'sounds', 'musics'] and backend != 'wgpu':
+            return result('partial', '公式シンセサイザーが使う共有リソースハンドルを取得・編集できます。返り値Vecの要素差し替え・バンク数変更は反映しません。', api+'resource.rs', 'pub fn '+name, 'resources' if backend == 'wasm' else None)
+        if name in ['play', 'playm', 'stop', 'play_pos']:
             if native:
-                return result('supported', '公式コアの音声再生へ接続。今回のブラウザテストで音声出力は検証していません。', path, 'pub fn '+name)
-            if backend == 'wasm' and name != 'playm':
-                return result('partial', 'ページ側のpyxelPlaySound / pyxelStopSoundフックが必要です。playはsec/loop/resumeを渡しません。このデモは音声フックを用意していません。', path, 'pub fn '+name)
-            return result('missing', '関数名は存在しますが、このバックエンドでは処理が空です。', path, 'pub fn '+name)
+                return result('supported', '公式SDL2コアの再生・停止・再生位置へ接続。', path, 'pub fn '+name)
+            if backend == 'wasm':
+                return result('supported', '公式シンセサイザーの出力をWeb Audioへ接続。sec/loop/resume、曲の複数チャンネル再生、停止、位置取得に対応します。初回はユーザー操作からresume_browser_audioが必要です。旧JSフックを設定したページではその再生処理を優先し、位置・状態は公式内蔵エンジンのみの情報です。', path, 'pub fn '+name, 'resources-audio')
+            return result('missing', 'wgpuでは音声出力・再生制御が未接続です。', path, 'pub fn '+name)
         return missing(path)
     if category == 'Resource':
         return missing(api+'resource.rs')
     if category in ['Image', 'Tilemap', 'Sound', 'Music', 'Channel', 'Font', 'Tone']:
-        if category in ['Tone', 'Font']:
-            return result('missing', f'{category}型をpyxel-rustの公開APIから再公開していません。', lib)
-        if not native and (backend != 'wasm' or category != 'Image'):
-            return result('missing', '公式リソース型はこの構成で公開されません。Image/Tilemapのプレースホルダー型やバンク関数はクラス全体の実装ではありません。', api+'resource.rs')
+        if backend == 'wgpu':
+            return result('missing', '公式リソース型はこの構成で公開されません。プレースホルダー型やバンク関数はクラス全体の実装ではありません。', api+'resource.rs')
         member = name.split('.')[-1]
         path = f'vendor/pyxel-cube-core/src/{category.lower()}.rs'
-        if not native and member in ['from_image', 'load', 'save']:
-            return result('missing', 'Image型にファイルI/Oメソッドは含まれますが、ブラウザ用読込／保存に接続していません。', path, 'pub fn '+member)
-        if member in ['mml', 'pcm']:
-            return result('supported', '公式コアのset_mml/clear_mml、load_pcm/clear_pcmとして公開。ファイル読込には実ファイルが必要です。', path)
-        return result('supported', 'ルートで再公開した公式コア型のメソッド／フィールドを使用します。Pythonの名称はRustのpixel/set_pixel等に読み替えます。ブラウザImageはオフスクリーン用で描画バンクと別です。', path)
+        if backend == 'wasm':
+            if category == 'Tilemap' and member in ['from_tmx', 'load']:
+                return result('missing', 'TMXのファイルパス読込はブラウザ用に接続していません。共有Tilemapの手動編集・描画は使えます。', path, 'pub fn '+member)
+            if category == 'Font' and name == 'Font':
+                return result('partial', 'Font::from_bytesでBDF/TTF/OTFを読み込みます。ファイルパスによるFont::newはブラウザで使えません。', path, 'pub fn from_bytes', 'resources')
+            if category == 'Image' and member in ['from_image', 'load', 'save']:
+                token = {'from_image':'from_image_bytes','load':'load_bytes','save':'png_bytes'}[member]
+                return result('partial', 'バイト列から画像を読み込み、PNGバイト列として保存できます。ブラウザのファイル選択・ダウンロードはページ側で行います。filename指定・保存時scaleは未対応で、表示パレットは16色です。', path, 'pub fn '+token, 'resources')
+            if category in ['Sound', 'Music'] and member == 'save':
+                return result('partial', 'wav_bytesで指定秒数を公式シンセサイザーからWAV化し、ブラウザで保存できます。ファイルパス指定・FFmpegによる動画変換は使えません。', path, 'pub fn wav_bytes', 'resources-audio')
+            if category == 'Sound' and member == 'pcm':
+                loading = 'filename' in row['signature']
+                return result('partial' if loading else 'supported', 'load_pcm_bytesで音声バイト列をデコードします。ファイルパス指定は使えません。' if loading else 'clear_pcmでPCMを解除します。', path, 'pub fn '+('load_pcm_bytes' if loading else 'clear_pcm'), 'resources-audio')
+        if member == 'mml':
+            return result('supported', '公式コアのset_mml / clear_mmlとして公開しています。', path, 'pub fn set_mml', 'resources-audio' if backend == 'wasm' else None)
+        if member == 'pcm':
+            return result('supported', '公式コアのload_pcm / clear_pcmとして公開しています。', path, 'pub fn load_pcm')
+        return result('supported', '公式リソース型のメソッド／フィールドを公開しています。共有バンクの編集は描画・音声エンジンへ反映します。Python名はRustのpixel/set_pixel、tile/set_tile、play_position、total_seconds等に読み替えます。ファイルI/Oの制限は別項目に記載しています。', path, verification='resources' if backend == 'wasm' and name in ['Tilemap','Tilemap.imgsrc','Tilemap.pget','Tilemap.pset','Font.text_width','Sound','Sound.total_sec','Music','Music.set','Music.seqs','Channel','Channel.gain','Channel.play','Channel.stop','Channel.play_pos'] else None)
     return result('unreviewed', 'API単位の対応状況は未確認です。', lib)
 
 
@@ -153,9 +171,9 @@ def build():
         row['backends'] = {b: classify(row, b) for b in BACKENDS}
     # Rust-specific helpers expose important stubs not present in official docs.
     for name, path, assessments in [
-        ('is_playing', 'src/api/audio.rs', {b: ('missing', '全構成で常にfalseを返すスタブです。再生状態の確認に使えません。') for b in BACKENDS}),
-        ('set_palette_color / get_palette_color', 'src/api/graphics.rs', {b: ('missing' if b == 'sdl2' else 'supported', 'SDL2ではsetterが空、getterが常に0です。' if b == 'sdl2' else '16色パレットの読み書きを実装しています。') for b in BACKENDS}),
-        ('image_* / tilemap_*', 'src/api/graphics.rs', {b: ('missing' if b == 'sdl2' else 'partial', 'SDL2側の画像・タイルマップ補助関数は空処理または固定値です。' if b == 'sdl2' else 'バンクの一部操作のみ。公式クラス全体を提供するものではありません。') for b in BACKENDS}),
+        ('is_playing', 'src/api/audio.rs', {b: ('missing' if b == 'wgpu' else 'supported', 'wgpuの音声出力は未接続です。' if b == 'wgpu' else '内蔵エンジンの実際の再生位置から判定します。旧JSフックだけで再生する音声の状態は含みません。') for b in BACKENDS}),
+        ('set_palette_color / get_palette_color', 'src/api/graphics.rs', {b: ('supported', '表示パレットの読み書きへ接続。Canvasでは画像のPNG保存にも反映します。') for b in BACKENDS}),
+        ('image_* / tilemap_*', 'src/api/graphics.rs', {b: ('partial' if b == 'wgpu' else 'supported', 'wgpuではバンクの一部操作のみ。公式クラス型は未公開です。' if b == 'wgpu' else '公式の共有画像・タイルマップバンクに接続しています。') for b in BACKENDS}),
     ]:
         rows.append(dict(id='extension:'+name, name=name, signature=name, category='Rust extensions', group='Rust拡張', reference=None, backends={b: result(*assessments[b], path) for b in BACKENDS}))
     source_paths = sorted({str(p.relative_to(ROOT)) for folder in ['src/api', 'src/backend', 'vendor/pyxel-cube-core/src'] for p in (ROOT / folder).rglob('*.rs')} | {'src/lib.rs', 'Cargo.toml', 'Cargo.lock'})

@@ -19,7 +19,7 @@ const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibilit
     assert.match(await page.locator('#compat-verdict').textContent(), /全機能対応ではありません/);
     assert.match(await page.locator('#compat-count').textContent(), /741/);
     assert.equal(await page.locator('.compat-row[data-api]').count(), 30);
-    assert.equal(await page.locator('.compat-stat[data-support="missing"] strong').textContent(),'104');
+    assert.equal(await page.locator('.compat-stat[data-support="missing"] strong').textContent(),'37');
     await page.locator('#compat-search').fill('mouse_wheel');
     assert.equal(await page.locator('[data-api="mouse_wheel"] .compat-badge').textContent(),'実装あり');
     await page.locator('#compat-search').fill('');
@@ -27,8 +27,8 @@ const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibilit
     assert.equal(await page.locator('#compat-page').textContent(), '2 / 25 ページ');
     await page.locator('#compat-search').fill('playm');
     const row = page.locator('[data-api="playm"]');
-    assert.equal(await row.locator('.compat-badge').textContent(), '未対応');
-    assert.match(await row.textContent(), /処理が空/);
+    assert.equal(await row.locator('.compat-badge').textContent(), '実装あり');
+    assert.match(await row.textContent(), /公式シンセサイザー/);
     await page.locator('#compat-backend').selectOption('sdl2');
     assert.equal(await row.locator('.compat-badge').textContent(), '実装あり');
     await page.locator('#compat-backend').selectOption('wgpu');
@@ -58,7 +58,7 @@ const output = process.env.PYXEL_TEST_OUTPUT || '/private/tmp/pyxel-compatibilit
     assert.equal(await page.locator('#status').textContent(), '一時停止中');
     assert.match(await page.locator('#model-status').textContent(), /動くピラミッド/);
     assert.equal(await page.locator('#animation-panel').isVisible(), true);
-    assert.equal(await row.locator('.compat-badge').textContent(), '未対応');
+    assert.equal(await row.locator('.compat-badge').textContent(), '実装あり');
     await page.locator('#compatibility').screenshot({ path: `${output}/desktop-panel.png` });
     // An unreadable Canvas must be reported as a failed check, not a full pass.
     await page.evaluate(() => {

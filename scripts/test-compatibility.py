@@ -37,10 +37,11 @@ class CompatibilityTests(unittest.TestCase):
                 self.assertTrue(assessment['source'].startswith('https://github.com/oosawak/pyxel-rust/blob/'))
 
     def test_empty_audio_functions_are_not_counted_as_support(self):
-        self.assertEqual(self.find('playm', 'wasm')['status'], 'missing')
-        self.assertEqual(self.find('play', 'wasm')['status'], 'partial')
-        for backend in inventory.BACKENDS:
-            self.assertEqual(self.find('is_playing', backend)['status'], 'missing')
+        self.assertEqual(self.find('playm', 'wasm')['status'], 'supported')
+        self.assertEqual(self.find('play', 'wasm')['status'], 'supported')
+        for backend in ['sdl2','wasm']:
+            self.assertEqual(self.find('is_playing', backend)['status'], 'supported')
+        self.assertEqual(self.find('is_playing','wgpu')['status'],'missing')
         self.assertEqual(self.find('stop', 'wgpu')['status'], 'missing')
         self.assertEqual(self.find('playm', 'sdl2')['status'], 'supported')
 
@@ -52,8 +53,8 @@ class CompatibilityTests(unittest.TestCase):
         self.assertEqual(self.find('Node.raycast', 'wgpu')['status'], 'missing')
         self.assertEqual(self.find('Mesh.from_glb', 'wasm')['status'], 'partial')
         self.assertIsNone(self.find('Mesh.from_glb', 'sdl2')['verification'])
-        self.assertEqual(self.find('Tilemap', 'wasm')['status'], 'missing')
-        self.assertEqual(self.find('Font', 'sdl2')['status'], 'missing')
+        self.assertEqual(self.find('Tilemap', 'wasm')['status'], 'supported')
+        self.assertEqual(self.find('Font', 'sdl2')['status'], 'supported')
 
     def test_new_api_support_preserves_real_platform_limits(self):
         for name in ['elli','ellib','tri','trib','fill','ceil','atan2','noise','nseed','rndi','btnv','set_btn','input_keys','mouse']:
@@ -66,6 +67,16 @@ class CompatibilityTests(unittest.TestCase):
         for backend in inventory.BACKENDS:
             self.assertEqual(self.find('KEY_F24',backend)['status'],'supported')
             self.assertEqual(self.find('MOUSE_POS_X',backend)['status'],'supported')
+
+    def test_resources_do_not_hide_browser_io_and_backend_gaps(self):
+        for name in ['Tilemap','Sound','Music','Channel','Tone','Font.text_width','play_pos']:
+            self.assertEqual(self.find(name,'wasm')['status'],'supported',name)
+        for name in ['Font','Image.from_image','Image.load','Image.save','Sound.save','Music.save','sounds','images']:
+            self.assertEqual(self.find(name,'wasm')['status'],'partial',name)
+        for name in ['Tilemap.from_tmx','Tilemap.load','load','save','gen_bgm','Node.update']:
+            self.assertEqual(self.find(name,'wasm')['status'],'missing',name)
+        self.assertEqual(self.find('Sound','wgpu')['status'],'missing')
+        self.assertIn('旧JSフック',self.find('play_pos','wasm')['note'])
 
     def test_published_report_matches_reviewed_source(self):
         self.assertEqual(json.loads(inventory.OUTPUT.read_text()), self.data)
