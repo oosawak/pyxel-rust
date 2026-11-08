@@ -91,28 +91,43 @@ impl Screencast {
         if self.num_captured_screens == 0 {
             return Ok(false);
         }
-
-        let screen = self.screen_at(0);
-        let width = screen.width;
-        let height = screen.height;
-        if width.saturating_mul(scale) > u16::MAX as u32
-            || height.saturating_mul(scale) > u16::MAX as u32
-        {
-            return Err("GIF width and height must not exceed 65535 pixels".to_string());
-        }
-
         let filename = add_file_extension(filename, ".gif");
-        let save_err = || format!("Failed to save file '{filename}'");
         let mut file =
             File::create(&filename).map_err(|_| format!("Failed to create file '{filename}'"))?;
+        self.encode(&mut file, scale)
+    }
+    /// The same official GIF encoder targeting memory instead of the filesystem.
+    pub fn gif_bytes(&mut self, scale: u32) -> Result<Option<Vec<u8>>, String> {
+        let mut bytes = Vec::new();
+        if self.encode(&mut bytes, scale)? {
+            Ok(Some(bytes))
+        } else {
+            Ok(None)
+        }
+    }
+    pub fn frame_count(&self) -> usize {
+        self.num_captured_screens
+    }
+    fn encode(&mut self, writer: &mut impl std::io::Write, scale: u32) -> Result<bool, String> {
+        if self.num_captured_screens == 0 {
+            return Ok(false);
+        }
+        let screen = self.screen_at(0);
+        let (width, height) = (screen.width, screen.height);
+        if scale == 0
+            || scale > 16
+            || width.saturating_mul(scale) > u16::MAX as u32
+            || height.saturating_mul(scale) > u16::MAX as u32
+            || u64::from(width) * u64::from(height) * u64::from(scale) * u64::from(scale)
+                > 64 * 1024 * 1024
+        {
+            return Err("Invalid GIF scale or output dimensions".into());
+        }
+        let save_err = || "Failed to encode GIF".to_string();
         let pixel_count = (width * height) as usize;
-        let mut encoder = Encoder::new(
-            &mut file,
-            (width * scale) as u16,
-            (height * scale) as u16,
-            &[],
-        )
-        .map_err(|_| save_err())?;
+        let mut encoder =
+            Encoder::new(writer, (width * scale) as u16, (height * scale) as u16, &[])
+                .map_err(|_| save_err())?;
         encoder
             .set_repeat(Repeat::Infinite)
             .map_err(|_| save_err())?;

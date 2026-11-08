@@ -44,3 +44,6 @@ mod tests {
     #[test]
     fn test_placeholder() {}
 }
+
+#[cfg(feature="wasm-backend")]
+pub use api::screen;

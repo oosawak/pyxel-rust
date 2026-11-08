@@ -57,9 +57,28 @@ export function browser_demo_title(value: string): void;
 
 export function browser_demo_tmx(text: string): void;
 
+/**
+ * Manual async frame stepping is available when a callback game loop is not running.
+ */
+export function browser_flip(): Promise<void>;
+
 export function browser_fullscreen(enabled: boolean): Promise<void>;
 
+export function browser_recorded_frames(): number;
+
+export function browser_recording(seconds: number): void;
+
+export function browser_reset(): void;
+
+export function browser_reset_screencast(): void;
+
+export function browser_screen_mode(mode: number): void;
+
+export function browser_screencast(scale: number): Uint8Array | undefined;
+
 export function browser_screenshot(scale: number): Promise<Uint8Array>;
+
+export function browser_show(): void;
 
 export function browser_text_input(enabled: boolean): void;
 
@@ -169,6 +188,28 @@ export function retro3d_paused(): boolean;
 
 export function rotate_retro3d(degrees: number): void;
 
+export function screen_demo_cursor(visible: boolean): void;
+
+export function screen_demo_destroy_node(): void;
+
+export function screen_demo_draw(): void;
+
+export function screen_demo_edit(): void;
+
+export function screen_demo_font(): void;
+
+export function screen_demo_info(): string;
+
+export function screen_demo_node_flags(active: boolean, visible: boolean, opacity: number): void;
+
+export function screen_demo_nodes(enabled: boolean): void;
+
+export function screen_demo_pixel(x: number, y: number): number;
+
+export function screen_demo_remove_store(): void;
+
+export function screen_demo_store(value?: string | null): string | undefined;
+
 export function seek_retro3d_animation(seconds: number): void;
 
 export function select_retro3d_animation(index: number): void;
@@ -208,6 +249,8 @@ export function start_resources_audio(): void;
 
 export function start_retro3d(): void;
 
+export function start_screen_tools(manual: boolean): void;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -229,8 +272,16 @@ export interface InitOutput {
     readonly browser_demo_stop: () => void;
     readonly browser_demo_title: (a: number, b: number) => void;
     readonly browser_demo_tmx: (a: number, b: number) => [number, number];
+    readonly browser_flip: () => any;
     readonly browser_fullscreen: (a: number) => any;
+    readonly browser_recorded_frames: () => number;
+    readonly browser_recording: (a: number) => [number, number];
+    readonly browser_reset: () => [number, number];
+    readonly browser_reset_screencast: () => void;
+    readonly browser_screen_mode: (a: number) => [number, number];
+    readonly browser_screencast: (a: number) => [number, number, number, number];
     readonly browser_screenshot: (a: number) => any;
+    readonly browser_show: () => void;
     readonly browser_text_input: (a: number) => [number, number];
     readonly browser_window_error: () => [number, number];
     readonly clear_retro3d_model: () => void;
@@ -275,6 +326,17 @@ export interface InitOutput {
     readonly retro3d_has_model: () => number;
     readonly retro3d_paused: () => number;
     readonly rotate_retro3d: (a: number) => void;
+    readonly screen_demo_cursor: (a: number) => void;
+    readonly screen_demo_destroy_node: () => void;
+    readonly screen_demo_draw: () => void;
+    readonly screen_demo_edit: () => void;
+    readonly screen_demo_font: () => void;
+    readonly screen_demo_info: () => [number, number];
+    readonly screen_demo_node_flags: (a: number, b: number, c: number) => void;
+    readonly screen_demo_nodes: (a: number) => void;
+    readonly screen_demo_pixel: (a: number, b: number) => number;
+    readonly screen_demo_remove_store: () => [number, number];
+    readonly screen_demo_store: (a: number, b: number) => [number, number, number, number];
     readonly seek_retro3d_animation: (a: number) => [number, number];
     readonly select_retro3d_animation: (a: number) => [number, number];
     readonly set_key: (a: number, b: number) => void;
@@ -291,17 +353,19 @@ export interface InitOutput {
     readonly start_cube_example_resolution: (a: number, b: number) => [number, number];
     readonly start_resources_audio: () => [number, number];
     readonly start_retro3d: () => void;
+    readonly start_screen_tools: (a: number) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___f64______true_: (a: number, b: number, c: number) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___js_sys_e23d1d6365e9eae___Function_fn_wasm_bindgen_cf0989641d10091a___JsValue_____wasm_bindgen_cf0989641d10091a___sys__Undefined___js_sys_e23d1d6365e9eae___Function_fn_wasm_bindgen_cf0989641d10091a___JsValue_____wasm_bindgen_cf0989641d10091a___sys__Undefined_______true_: (a: number, b: number, c: any, d: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___wasm_bindgen_cf0989641d10091a___JsValue__core_8896a31dc0048bac___result__Result_____wasm_bindgen_cf0989641d10091a___JsError___true_: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_625e329666d65daa___features__gen_Blob__Blob_______true_: (a: number, b: number, c: number) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__82: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__83: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__84: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__85: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__86: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__87: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__88: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_c32f62750fef9b4___features__gen_Blob__Blob_______true_: (a: number, b: number, c: number) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true_: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__103: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__104: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__105: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__106: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__107: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__108: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__109: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

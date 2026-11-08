@@ -142,3 +142,43 @@ pub fn with_tones<T>(edit: impl FnOnce(&mut Vec<RcTone>) -> T) -> T {
 pub fn screenshot(filename: Option<&str>, scale: Option<u32>) -> Result<(), String> {
     pyxel::pyxel().save_screenshot(filename, scale)
 }
+
+/// The actual screen image; editing it affects subsequent drawing and presentation.
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub fn screen() -> RcImage {
+    #[cfg(feature = "wasm-backend")]
+    {
+        crate::backend::wasm_backend::state().screen.clone()
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        pyxel::screen().clone()
+    }
+}
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub fn cursor() -> RcImage {
+    pyxel::cursor_image().clone()
+}
+#[cfg(any(feature = "pyxel-core-backend", feature = "wasm-backend"))]
+pub fn font() -> RcImage {
+    pyxel::font_image().clone()
+}
+
+#[cfg(feature = "pyxel-core-backend")]
+pub fn screencast(filename: Option<&str>, scale: Option<u32>) -> Result<(), String> {
+    pyxel::pyxel().save_screencast(filename, scale)
+}
+#[cfg(feature = "pyxel-core-backend")]
+pub fn reset_screencast() {
+    pyxel::pyxel().reset_screencast();
+}
+#[cfg(feature = "pyxel-core-backend")]
+pub fn user_data_dir(vendor: &str, app: &str) -> Result<String, String> {
+    pyxel::pyxel().user_data_dir(vendor, app)
+}
+#[cfg(feature = "wasm-backend")]
+pub use crate::backend::wasm_backend::recording::{
+    configure_screencast, reset_screencast, screencast_gif,
+};
+#[cfg(feature = "wasm-backend")]
+pub use crate::backend::wasm_backend::storage::{user_data_store, UserDataStore};

@@ -88,3 +88,5 @@ pub use crate::sound::{
 pub use crate::system::PyxelCallback;
 pub use crate::tilemap::{ImageSource, ImageTileCoord, RcTilemap, Tile, Tilemap};
 pub use crate::tone::{RcTone, Tone, ToneGain, ToneMode, ToneSample};
+
+pub use crate::screencast::Screencast;

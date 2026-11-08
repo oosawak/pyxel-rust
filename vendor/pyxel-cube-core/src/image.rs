@@ -173,6 +173,22 @@ impl Image {
         self.canvas.height()
     }
 
+    /// Read-only logical pixels for browser presentation and recording.
+    pub fn pixels(&self) -> &[Color] {
+        &self.canvas.data
+    }
+    /// Resize the live screen allocation while retaining its shared handle and palette.
+    pub fn resize_canvas(&mut self, width: u32, height: u32) -> Result<(), String> {
+        if width
+            .checked_mul(height)
+            .is_none_or(|n| n == 0 || n > 16 * 1024 * 1024)
+        {
+            return Err("Invalid screen dimensions".into());
+        }
+        self.canvas = Canvas::new(width, height);
+        Ok(())
+    }
+
     pub fn data_ptr(&mut self) -> *mut Color {
         self.canvas.data_ptr()
     }

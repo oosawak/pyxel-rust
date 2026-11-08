@@ -23,6 +23,24 @@ impl Drop for RenderFrame {
 /// `None`, existing 2D drawing is preserved. Draw 2D HUD elements afterwards.
 /// Release any `RefCell` borrows of the camera and target before calling.
 pub fn render_3d(target: &RcImage, camera: &RcCamera, draw: impl FnOnce(&mut DrawContext)) {
+    let image = target.borrow();
+    let (w, h) = (image.width(), image.height());
+    drop(image);
+    render_3d_viewport(target, camera, [0., 0., w as f32, h as f32], draw)
+        .expect("Invalid viewport");
+}
+
+/// Render into a viewport; camera scratch buffers are returned even during unwinding.
+pub fn render_3d_viewport<R>(
+    target: &RcImage,
+    camera: &RcCamera,
+    viewport: [f32; 4],
+    draw: impl FnOnce(&mut DrawContext) -> R,
+) -> Result<R, String> {
+    let [x, y, vw, vh] = viewport;
+    if !viewport.iter().all(|v| v.is_finite()) || vw <= 0. || vh <= 0. {
+        return Err("Invalid viewport".into());
+    }
     let (width, height) = {
         let image = target.borrow();
         (image.width(), image.height())
@@ -33,10 +51,7 @@ pub fn render_3d(target: &RcImage, camera: &RcCamera, draw: impl FnOnce(&mut Dra
         cam.clear_depth();
         let view = raster::view_matrix(&cam);
         (
-            raster::matmul(
-                &raster::projection_matrix(&cam, width as f32, height as f32),
-                &view,
-            ),
+            raster::matmul(&raster::projection_matrix(&cam, vw, vh), &view),
             raster::camera_clip_row(&view),
             std::mem::take(&mut cam.depth),
             std::mem::take(&mut cam.vertex_scratch),
@@ -44,18 +59,19 @@ pub fn render_3d(target: &RcImage, camera: &RcCamera, draw: impl FnOnce(&mut Dra
         )
     };
     if let Some(color) = clear_color {
-        target.borrow_mut().clear(color as u8);
+        let clip = raster::compute_clip_rect(x, y, vw, vh, width, height);
+        raster::clear_viewport(&mut target.borrow_mut(), &clip, color as u8);
     }
     let context = DrawContext {
         target: target.clone(),
         camera: camera.clone(),
         vp,
         clip_row,
-        vp_x: 0.0,
-        vp_y: 0.0,
-        vp_w: width as f32,
-        vp_h: height as f32,
-        clip: raster::compute_clip_rect(0.0, 0.0, width as f32, height as f32, width, height),
+        vp_x: x,
+        vp_y: y,
+        vp_w: vw,
+        vp_h: vh,
+        clip: raster::compute_clip_rect(x, y, vw, vh, width, height),
         depth,
         depth_w: width,
         depth_h: height,
@@ -68,22 +84,28 @@ pub fn render_3d(target: &RcImage, camera: &RcCamera, draw: impl FnOnce(&mut Dra
         shaded: false,
     };
     let mut frame = RenderFrame(context);
-    draw(&mut frame.0);
+    Ok(draw(&mut frame.0))
 }
 
 /// Copy a rendered image onto the active backend, then draw 2D HUD elements.
 /// Uses the backend's camera and clipping rules, like other 2D drawing calls.
 pub fn blit_3d(target: &RcImage, x: f32, y: f32) {
-    let image = target.borrow();
-    for row in 0..image.height() {
-        for col in 0..image.width() {
-            crate::api::pset(
-                x + col as f32,
-                y + row as f32,
-                image.pixel(col as f32, row as f32),
-            );
-        }
-    }
+    let (width, height) = {
+        let image = target.borrow();
+        (image.width(), image.height())
+    };
+    super::resource::screen().borrow_mut().draw_image(
+        x,
+        y,
+        target,
+        0.,
+        0.,
+        width as f32,
+        height as f32,
+        None,
+        None,
+        None,
+    );
 }
 
 /// Draw a static mesh, preserving its node transforms and per-part materials.

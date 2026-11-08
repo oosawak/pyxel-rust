@@ -64,33 +64,33 @@ pub fn bltm(x: f32, y: f32, tm: u32, mx: f32, my: f32, mw: f32, mh: f32, colkey:
 }
 pub fn clip(x: f32, y: f32, w: f32, h: f32) {
     dispatch!(
-        soft:  { let st = s(); st.clip_rect = Some([x as i32, y as i32, w as i32, h as i32]); },
+        soft:  { let st = s(); st.clip_rect = Some([x as i32, y as i32, w as i32, h as i32]); #[cfg(feature="wasm-backend")] st.screen.borrow_mut().set_clip_rect(x,y,w,h); },
         pyxel: pyxel::pyxel().set_clip_rect(x,y,w,h)
     );
 }
 pub fn clip_reset() {
-    dispatch!(soft: { s().clip_rect = None; }, pyxel: pyxel::pyxel().reset_clip_rect());
+    dispatch!(soft: { s().clip_rect = None; #[cfg(feature="wasm-backend")] s().screen.borrow_mut().reset_clip_rect(); }, pyxel: pyxel::pyxel().reset_clip_rect());
 }
 pub fn camera(x: f32, y: f32) {
-    dispatch!(soft: { let st = s(); st.camera_x = x; st.camera_y = y; }, pyxel: pyxel::pyxel().set_camera(x, y));
+    dispatch!(soft: { let st = s(); st.camera_x = x; st.camera_y = y; #[cfg(feature="wasm-backend")] st.screen.borrow_mut().set_camera(x,y); }, pyxel: pyxel::pyxel().set_camera(x, y));
 }
 pub fn camera_reset() {
-    dispatch!(soft: { let st = s(); st.camera_x = 0.0; st.camera_y = 0.0; }, pyxel: pyxel::pyxel().reset_camera());
+    dispatch!(soft: { let st = s(); st.camera_x = 0.0; st.camera_y = 0.0; #[cfg(feature="wasm-backend")] st.screen.borrow_mut().reset_camera(); }, pyxel: pyxel::pyxel().reset_camera());
 }
 pub fn pal(col1: Color, col2: Color) {
     dispatch!(
-        soft:  { let st=s();let len=st.color_map.len();st.color_map[col1 as usize %len]=(col2 as usize %len) as u8; },
+        soft:  { let st=s();let len=st.color_map.len();st.color_map[col1 as usize %len]=(col2 as usize %len) as u8; #[cfg(feature="wasm-backend")] st.screen.borrow_mut().map_color(col1,col2); },
         pyxel: pyxel::pyxel().map_color(col1, col2)
     );
 }
 pub fn pal_reset() {
     dispatch!(
-        soft: {let st=s();for i in 0..st.color_map.len() {st.color_map[i]=i as u8;}},
+        soft: {let st=s();for i in 0..st.color_map.len() {st.color_map[i]=i as u8;} #[cfg(feature="wasm-backend")] st.screen.borrow_mut().reset_color_map();},
         pyxel: pyxel::pyxel().reset_color_map()
     );
 }
 pub fn dither(alpha: f32) {
-    dispatch!(soft: { s().dither_alpha = alpha; }, pyxel: pyxel::pyxel().set_dithering(alpha));
+    dispatch!(soft: { s().dither_alpha = alpha; #[cfg(feature="wasm-backend")] s().screen.borrow_mut().set_dithering(alpha); }, pyxel: pyxel::pyxel().set_dithering(alpha));
 }
 
 /// Set palette color: rgb is 0xRRGGBB
@@ -244,4 +244,49 @@ pub fn bltm_transform(
     }
     #[cfg(feature = "pyxel-core-backend")]
     pyxel::pyxel().draw_tilemap(x, y, tm, sx, sy, w, h, colkey, rotate, scale);
+}
+
+/// Perspective projection of an image plane using the official rasterizer.
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn blt3d(
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    img: u32,
+    pos: (f32, f32, f32),
+    rot: (f32, f32, f32),
+    fov: Option<f32>,
+    colkey: Option<Color>,
+) -> Result<(), String> {
+    let image = super::resource::images()
+        .get(img as usize)
+        .cloned()
+        .ok_or("Invalid image bank")?;
+    super::resource::screen()
+        .borrow_mut()
+        .draw_image_3d(x, y, w, h, &image, pos, rot, fov, colkey);
+    Ok(())
+}
+/// Perspective projection of a tilemap plane using the official rasterizer.
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn bltm3d(
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    tm: u32,
+    pos: (f32, f32, f32),
+    rot: (f32, f32, f32),
+    fov: Option<f32>,
+    colkey: Option<Color>,
+) -> Result<(), String> {
+    let map = super::resource::tilemaps()
+        .get(tm as usize)
+        .cloned()
+        .ok_or("Invalid tilemap bank")?;
+    super::resource::screen()
+        .borrow_mut()
+        .draw_tilemap_3d(x, y, w, h, &map, pos, rot, fov, colkey);
+    Ok(())
 }

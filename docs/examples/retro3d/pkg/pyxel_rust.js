@@ -216,6 +216,15 @@ export function browser_demo_tmx(text) {
 }
 
 /**
+ * Manual async frame stepping is available when a callback game loop is not running.
+ * @returns {Promise<void>}
+ */
+export function browser_flip() {
+    const ret = wasm.browser_flip();
+    return ret;
+}
+
+/**
  * @param {boolean} enabled
  * @returns {Promise<void>}
  */
@@ -225,12 +234,72 @@ export function browser_fullscreen(enabled) {
 }
 
 /**
+ * @returns {number}
+ */
+export function browser_recorded_frames() {
+    const ret = wasm.browser_recorded_frames();
+    return ret >>> 0;
+}
+
+/**
+ * @param {number} seconds
+ */
+export function browser_recording(seconds) {
+    const ret = wasm.browser_recording(seconds);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function browser_reset() {
+    const ret = wasm.browser_reset();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function browser_reset_screencast() {
+    wasm.browser_reset_screencast();
+}
+
+/**
+ * @param {number} mode
+ */
+export function browser_screen_mode(mode) {
+    const ret = wasm.browser_screen_mode(mode);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {number} scale
+ * @returns {Uint8Array | undefined}
+ */
+export function browser_screencast(scale) {
+    const ret = wasm.browser_screencast(scale);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v1;
+    if (ret[0] !== 0) {
+        v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v1;
+}
+
+/**
  * @param {number} scale
  * @returns {Promise<Uint8Array>}
  */
 export function browser_screenshot(scale) {
     const ret = wasm.browser_screenshot(scale);
     return ret;
+}
+
+export function browser_show() {
+    wasm.browser_show();
 }
 
 /**
@@ -643,6 +712,97 @@ export function rotate_retro3d(degrees) {
 }
 
 /**
+ * @param {boolean} visible
+ */
+export function screen_demo_cursor(visible) {
+    wasm.screen_demo_cursor(visible);
+}
+
+export function screen_demo_destroy_node() {
+    wasm.screen_demo_destroy_node();
+}
+
+export function screen_demo_draw() {
+    wasm.screen_demo_draw();
+}
+
+export function screen_demo_edit() {
+    wasm.screen_demo_edit();
+}
+
+export function screen_demo_font() {
+    wasm.screen_demo_font();
+}
+
+/**
+ * @returns {string}
+ */
+export function screen_demo_info() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.screen_demo_info();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
+ * @param {boolean} active
+ * @param {boolean} visible
+ * @param {number} opacity
+ */
+export function screen_demo_node_flags(active, visible, opacity) {
+    wasm.screen_demo_node_flags(active, visible, opacity);
+}
+
+/**
+ * @param {boolean} enabled
+ */
+export function screen_demo_nodes(enabled) {
+    wasm.screen_demo_nodes(enabled);
+}
+
+/**
+ * @param {number} x
+ * @param {number} y
+ * @returns {number}
+ */
+export function screen_demo_pixel(x, y) {
+    const ret = wasm.screen_demo_pixel(x, y);
+    return ret;
+}
+
+export function screen_demo_remove_store() {
+    const ret = wasm.screen_demo_remove_store();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {string | null} [value]
+ * @returns {string | undefined}
+ */
+export function screen_demo_store(value) {
+    var ptr0 = isLikeNone(value) ? 0 : passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    const ret = wasm.screen_demo_store(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getStringFromWasm0(ret[0], ret[1]);
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * @param {number} seconds
  */
 export function seek_retro3d_animation(seconds) {
@@ -766,6 +926,13 @@ export function start_resources_audio() {
 
 export function start_retro3d() {
     wasm.start_retro3d();
+}
+
+/**
+ * @param {boolean} manual
+ */
+export function start_screen_tools(manual) {
+    wasm.start_screen_tools(manual);
 }
 function __wbg_get_imports() {
     const import0 = {
@@ -952,6 +1119,13 @@ function __wbg_get_imports() {
             const ret = arg0.getGamepads();
             return ret;
         }, arguments); },
+        __wbg_getItem_49556a3e59cfb688: function() { return handleError(function (arg0, arg1, arg2, arg3) {
+            const ret = arg1.getItem(getStringFromWasm0(arg2, arg3));
+            var ptr1 = isLikeNone(ret) ? 0 : passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            var len1 = WASM_VECTOR_LEN;
+            getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 1, len1, true);
+            getDataViewMemory0().setInt32((arg0 >>> 0) + 4 * 0, ptr1, true);
+        }, arguments); },
         __wbg_getPropertyValue_c0aae8b8341401f1: function() { return handleError(function (arg0, arg1, arg2, arg3) {
             const ret = arg1.getPropertyValue(getStringFromWasm0(arg2, arg3));
             const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -1092,6 +1266,14 @@ function __wbg_get_imports() {
             const ret = arg0.length;
             return ret;
         },
+        __wbg_localStorage_6827cfe6db14a9f6: function() { return handleError(function (arg0) {
+            const ret = arg0.localStorage;
+            return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
+        }, arguments); },
+        __wbg_location_7320782274fc691b: function(arg0) {
+            const ret = arg0.location;
+            return ret;
+        },
         __wbg_mapping_6c3a7915decb8fdd: function(arg0) {
             const ret = arg0.mapping;
             return (__wbindgen_enum_GamepadMappingType.indexOf(ret) + 1 || 3) - 1;
@@ -1211,6 +1393,12 @@ function __wbg_get_imports() {
         __wbg_queueMicrotask_4a1a4d8dd332373b: function(arg0) {
             queueMicrotask(arg0);
         },
+        __wbg_reload_a46804ad57f539bf: function() { return handleError(function (arg0) {
+            arg0.reload();
+        }, arguments); },
+        __wbg_removeItem_6db621e167d16a1c: function() { return handleError(function (arg0, arg1, arg2) {
+            arg0.removeItem(getStringFromWasm0(arg1, arg2));
+        }, arguments); },
         __wbg_remove_8228e91d7ddbc755: function(arg0) {
             arg0.remove();
         },
@@ -1232,6 +1420,9 @@ function __wbg_get_imports() {
         },
         __wbg_setAttribute_f75317b2b5cabfb4: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
             arg0.setAttribute(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
+        }, arguments); },
+        __wbg_setItem_cfa3cb31f271776a: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
+            arg0.setItem(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
         }, arguments); },
         __wbg_setProperty_3fe74e09d53acb0b: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
             arg0.setProperty(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
@@ -1344,71 +1535,76 @@ function __wbg_get_imports() {
             return ret;
         },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 1411, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 1455, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___wasm_bindgen_cf0989641d10091a___JsValue__core_8896a31dc0048bac___result__Result_____wasm_bindgen_cf0989641d10091a___JsError___true_);
             return ret;
         },
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("AudioProcessingEvent")], shim_idx: 52, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true_);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [F64], shim_idx: 195, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___f64______true_);
             return ret;
         },
         __wbindgen_generic_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("CompositionEvent")], shim_idx: 52, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__82);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("AudioProcessingEvent")], shim_idx: 194, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true_);
             return ret;
         },
         __wbindgen_generic_0000000000000004: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("DragEvent")], shim_idx: 52, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__83);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("CompositionEvent")], shim_idx: 194, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__103);
             return ret;
         },
         __wbindgen_generic_0000000000000005: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("Event")], shim_idx: 52, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__84);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("DragEvent")], shim_idx: 194, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__104);
             return ret;
         },
         __wbindgen_generic_0000000000000006: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("InputEvent")], shim_idx: 52, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__85);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("Event")], shim_idx: 194, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__105);
             return ret;
         },
         __wbindgen_generic_0000000000000007: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 52, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__86);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("InputEvent")], shim_idx: 194, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__106);
             return ret;
         },
         __wbindgen_generic_0000000000000008: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("MouseEvent")], shim_idx: 52, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__87);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 194, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__107);
             return ret;
         },
         __wbindgen_generic_0000000000000009: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("WheelEvent")], shim_idx: 52, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__88);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("MouseEvent")], shim_idx: 194, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__108);
             return ret;
         },
         __wbindgen_generic_000000000000000a: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Option(NamedExternref("Blob"))], shim_idx: 51, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_625e329666d65daa___features__gen_Blob__Blob_______true_);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("WheelEvent")], shim_idx: 194, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__109);
             return ret;
         },
         __wbindgen_generic_000000000000000b: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 50, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Option(NamedExternref("Blob"))], shim_idx: 193, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_c32f62750fef9b4___features__gen_Blob__Blob_______true_);
+            return ret;
+        },
+        __wbindgen_generic_000000000000000c: function(arg0, arg1) {
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 192, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_);
             return ret;
         },
-        __wbindgen_generic_000000000000000c: function(arg0) {
+        __wbindgen_generic_000000000000000d: function(arg0) {
             // Cast intrinsic for `F64 -> Externref`.
             const ret = arg0;
             return ret;
         },
-        __wbindgen_generic_000000000000000d: function(arg0, arg1) {
+        __wbindgen_generic_000000000000000e: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
             return ret;
         },
-        __wbindgen_generic_000000000000000e: function(arg0, arg1) {
+        __wbindgen_generic_000000000000000f: function(arg0, arg1) {
             var v0 = getArrayU8FromWasm0(arg0, arg1).slice();
             wasm.__wbindgen_free(arg0, arg1 * 1, 1);
             // Cast intrinsic for `Vector(U8) -> Externref`.
@@ -1435,36 +1631,36 @@ function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true
     wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_(arg0, arg1);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true_(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true_(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true_(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true_(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__82(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__82(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__103(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__103(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__83(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__83(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__104(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__104(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__84(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__84(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__105(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__105(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__85(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__85(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__106(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__106(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__86(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__86(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__107(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__107(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__87(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__87(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__108(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__108(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__88(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_625e329666d65daa___features__gen_DragEvent__DragEvent______true__88(arg0, arg1, arg2);
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__109(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__109(arg0, arg1, arg2);
 }
 
 function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___wasm_bindgen_cf0989641d10091a___JsValue__core_8896a31dc0048bac___result__Result_____wasm_bindgen_cf0989641d10091a___JsError___true_(arg0, arg1, arg2) {
@@ -1478,8 +1674,12 @@ function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___js_sys_e
     wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___js_sys_e23d1d6365e9eae___Function_fn_wasm_bindgen_cf0989641d10091a___JsValue_____wasm_bindgen_cf0989641d10091a___sys__Undefined___js_sys_e23d1d6365e9eae___Function_fn_wasm_bindgen_cf0989641d10091a___JsValue_____wasm_bindgen_cf0989641d10091a___sys__Undefined_______true_(arg0, arg1, arg2, arg3);
 }
 
-function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_625e329666d65daa___features__gen_Blob__Blob_______true_(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_625e329666d65daa___features__gen_Blob__Blob_______true_(arg0, arg1, isLikeNone(arg2) ? 0 : addToExternrefTable0(arg2));
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_c32f62750fef9b4___features__gen_Blob__Blob_______true_(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_c32f62750fef9b4___features__gen_Blob__Blob_______true_(arg0, arg1, isLikeNone(arg2) ? 0 : addToExternrefTable0(arg2));
+}
+
+function wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___f64______true_(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___f64______true_(arg0, arg1, arg2);
 }
 
 
