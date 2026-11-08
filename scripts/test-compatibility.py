@@ -49,7 +49,7 @@ class CompatibilityTests(unittest.TestCase):
         self.assertEqual(self.find('rect', 'wasm')['status'], 'partial')
         self.assertEqual(self.find('btnp', 'wasm')['status'], 'supported')
         self.assertEqual(self.find('mouse_wheel', 'wasm')['status'], 'supported')
-        self.assertEqual(self.find('Node.update', 'wasm')['status'], 'missing')
+        self.assertEqual(self.find('Node.update', 'wasm')['status'], 'partial')
         self.assertEqual(self.find('Node.raycast', 'wgpu')['status'], 'missing')
         self.assertEqual(self.find('Mesh.from_glb', 'wasm')['status'], 'partial')
         self.assertIsNone(self.find('Mesh.from_glb', 'sdl2')['verification'])
@@ -73,8 +73,11 @@ class CompatibilityTests(unittest.TestCase):
             self.assertEqual(self.find(name,'wasm')['status'],'supported',name)
         for name in ['Font','Image.from_image','Image.load','Image.save','Sound.save','Music.save','load','save','load_pal','save_pal','screenshot','Tilemap.from_tmx','Tilemap.load','dropped_files']:
             self.assertEqual(self.find(name,'wasm')['status'],'partial',name)
-        for name in ['Node.update','screencast','screen_mode']:
-            self.assertEqual(self.find(name,'wasm')['status'],'missing',name)
+        for name in ['Node.update','Node.from_mesh','screencast','screen_mode','show','flip','reset','user_data_dir']:
+            self.assertEqual(self.find(name,'wasm')['status'],'partial',name)
+        for name in ['Node.draw','Node.on_update','Node.on_draw','Node.on_collide','Node.on_destroy','screen','cursor','font','blt3d','bltm3d','reset_screencast']:
+            self.assertEqual(self.find(name,'wasm')['status'],'supported',name)
+        self.assertEqual(self.find('Node.update','wgpu')['status'],'missing')
         for name in ['gen_bgm','colors','images','sounds','title','resize','icon','fullscreen','integer_scale','perf_monitor','input_text','set_input_text','set_dropped_files']:
             self.assertEqual(self.find(name,'wasm')['status'],'supported',name)
         for name in ['load','save','screenshot','load_pal','save_pal','gen_bgm']:

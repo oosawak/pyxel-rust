@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/pyxel-3.0-api.json'
 OUTPUT = ROOT / 'docs/assets/compatibility/data.json'
-ENGINE_REV = '0b865ac45cccad336a92d4664faa9cf510f3fb1d'
+ENGINE_REV = '0166b7dfad3d28a717c0a59ac5ae6ec0dd2f1f79'
 BACKENDS = ['wasm', 'sdl2', 'wgpu']
 
 
@@ -46,15 +46,15 @@ def classify(row, backend):
         member = name.split('.')[-1]
         if category == 'Node':
             if member in ['on_update', 'on_draw', 'on_collide', 'on_destroy', 'update', 'draw', 'from_mesh']:
-                return result('missing', 'Nodeのデータ型は公開していますが、Pythonバインディングが担う生成・コールバック・更新描画のライフサイクルは移植していません。', path, 'pub struct Node')
+                return result('partial' if member in ['from_mesh','update'] else 'supported', 'NodeSceneでRustクロージャを登録し、階層の更新・物理・衝突・子から親への破棄通知と描画を実行します。from_meshは名前・親子関係・材質・静的形状を変換します。drawはカメラ・可視性を継承し、カスタム描画にはwith_node_draw_stateで不透明度・シェーディングを適用します。Pythonの継承の代わりに明示的な登録を使用し、同じシーンの再入は拒否します。Motionの自動更新はなく、MeshAnimationPlayerの明示的な操作が必要です。', api+'scene3d.rs', 'pub fn '+member, 'scene-lifecycle')
             if member in ['apply_motion', 'play_motion', 'stop_motion']:
                 return result('partial', 'MeshAnimationPlayerでモデルのアニメーションは操作できます。NodeのモーションAPIと自動更新は未実装です。', api+'animation3d.rs', 'pub struct MeshAnimationPlayer', 'animation' if backend == 'wasm' else None)
             if member in ['raycast', 'raycast_all', 'overlap_sphere', 'overlap_box']:
-                return result('supported', f'cube::Scene::{member}に相当する公式コア処理を公開しています。Node.updateとの自動連携はありません。', 'vendor/pyxel-cube-core/src/cube/scene.rs', f'pub fn {member}(')
+                return result('supported', f'cube::Scene::{member}に相当する公式コア処理を公開しています。NodeSceneのrootへ同じ空間クエリーを適用できます。', 'vendor/pyxel-cube-core/src/cube/scene.rs', f'pub fn {member}(')
             state = ['dither', 'depth_test', 'depth_write', 'depth_offset', 'decal', 'shaded']
             draw = ['pset', 'line', 'tri', 'trib', 'rect', 'rectb', 'circ', 'circb', 'elli', 'ellib', 'box', 'boxb', 'sphere', 'sphereb', 'plane', 'sprite', 'prim', 'text']
             if member in state + draw:
-                return result('partial', 'cube::drawとDrawContext / DrawStateを使う明示的な描画に対応します。Nodeメソッドとしての呼出しや継承状態の自動設定は未対応です。', 'src/api/graphics3d.rs', 'pub fn render_3d')
+                return result('partial', 'cube::drawとDrawContext / DrawStateを使います。NodeSceneのon_drawではwith_node_draw_stateを使用すると親の不透明度・シェーディングを継承できます。Python Nodeメソッドと同じ呼出し形式ではありません。', 'src/api/scene3d.rs', 'pub fn with_node_draw_state')
         if category == 'Mesh' and member == 'from_glb':
             return result('partial' if soft else 'supported', 'GLBバイト列から読込。画像・バッファはBIN内への埋め込みが必要です。ファイルパス・外部URIは使えません。' if soft else '公式Mesh::from_glbを公開。公式3.0.0自身がスキニング・モーフに非対応です。', path, 'pub fn from_glb', 'glb' if backend == 'wasm' else None)
         if category == 'Mat4' and member in ['pos', 'rot', 'scale']:
@@ -79,6 +79,9 @@ def classify(row, backend):
         if name in ['title', 'icon', 'fullscreen', 'resize', 'perf_monitor', 'integer_scale'] and backend != 'wgpu':
             note = '公式SDL2コアのウィンドウ操作へ接続します。' if native else 'document/Canvasのウィンドウ操作へ接続します。全画面はユーザー操作・ブラウザの許可が必要です。整数倍は利用可能な幅で計算し、ページ側のCSSに従います。resizeは論理画面を再作成します。'
             return result('supported', note, path, 'pub fn '+name, 'browser-system' if backend == 'wasm' else None)
+        if name in ['show','flip','reset','screen_mode'] and backend != 'wgpu':
+            note = {'show':'showで現在の画面を表示し続けます。ブラウザでは非同期ループとして直ちに戻ります。', 'flip':'SDL2は公式flip_screen。ブラウザはflip().awaitでrequestAnimationFrameごとに表示します。run/showとの同時実行は拒否し、fps指定の同期待機とは異なります。', 'reset':'ブラウザはページ全体を再読込します。SDL2はset_reset_handlerでアプリ側の再起動処理を登録してから呼びます。未登録時はエラーを返します。', 'screen_mode':'SDL2は公式の3つのシェーダー。ブラウザは通常・平滑化・走査線/周辺減光の簡易Canvas表示で、公式xBR/CRTと同じ画質ではありません。'}[name]
+            return result('partial' if backend == 'wasm' or name == 'reset' else 'supported', note, path, 'pub '+('async ' if backend == 'wasm' and name == 'flip' else '')+'fn '+name, 'screen-tools' if backend == 'wasm' else None)
         if name == 'init':
             return result('partial', 'width/height/title/fpsのみ公開。quit_key、display_scale、キャプチャ設定、headless等は指定できません。', path, 'pub fn init')
         return missing(path)
@@ -115,8 +118,10 @@ def classify(row, backend):
             return result('supported', '基本関数に加え、blt_transform / bltm_transformで回転・拡大縮小、text_with_fontで任意Fontに対応します。既存の基本関数の引数は維持しています。', path, 'pub fn '+token, 'resources' if backend == 'wasm' else None)
         if name in ['blt', 'bltm', 'text']:
             return result('partial', '基本描画のみ。blt/bltmのrotate/scale、textの任意Font引数は公開していません。', path, 'pub fn '+name)
-        if name == 'screen' and native:
-            return result('supported', 'ルートのscreen()から公式画面イメージを取得できます。', lib, 'pub use pyxel::screen')
+        if name in ['screen','cursor','font'] and backend != 'wgpu':
+            return result('supported', '実際の画面・カーソル・標準フォントの共有Imageを返します。直接編集は描画へ反映されます。Canvasのscreenはリサイズ後も同じハンドルです。日本語のCanvas重ね描画はscreenの論理画素に含まれません。', api+'resource.rs', 'pub fn '+name, 'screen-tools' if backend == 'wasm' else None)
+        if name in ['blt3d','bltm3d'] and backend != 'wgpu':
+            return result('supported', '公式Imageの透視投影ラスタライザーで画像・タイルマップを画面へ描画します。位置・回転・FOV・透過色を指定できます。', path, 'pub fn '+name, 'screen-tools' if backend == 'wasm' else None)
         if name == 'colors' and backend != 'wgpu':
             return result('supported', 'colors()の可変参照から公式パレットを編集できます。Canvasも最大256色の表示と描画時pal変換に対応します。', api+'resource.rs', 'pub fn colors', 'browser-system' if backend == 'wasm' else None)
         if name == 'colors' and soft:
@@ -156,6 +161,12 @@ def classify(row, backend):
             token = {'load':'load_bytes', 'save':'save_bytes', 'load_pal':'load_pal_text', 'save_pal':'save_pal_text', 'screenshot':'browser_screenshot'}[name]
             source = 'src/backend/wasm_backend/system.rs' if name == 'screenshot' else path
             return result('partial', 'メモリI/Oの'+token+'を使用します。pyxresは公式ZIP/TOML（画像・タイルマップ・従来音声・曲配列）、パレットは別のテキスト、画面は倍率指定PNGです。任意ファイルパスにはアクセスできず、選択・保存UIはページ側で行います。MML・PCM・Tone・Font・Nodeはpyxresに含みません。', source, 'pub '+('async ' if name == 'screenshot' else '')+'fn '+token, 'browser-system')
+        if name in ['user_data_dir','screencast','reset_screencast'] and backend != 'wgpu':
+            if native:
+                return result('supported', '公式SDL2コアのユーザーディレクトリ・GIF録画操作へ接続します。', path, 'pub fn '+name)
+            if name == 'user_data_dir':
+                return result('partial', 'user_data_store(vendor,app)のget/set/removeで名前空間ごとのlocalStorageに永続化します。ファイルシステムのディレクトリやパスは提供できず、容量・利用可否はブラウザに従います。', 'src/backend/wasm_backend/storage.rs', 'pub fn user_data_store', 'screen-tools')
+            return result('supported' if name == 'reset_screencast' else 'partial', 'configure_screencastで明示的に録画を開始し、screencast_gifで公式エンコーダーのGIFバイト列を保存します。直近フレームのリングバッファは32MiB/最大30秒、倍率1..16です。reset_screencastで内容をクリアします。Canvasの日本語重ね描画・カーソル・表示効果は含まず、リサイズ時は録画を終了します。', 'src/backend/wasm_backend/recording.rs', 'pub fn '+('reset_screencast' if name == 'reset_screencast' else 'screencast_gif'), 'screen-tools')
         return missing(path)
     if category in ['Image', 'Tilemap', 'Sound', 'Music', 'Channel', 'Font', 'Tone']:
         if backend == 'wgpu':
