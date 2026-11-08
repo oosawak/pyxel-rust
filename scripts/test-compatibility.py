@@ -86,6 +86,16 @@ class CompatibilityTests(unittest.TestCase):
         self.assertEqual(self.find('Sound','wgpu')['status'],'missing')
         self.assertIn('旧JSフック',self.find('play_pos','wasm')['note'])
 
+    def test_node_painter_support_has_runtime_evidence(self):
+        for backend in ['wasm','sdl2']:
+            for member in ['dither','depth_test','depth_write','depth_offset','decal','shaded','pset','line','tri','trib','rect','rectb','circ','circb','elli','ellib','box','boxb','sphere','sphereb','plane','sprite','prim','text']:
+                assessment = self.find('Node.'+member,backend)
+                self.assertEqual(assessment['status'],'supported',member)
+                self.assertEqual(assessment['verification'],'node-painter',member)
+                self.assertIn('/src/api/scene3d/painter.rs#L',assessment['source'])
+                self.assertNotEqual(assessment['source'].split('#L')[-1],'1')
+                self.assertEqual(self.find('Node.'+member,'wgpu')['status'],'missing')
+
     def test_published_report_matches_reviewed_source(self):
         self.assertEqual(json.loads(inventory.OUTPUT.read_text()), self.data)
 

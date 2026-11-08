@@ -67,4 +67,6 @@ pub mod scene3d;
 #[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
 pub use graphics3d::render_3d_viewport;
 #[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
-pub use scene3d::{draw_node_primitive, with_node_draw_state, NodeMotionState, NodeScene};
+pub use scene3d::{
+    draw_node_primitive, with_node_draw_state, NodeMotionState, NodePainter, NodeScene,
+};

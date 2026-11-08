@@ -67,13 +67,33 @@ pub fn screen_demo_draw() {
         8.,
         8.,
         if nodes {
-            "NODE CALLBACKS / MESH"
+            if PAINTER.with(|v| v.get()) {
+                "NODE PAINTER / 18 COMMANDS"
+            } else {
+                "NODE CALLBACKS / MESH"
+            }
         } else {
             "IMAGE PLANE / TILEMAP PLANE"
         },
         7,
     );
     text(8., 174., "SHARED SCREEN / GIF", 11);
+    if PAINTER.with(|v| v.get()) {
+        for (i, label) in [
+            "PSET", "LINE", "TRI", "TRIB", "RECT", "RECTB", "CIRC", "CIRCB", "ELLI", "ELLIB",
+            "BOX", "BOXB", "SPHERE", "SPHEREB", "PLANE", "SPRITE", "PRIM", "TEXT",
+        ]
+        .iter()
+        .enumerate()
+        {
+            text(
+                (i % 6) as f32 * 42. + 4.,
+                57. + (i / 6) as f32 * 42.,
+                label,
+                7,
+            );
+        }
+    }
     // A direct handle edit must reach the presented screen.
     screen()
         .borrow_mut()
@@ -128,8 +148,9 @@ pub fn screen_demo_remove_store() -> Result<(), JsValue> {
 }
 
 use crate::cube::{Camera, Collider, Mat4, Mesh, Node, Primitive, Vec3};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 thread_local! {
+    static PAINTER:Cell<bool>=const{Cell::new(false)};
     static NODES:RefCell<Option<NodeScene>>=const{RefCell::new(None)};
     static COUNTS:RefCell<[u32;4]>=const{RefCell::new([0;4])};
 }
@@ -155,6 +176,7 @@ fn count(index: usize) {
 }
 #[wasm_bindgen]
 pub fn screen_demo_nodes(enabled: bool) {
+    PAINTER.with(|v| v.set(false));
     COUNTS.with(|v| *v.borrow_mut() = [0; 4]);
     if !enabled {
         NODES.with(|v| *v.borrow_mut() = None);
@@ -270,4 +292,108 @@ pub fn screen_demo_destroy_node() {
             }
         }
     });
+}
+
+/// Eighteen node-local drawing commands through the same callback API as user code.
+#[wasm_bindgen]
+pub fn screen_demo_painter() {
+    screen_demo_nodes(false);
+    PAINTER.with(|v| v.set(true));
+    let root = Node::new();
+    let camera = Camera::new();
+    camera.borrow_mut().ortho_size = Some(12.);
+    root.borrow_mut().camera = Some(camera);
+    let mut scene = NodeScene::new(root.clone());
+    let texture = Image::new(8, 8);
+    texture.borrow_mut().clear(11);
+    texture.borrow_mut().draw_rect(0., 0., 4., 4., 8);
+    texture.borrow_mut().draw_rect(4., 4., 4., 4., 8);
+    for i in 0..18 {
+        let node = Node::new();
+        Node::add_child(&root, &node);
+        node.borrow_mut().transform = Mat4::from_translation(&Vec3 {
+            x: (i % 6) as f32 * 4. - 10.,
+            y: 4.5 - (i / 6) as f32 * 4.,
+            z: -8.,
+        });
+        let texture = texture.clone();
+        scene.on_paint(&node, move |_, p| {
+            use crate::cube::mesh::{ColImage, Material};
+            p.shaded(false);
+            let identity = Mat4::identity_value();
+            let zero = Vec3 {
+                x: 0.,
+                y: 0.,
+                z: 0.,
+            };
+            let a = Vec3 {
+                x: -0.9,
+                y: -0.8,
+                z: 0.,
+            };
+            let b = Vec3 {
+                x: 0.9,
+                y: -0.8,
+                z: 0.,
+            };
+            let c = Vec3 {
+                x: 0.,
+                y: 0.9,
+                z: 0.,
+            };
+            let uvs = ((0., 0.), (8., 0.), (0., 8.), (8., 8.));
+            let material = Material {
+                col_img: ColImage::Image(texture.clone()),
+                colkey: None,
+            };
+            match i {
+                0 => p.pset(&zero, 10),
+                1 => p.line(&a, &c, 10),
+                2 => p.tri(&a, &b, &c, 8),
+                3 => p.trib(&a, &b, &c, 11),
+                4 => p.rect(&identity, 1.8, 1.6, 8),
+                5 => p.rectb(&identity, 1.8, 1.6, 11),
+                6 => p.circ(&zero, 0.9, 8),
+                7 => p.circb(&zero, 0.9, 11),
+                8 => p.elli(&identity, 1.8, 1.3, 8),
+                9 => p.ellib(&identity, 1.8, 1.3, 11),
+                10 => p.r#box(
+                    &Mat4::from_euler(&Vec3 {
+                        x: 20.,
+                        y: 30.,
+                        z: 0.,
+                    })
+                    .borrow(),
+                    &Vec3 {
+                        x: 1.4,
+                        y: 1.4,
+                        z: 1.4,
+                    },
+                    &material,
+                ),
+                11 => p.boxb(
+                    &Mat4::from_euler(&Vec3 {
+                        x: 20.,
+                        y: 30.,
+                        z: 0.,
+                    })
+                    .borrow(),
+                    &Vec3 {
+                        x: 1.4,
+                        y: 1.4,
+                        z: 1.4,
+                    },
+                    11,
+                ),
+                12 => p.sphere(&zero, 0.9, &material),
+                13 => p.sphereb(&zero, 0.9, 11),
+                14 => p.plane(&identity, &texture, uvs, 1.8, 1.6, None),
+                15 => p.sprite(&zero, &texture, uvs, 1.8, 1.6, None, 20.),
+                16 => p.prim(&identity, &Primitive::plane(1.8, 1.6).borrow(), &material)?,
+                _ => p.text(&zero, "3D", 10, None),
+            }
+            Ok(())
+        });
+    }
+    NODES.with(|v| *v.borrow_mut() = Some(scene));
 }

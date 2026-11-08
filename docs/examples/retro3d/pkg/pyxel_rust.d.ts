@@ -214,6 +214,11 @@ export function screen_demo_node_flags(active: boolean, visible: boolean, opacit
 
 export function screen_demo_nodes(enabled: boolean): void;
 
+/**
+ * Eighteen node-local drawing commands through the same callback API as user code.
+ */
+export function screen_demo_painter(): void;
+
 export function screen_demo_pixel(x: number, y: number): number;
 
 export function screen_demo_remove_store(): void;
@@ -351,6 +356,7 @@ export interface InitOutput {
     readonly screen_demo_info: () => [number, number];
     readonly screen_demo_node_flags: (a: number, b: number, c: number) => void;
     readonly screen_demo_nodes: (a: number) => void;
+    readonly screen_demo_painter: () => void;
     readonly screen_demo_pixel: (a: number, b: number) => number;
     readonly screen_demo_remove_store: () => [number, number];
     readonly screen_demo_store: (a: number, b: number) => [number, number, number, number];
@@ -377,13 +383,13 @@ export interface InitOutput {
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___wasm_bindgen_cf0989641d10091a___JsValue__core_8896a31dc0048bac___result__Result_____wasm_bindgen_cf0989641d10091a___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_c32f62750fef9b4___features__gen_Blob__Blob_______true_: (a: number, b: number, c: number) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__109: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__110: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__111: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__112: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__113: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__114: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__115: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__116: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
