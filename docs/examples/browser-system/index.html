@@ -12,14 +12,15 @@
 <div class="controls"><button id="text" disabled>文字入力を開始</button><button id="text-end" disabled>文字入力を終了</button></div><p>入力を開始すると、日本語IMEでの入力も受け付けます。確定した文字を下の状態欄に表示します。通常の英数字は画面をクリックしても入力できます。</p>
 <div class="controls"><button id="edit" disabled>バンクを編集</button><button id="save" disabled>pyxresを保存</button><label>pyxresを読み込む<input id="load" type="file" accept=".pyxres" disabled></label><button id="save-pal" disabled>パレットを保存</button><label>パレットを読み込む<input id="load-pal" type="file" accept=".pyxpal,.txt" disabled></label><label>TMXを読み込む<input id="tmx" type="file" accept=".tmx" disabled></label></div>
 <p class="note">pyxresは公式の画像・タイルマップ・従来の音声配列・曲配列を保存します。MML・PCM・Tone・Font・Nodeは含みません。パレットは別ファイルです。TMXは公式コアと同じく、埋め込みタイルセット・8×8タイル・CSV層に対応します。</p><p>画面へファイルをドロップすると、名前・バイト数・先頭部分を状態欄に表示します。</p>
-<div class="controls"><button id="image-png" disabled>画像PNGを保存（指定倍率）</button><button id="configured-png" disabled>画面PNGを保存（指定倍率）</button><button id="configured-gif" disabled>録画GIFを保存（指定倍率）</button></div><p id="file-status" role="status">ファイル操作を試せます。</p><div class="controls"><button id="bgm" disabled>BGMを自動生成して再生</button><button id="stop" disabled>音声を停止</button></div><pre id="details" aria-label="ブラウザAPIの状態"></pre>
+<div class="controls"><button id="image-png" disabled>画像PNGを保存（指定倍率）</button><button id="configured-png" disabled>画面PNGを保存（指定倍率）</button><button id="configured-gif" disabled>録画GIFを保存（指定倍率）</button></div><p>ファイル名で読み書きする</p><div class="controls"><label>ファイルを登録<input id="named-import" type="file" multiple disabled></label><select id="named-files" aria-label="登録ファイル" disabled></select><button id="named-open" disabled>読み込む</button><button id="named-download" disabled>取り出す</button><button id="named-remove" disabled>削除</button></div><div class="controls"><select id="named-kind" aria-label="保存する種類" disabled><option value="project">リソース</option><option value="palette">パレット</option><option value="image">画像PNG（2倍）</option><option value="screen">論理画面PNG（2倍）</option><option value="sound">効果音WAV</option><option value="music">曲WAV</option></select><button id="named-save" disabled>名前を付けて保存</button></div><p>登録したファイルを画像・フォント・音声・TMX・GLB・リソースの読込に使えます。保存先のvfs:/はこのページ内の作業領域です。再読み込みで消えるため、必要なファイルは「取り出す」で保存してください。GLBは画像・バッファを含む単体ファイル、TMXは8×8タイルのCSV形式に対応します。音声はWAV保存です。</p>
+<p id="file-status" role="status">ファイル操作を試せます。</p><div class="controls"><button id="bgm" disabled>BGMを自動生成して再生</button><button id="stop" disabled>音声を停止</button></div><pre id="details" aria-label="ブラウザAPIの状態"></pre>
 <script type="module">
-import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=2094b14f5711';
+import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=0e90c90960e7';
 const output=(id,text,error=false)=>{const el=document.querySelector(id);el.textContent=text;el.setAttribute('role',error?'alert':'status');};
 const fail=(id,error)=>output(id,String(error.message||error),true);
 function download(bytes,type,name){const url=URL.createObjectURL(new Blob([bytes],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 try{
- await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=2094b14f5711',import.meta.url)});const params=new URLSearchParams(location.search);
+ await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=0e90c90960e7',import.meta.url)});const params=new URLSearchParams(location.search);
  const scale=Number(params.get('capture')||2);
  if(params.has('config'))api.start_browser_system_with_options(Number(params.get('display')||2),scale,params.has('record')?1:0,params.has('headless'),api.key_index('KeyQ'));
  else api.start_browser_system();
@@ -32,6 +33,14 @@ try{
  document.addEventListener('fullscreenchange',()=>{const active=!!document.fullscreenElement;document.querySelector('#fullscreen').textContent=active?'全画面を終了':'全画面にする';output('#window-status',active?'全画面表示中（Escで戻れます）':'全画面を終了しました');});
  document.querySelector('#fullscreen').onclick=async()=>{try{await api.browser_fullscreen(!document.fullscreenElement);output('#window-status',document.fullscreenElement?'全画面表示中':'全画面を終了しました');}catch(e){fail('#window-status',e)}};
  for(const id of ['integer','monitor'])document.querySelector('#'+id).onchange=()=>api.browser_demo_flags(document.querySelector('#integer').checked,document.querySelector('#monitor').checked);
+ const files=document.querySelector('#named-files');
+ function refreshFiles(selected=files.value){const paths=JSON.parse(api.browser_files_list());files.replaceChildren(...paths.map(path=>{const el=document.createElement('option');el.value=path;el.textContent=path;return el}));if(paths.includes(selected))files.value=selected;}
+ document.querySelector('#named-import').onchange=async e=>{try{let path;for(const file of e.target.files){path='vfs:/imports/'+file.name;api.browser_files_write(path,new Uint8Array(await file.arrayBuffer()));}refreshFiles(path);output('#file-status','ファイルを登録しました。「読み込む」で使用できます');}catch(e){fail('#file-status',e)}finally{refreshFiles()}};
+ document.querySelector('#named-save').onclick=()=>{try{const path=api.browser_demo_named_save(document.querySelector('#named-kind').value);refreshFiles(path);output('#file-status',path+' に保存しました');}catch(e){fail('#file-status',e)}};
+ document.querySelector('#named-open').onclick=()=>{try{output('#file-status',api.browser_demo_named_open(files.value));}catch(e){fail('#file-status',e)}};
+ document.querySelector('#named-download').onclick=()=>{try{const path=files.value;download(api.browser_files_read(path),'application/octet-stream',path.split('/').pop());}catch(e){fail('#file-status',e)}};
+ document.querySelector('#named-remove').onclick=()=>{try{api.browser_files_remove(files.value);refreshFiles();output('#file-status','ファイルを削除しました');}catch(e){fail('#file-status',e)}};
+ refreshFiles();
  document.querySelector('#image-png').onclick=()=>{try{download(api.browser_demo_image_png(scale),'image/png','pyxel-image.png')}catch(e){fail('#file-status',e)}};
  document.querySelector('#configured-png').onclick=async()=>{try{download(await api.browser_capture_png(),'image/png','pyxel-configured.png')}catch(e){fail('#file-status',e)}};
  document.querySelector('#configured-gif').onclick=()=>{try{const bytes=api.browser_capture_gif();if(bytes)download(bytes,'image/gif','pyxel-configured.gif');else output('#file-status','録画フレームがありません')}catch(e){fail('#file-status',e)}};

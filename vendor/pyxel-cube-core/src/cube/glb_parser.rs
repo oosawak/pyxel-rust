@@ -1,6 +1,6 @@
+use crate::file_io as fs;
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fs;
 
 use crate::cube::mat4::{Mat4, RcMat4};
 use crate::cube::mesh::{ColImage, Material, Mesh, RcMesh};

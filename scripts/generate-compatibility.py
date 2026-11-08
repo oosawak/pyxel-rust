@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/pyxel-3.0-api.json'
 OUTPUT = ROOT / 'docs/assets/compatibility/data.json'
-ENGINE_REV = '59129412023eb23a1922e6190c69ae392accd72e'
+ENGINE_REV = '5f529aee4554e687a60a67179a1c50b431b7d540'
 BACKENDS = ['wasm', 'sdl2', 'wgpu']
 
 
@@ -56,7 +56,7 @@ def classify(row, backend):
             if member in state + draw:
                 return result('supported', 'NodeScene::on_paintのNodePainterでNodeローカル描画と状態設定を実行します。親の座標変換・不透明度・陰影を継承し、追加行列を合成します。円・スプライト・文字はカメラ向き、decal(None)は解除、設定はNodeごとにリセットします。box/sphere/primにはMaterialで単色・画像・透過色を渡します。Python継承の代わりにRustクロージャを登録します。18描画は公式3.0.0とのピクセル比較、状態継承・奥行き・デカールはRustテストで検証しています。', 'src/api/scene3d/painter.rs', 'pub fn '+('r#box' if member == 'box' else member)+'(', 'node-painter')
         if category == 'Mesh' and member == 'from_glb':
-            return result('partial' if soft else 'supported', 'GLBバイト列から読込。画像・バッファはBIN内への埋め込みが必要です。ファイルパス・外部URIは使えません。' if soft else '公式Mesh::from_glbを公開。公式3.0.0自身がスキニング・モーフに非対応です。', path, 'pub fn from_glb', 'glb' if backend == 'wasm' else None)
+            return result('partial' if soft else 'supported', 'Mesh::from_glbに仮想ファイル名を指定できます。画像・バッファはBIN内への埋め込みが必要で、外部URIは未対応です。from_glb_bytesも使用できます。' if soft else '公式Mesh::from_glbを公開。公式3.0.0自身がスキニング・モーフに非対応です。', path, 'pub fn from_glb', 'glb' if backend == 'wasm' else None)
         if category == 'Mat4' and member in ['pos', 'rot', 'scale']:
             return result('supported', '公式3.0.0 Pythonバインディングもgetterのみの読み取り専用プロパティです。Rustはpos() / rot() / scale_vec()で同じ分解値を取得します。返された値の変更は元の行列を書き換えません。以前の書込setter不足という判定を訂正しました。', path, 'pub fn '+('scale_vec' if member == 'scale' else member), 'matrix-views')
         if category == 'Shading' and member == 'palette':
@@ -160,9 +160,7 @@ def classify(row, backend):
         if name in ['load', 'save', 'load_pal', 'save_pal', 'screenshot'] and backend != 'wgpu':
             if native:
                 return result('supported', '公式SDL2コアのファイル操作へ接続します。', path, 'pub fn '+name)
-            token = {'load':'load_bytes', 'save':'save_bytes', 'load_pal':'load_pal_text', 'save_pal':'save_pal_text', 'screenshot':'browser_screenshot'}[name]
-            source = 'src/backend/wasm_backend/system.rs' if name == 'screenshot' else path
-            return result('partial', 'メモリI/Oの'+token+'を使用します。pyxresは公式ZIP/TOML（画像・タイルマップ・従来音声・曲配列）、パレットは別のテキスト、画面は倍率指定PNGです。任意ファイルパスにはアクセスできず、選択・保存UIはページ側で行います。MML・PCM・Tone・Font・Nodeはpyxresに含みません。', source, 'pub '+('async ' if name == 'screenshot' else '')+'fn '+token, 'browser-system')
+            return result('supported', 'load/save/load_pal/save_pal/screenshotに仮想ファイル名を指定できます。browser_filesへ選択・取得したファイルを登録し、保存内容をgetで取り出します。OSのファイルパスではなくページ実行中のvfs:/領域です。画面保存は論理画素PNGで倍率に対応。pyxresは公式ZIP/TOMLの共有バンク形式です。仮想ファイルは1件64MiB・合計128MiBまで、再読み込みで消えます。', path, 'pub use pyxel::file_io as browser_files', 'named-files')
         if name in ['user_data_dir','screencast','reset_screencast'] and backend != 'wgpu':
             if native:
                 return result('supported', '公式SDL2コアのユーザーディレクトリ・GIF録画操作へ接続します。', path, 'pub fn '+name)
@@ -177,17 +175,16 @@ def classify(row, backend):
         path = f'vendor/pyxel-cube-core/src/{category.lower()}.rs'
         if backend == 'wasm':
             if category == 'Tilemap' and member in ['from_tmx', 'load']:
-                return result('partial', 'from_tmx_text / load_tmx_textでTMX文字列を読み込みます。埋め込みタイルセット・8×8タイル・CSV層に対応。ファイルパス指定は使えません。', path, 'pub fn '+('from_tmx_text' if member == 'from_tmx' else 'load_tmx_text'), 'browser-system')
+                return result('supported', 'Tilemap::from_tmx / loadに仮想ファイル名を指定できます。公式コアと同じ8×8タイル・CSV層のTMXを読み込みます。from_tmx_text / load_tmx_textも使用できます。ファイルはページ実行中のvfs:/領域へ登録します。', path, 'pub fn '+member+'(', 'named-files')
             if category == 'Font' and name == 'Font':
-                return result('partial', 'Font::from_bytesでBDF/TTF/OTFを読み込みます。ファイルパスによるFont::newはブラウザで使えません。', path, 'pub fn from_bytes', 'resources')
+                return result('supported', 'Font::newに仮想ファイル名を指定してBDF/TTF/OTFを読み込めます。Font::from_bytesも使用できます。選択したファイルをbrowser_filesへ登録してから使用します。', path, 'pub fn new', 'named-files')
             if category == 'Image' and member in ['from_image', 'load', 'save']:
-                token = {'from_image':'from_image_bytes','load':'load_bytes','save':'png_bytes_scaled'}[member]
-                return result('partial', 'バイト列から画像を読み込み、PNGバイト列として保存できます。ブラウザのファイル選択・ダウンロードはページ側で行います。filename指定は未対応ですが、png_bytes_scaled(scale)で最近傍の倍率PNG保存ができます。scale 0・寸法オーバーフロー・RGB出力128MiB超は事前にエラーとします。表示パレットは最大256色で、画面全体の倍率PNGはbrowser_screenshotを使用します。', path, 'pub fn '+token, 'compat-options' if member == 'save' else 'resources')
+                return result('supported', 'Image::from_image / load / saveに仮想ファイル名を指定できます。PNG保存は倍率指定に対応し、clip/camera/pal/ditherの影響を受けません。ファイルはページ実行中のvfs:/領域です。選択ファイルを登録し、出力をダウンロードできます。scale 0・オーバーフロー・RGB出力128MiB超はエラーになります。', path, 'pub fn '+member+'(', 'named-files')
             if category in ['Sound', 'Music'] and member == 'save':
-                return result('partial', 'wav_bytesで指定秒数を公式シンセサイザーからWAV化し、ブラウザで保存できます。ファイルパス指定・FFmpegによる動画変換は使えません。', path, 'pub fn wav_bytes', 'resources-audio')
+                return result('partial', 'Sound::save / Music::saveで仮想ファイル名へWAVを保存できます。FFmpegによる動画変換は引き続き未対応で、指定時はエラーとして既存ファイルを保持します。wav_bytesも使用できます。', path, 'pub fn wav_bytes', 'resources-audio')
             if category == 'Sound' and member == 'pcm':
                 loading = 'filename' in row['signature']
-                return result('partial' if loading else 'supported', 'load_pcm_bytesで音声バイト列をデコードします。ファイルパス指定は使えません。' if loading else 'clear_pcmでPCMを解除します。', path, 'pub fn '+('load_pcm_bytes' if loading else 'clear_pcm'), 'resources-audio')
+                return result('supported', 'load_pcmに仮想ファイル名を指定してPCMを読み込みます。load_pcm_bytesも使用できます。' if loading else 'clear_pcmでPCMを解除します。', path, 'pub fn '+('load_pcm' if loading else 'clear_pcm'), 'named-files' if loading else 'resources-audio')
         if member == 'mml':
             return result('supported', '公式コアのset_mml / clear_mmlとして公開しています。', path, 'pub fn set_mml', 'resources-audio' if backend == 'wasm' else None)
         if member == 'pcm':

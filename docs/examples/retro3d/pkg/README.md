@@ -448,3 +448,21 @@ init_with_options(320, 192, "My game", 30, InitOptions {
 ブラウザのheadlessは画素を生成し、Canvasの更新・入力イベント登録を省略します。`browser_capture_png(None)` / `configured_screencast_gif(None)`は初期化時の保存倍率を使い、`Some(scale)`で上書きできます。画像単体は`Image::png_bytes_scaled(scale)`で最近傍拡大したPNGを取得できます。画像の書出しは描画中のclip・camera・pal・ditherに影響されず、現在のRGBパレットを使います。scale 0・寸法オーバーフロー・RGB出力128MiB超はエラーになります。`png_bytes()`は等倍のままです。
 
 [ブラウザ・ファイルAPIの確認](https://oosawak.github.io/pyxel-rust/examples/browser-system/?config=1&display=3&capture=3&record=1)に初期化設定と画像・画面・録画の倍率保存を追加しています。ファイル選択・ダウンロードによる読み書きは既存のpyxres・パレット・TMX操作と同じページで確認できます。ファイルパスを直接指定するAPIとの差は、引き続き対応状況に記載します。
+
+
+### ブラウザのファイル名による読み書き
+
+Canvas/WASMはページ内の仮想ファイルを使います。`browser_files::put("vfs:/assets/picture.png", bytes)`で選択・ドロップ・fetchした内容を登録し、`Image::from_image` / `Image::load` / `Image::save`、`Font::new`、`Sound::load_pcm`、`Tilemap::from_tmx` / `Tilemap::load`、`Mesh::from_glb`へファイル名を渡せます。`load/save/load_pal/save_pal/screenshot`にも名前を指定できます。`Sound::save` / `Music::save`は`Some(false)`で名前を付けたWAVを作成します。FFmpeg変換指定は未対応としてエラーになり、既存ファイルを保持します。GLBの外部URIは引き続き未対応です。
+
+```rust,ignore
+browser_files::put("vfs:/assets/hero.png", png_bytes)?;
+let hero = Image::from_image("vfs:/assets/hero.png", Some(false))?;
+hero.borrow().save("vfs:/exports/hero.png", 3)?;
+let exported_png = browser_files::get("vfs:/exports/hero.png")?;
+save("vfs:/exports/game.pyxres", false, false, false, false)?;
+load("vfs:/exports/game.pyxres", false, false, false, false)?;
+```
+
+`browser_files::list/get/remove`とJSの`browser_files_write/read/list/remove`で一覧・取出し・削除を行います。WASMでは相対名も同じ仮想ルートへ解決します。ネイティブ実行のCanvasコアテストでは`vfs:/`で始まる名前が仮想ファイル、その他は通常のOSファイルです。ファイルはページの実行中だけ保持し、再読込で消えます。永続保存が必要なら取得したバイト列をダウンロードするか、アプリ側の保存先へ渡してください。OSの任意パスへ自動的に書き込むことはありません。
+
+仮想ファイルは1件64MiB・合計128MiB・最大4096件、名前4096バイトまでです。`..`によるルート外参照、URL、バックスラッシュ、空の名前を拒否します。不正な書出し設定やデコード失敗は、既存ファイル・読込先を維持します。[確認ページ](https://oosawak.github.io/pyxel-rust/examples/browser-system/)の「ファイル名で読み書きする」で登録、読込、保存、ダウンロード、削除を試せます。TMXは公式コアと同じ8×8タイル・CSV層、GLBは埋め込み型に対応します。

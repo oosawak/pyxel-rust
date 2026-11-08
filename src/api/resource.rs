@@ -182,3 +182,73 @@ pub use crate::backend::wasm_backend::recording::{
 };
 #[cfg(feature = "wasm-backend")]
 pub use crate::backend::wasm_backend::storage::{user_data_store, UserDataStore};
+
+/// Session-local browser filesystem. Files are imported/exported through the page.
+#[cfg(feature = "wasm-backend")]
+pub use pyxel::file_io as browser_files;
+#[cfg(feature = "wasm-backend")]
+pub fn load(
+    filename: &str,
+    exclude_images: bool,
+    exclude_tilemaps: bool,
+    exclude_sounds: bool,
+    exclude_musics: bool,
+) -> Result<(), String> {
+    load_bytes(
+        &browser_files::read(filename)?,
+        ResourceOptions {
+            exclude_images,
+            exclude_tilemaps,
+            exclude_sounds,
+            exclude_musics,
+        },
+    )
+}
+#[cfg(feature = "wasm-backend")]
+pub fn save(
+    filename: &str,
+    exclude_images: bool,
+    exclude_tilemaps: bool,
+    exclude_sounds: bool,
+    exclude_musics: bool,
+) -> Result<(), String> {
+    let filename = if filename.ends_with(".pyxres") {
+        filename.to_owned()
+    } else {
+        format!("{filename}.pyxres")
+    };
+    browser_files::write(
+        &filename,
+        &save_bytes(ResourceOptions {
+            exclude_images,
+            exclude_tilemaps,
+            exclude_sounds,
+            exclude_musics,
+        })?,
+    )
+}
+#[cfg(feature = "wasm-backend")]
+pub fn load_pal(filename: &str) -> Result<(), String> {
+    load_pal_text(&String::from_utf8(browser_files::read(filename)?).map_err(|e| e.to_string())?)
+}
+#[cfg(feature = "wasm-backend")]
+pub fn save_pal(filename: &str) -> Result<(), String> {
+    let filename = if filename.ends_with(".pyxpal") {
+        filename.to_owned()
+    } else {
+        format!("{filename}.pyxpal")
+    };
+    browser_files::write(&filename, save_pal_text().as_bytes())
+}
+#[cfg(feature = "wasm-backend")]
+pub fn screenshot(filename: Option<&str>, scale: Option<u32>) -> Result<(), String> {
+    let filename = filename.unwrap_or("vfs:/exports/screenshot.png");
+    let filename = if filename.ends_with(".png") {
+        filename.to_owned()
+    } else {
+        format!("{filename}.png")
+    };
+    let scale = scale.unwrap_or(crate::backend::wasm_backend::state().capture_scale);
+    let bytes = screen().borrow().png_bytes_scaled(scale)?;
+    browser_files::write(&filename, &bytes)
+}

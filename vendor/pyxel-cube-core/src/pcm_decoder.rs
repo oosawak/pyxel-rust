@@ -15,6 +15,14 @@ pub struct PcmData {
 }
 
 pub fn load_pcm(filename: &str, target_rate: u32) -> Result<PcmData, String> {
+    if crate::file_io::is_virtual(filename) {
+        let bytes = crate::file_io::read(filename)?;
+        let extension = Path::new(filename)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        return load_pcm_bytes(&bytes, extension, target_rate);
+    }
     // Open and probe audio file
     let file = File::open(filename).map_err(|_| format!("Failed to open file '{filename}'"))?;
     let media_stream = MediaSourceStream::new(Box::new(file), MediaSourceStreamOptions::default());

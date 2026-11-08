@@ -53,6 +53,10 @@ export function browser_demo_info(): string;
 
 export function browser_demo_load(bytes: Uint8Array | number[]): void;
 
+export function browser_demo_named_open(path: string): string;
+
+export function browser_demo_named_save(kind: string): string;
+
 export function browser_demo_palette(text: string): void;
 
 export function browser_demo_palette_text(): string;
@@ -70,6 +74,14 @@ export function browser_demo_stop(): void;
 export function browser_demo_title(value: string): void;
 
 export function browser_demo_tmx(text: string): void;
+
+export function browser_files_list(): string;
+
+export function browser_files_read(path: string): Uint8Array;
+
+export function browser_files_remove(path: string): boolean;
+
+export function browser_files_write(path: string, bytes: Uint8Array | number[]): void;
 
 /**
  * Manual async frame stepping is available when a callback game loop is not running.
@@ -300,6 +312,8 @@ export interface InitOutput {
     readonly browser_demo_image_png: (a: number) => [number, number, number, number];
     readonly browser_demo_info: () => [number, number];
     readonly browser_demo_load: (a: number, b: number) => [number, number];
+    readonly browser_demo_named_open: (a: number, b: number) => [number, number, number, number];
+    readonly browser_demo_named_save: (a: number, b: number) => [number, number, number, number];
     readonly browser_demo_palette: (a: number, b: number) => [number, number];
     readonly browser_demo_palette_text: () => [number, number];
     readonly browser_demo_reset_palette: () => void;
@@ -309,6 +323,10 @@ export interface InitOutput {
     readonly browser_demo_stop: () => void;
     readonly browser_demo_title: (a: number, b: number) => void;
     readonly browser_demo_tmx: (a: number, b: number) => [number, number];
+    readonly browser_files_list: () => [number, number];
+    readonly browser_files_read: (a: number, b: number) => [number, number, number, number];
+    readonly browser_files_remove: (a: number, b: number) => [number, number, number];
+    readonly browser_files_write: (a: number, b: number, c: number, d: number) => [number, number];
     readonly browser_flip: () => any;
     readonly browser_fullscreen: (a: number) => any;
     readonly browser_recorded_frames: () => number;
@@ -404,13 +422,13 @@ export interface InitOutput {
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___wasm_bindgen_cf0989641d10091a___JsValue__core_8896a31dc0048bac___result__Result_____wasm_bindgen_cf0989641d10091a___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_c32f62750fef9b4___features__gen_Blob__Blob_______true_: (a: number, b: number, c: number) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__115: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__116: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__117: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__118: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__119: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__120: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__121: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__122: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__123: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__124: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__125: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__126: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__127: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

@@ -121,7 +121,7 @@ function buildPanel() {
       const test = element('p', '個別動作：未検証。ソース確認による表示です。');
       if (assessment.verification) {
         test.textContent = '関連テストあり（一部の条件）。';
-        const path = { glb:'tests/glb_browser.rs', animation:'tests/animation_browser.rs', math:'tests/math_compatibility.rs', drawing:'scripts/playtest-api-coverage.cjs', 'browser-input':'scripts/playtest-api-coverage.cjs', resources:'tests/browser_resources.rs', 'resources-audio':'scripts/playtest-resources-audio.cjs', 'browser-system':'scripts/playtest-browser-system.cjs', 'screen-tools':'scripts/playtest-screen-tools.cjs', 'scene-lifecycle':'tests/scene_lifecycle.rs', 'node-motion':'tests/node_motion.rs', 'matrix-views':'tests/matrix_views.rs', 'node-painter':'tests/node_painter.rs', 'compat-options':'scripts/playtest-compat-options.cjs' }[assessment.verification];
+        const path = { glb:'tests/glb_browser.rs', animation:'tests/animation_browser.rs', math:'tests/math_compatibility.rs', drawing:'scripts/playtest-api-coverage.cjs', 'browser-input':'scripts/playtest-api-coverage.cjs', resources:'tests/browser_resources.rs', 'resources-audio':'scripts/playtest-resources-audio.cjs', 'browser-system':'scripts/playtest-browser-system.cjs', 'screen-tools':'scripts/playtest-screen-tools.cjs', 'scene-lifecycle':'tests/scene_lifecycle.rs', 'node-motion':'tests/node_motion.rs', 'matrix-views':'tests/matrix_views.rs', 'node-painter':'tests/node_painter.rs', 'compat-options':'scripts/playtest-compat-options.cjs', 'named-files':'scripts/playtest-named-files.cjs' }[assessment.verification];
         test.append(' ', link('検証内容を見る', repo + data.engineRevision + '/' + path));
       }
       item.append(test);

@@ -71,7 +71,7 @@ class CompatibilityTests(unittest.TestCase):
     def test_resources_do_not_hide_browser_io_and_backend_gaps(self):
         for name in ['Tilemap','Sound','Music','Channel','Tone','Font.text_width','play_pos']:
             self.assertEqual(self.find(name,'wasm')['status'],'supported',name)
-        for name in ['Font','Image.from_image','Image.load','Image.save','Sound.save','Music.save','load','save','load_pal','save_pal','screenshot','Tilemap.from_tmx','Tilemap.load','dropped_files']:
+        for name in ['Sound.save','Music.save','dropped_files']:
             self.assertEqual(self.find(name,'wasm')['status'],'partial',name)
         for name in ['screencast','screen_mode','show','flip','reset','user_data_dir']:
             self.assertEqual(self.find(name,'wasm')['status'],'partial',name)
@@ -94,9 +94,16 @@ class CompatibilityTests(unittest.TestCase):
         self.assertEqual(self.find('init','wgpu')['status'],'partial')
         self.assertEqual(self.find('rect','wgpu')['status'],'supported')
         image = self.find('Image.save','wasm')
-        self.assertEqual(image['status'],'partial')
-        self.assertIn('png_bytes_scaled',image['note'])
-        self.assertIn('filename指定は未対応',image['note'])
+        self.assertEqual(image['status'],'supported')
+        self.assertIn('仮想ファイル名',image['note'])
+
+    def test_named_browser_file_operations_are_backed_by_real_decoders(self):
+        for name in ['load','save','load_pal','save_pal','screenshot','Font','Image.from_image','Image.load','Image.save','Tilemap.from_tmx','Tilemap.load','Sound.pcm']:
+            assessment=self.find(name,'wasm')
+            self.assertEqual(assessment['status'],'supported',name)
+            self.assertEqual(assessment['verification'],'named-files',name)
+        for name in ['Sound.save','Music.save','Mesh.from_glb','user_data_dir','dropped_files']:
+            self.assertEqual(self.find(name,'wasm')['status'],'partial',name)
 
     def test_node_painter_support_has_runtime_evidence(self):
         for backend in ['wasm','sdl2']:

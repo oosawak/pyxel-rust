@@ -192,3 +192,103 @@ pub fn browser_demo_shapes() {
     circ(64., 36., 8., 11);
     circb(88., 36., 8., 11);
 }
+
+#[wasm_bindgen]
+pub fn browser_demo_named_save(kind: &str) -> Result<String, JsValue> {
+    let path = match kind {
+        "project" => {
+            save("vfs:/exports/game.pyxres", false, false, false, false).map_err(err)?;
+            "vfs:/exports/game.pyxres"
+        }
+        "palette" => {
+            save_pal("vfs:/exports/colors.pyxpal").map_err(err)?;
+            "vfs:/exports/colors.pyxpal"
+        }
+        "image" => {
+            images()[1]
+                .borrow()
+                .save("vfs:/exports/image.png", 2)
+                .map_err(err)?;
+            "vfs:/exports/image.png"
+        }
+        "screen" => {
+            screenshot(Some("vfs:/exports/screen.png"), Some(2)).map_err(err)?;
+            "vfs:/exports/screen.png"
+        }
+        "sound" => {
+            sounds()[0]
+                .lock()
+                .unwrap()
+                .save("vfs:/exports/sound.wav", 0.25, Some(false))
+                .map_err(err)?;
+            "vfs:/exports/sound.wav"
+        }
+        "music" => {
+            musics()[0]
+                .lock()
+                .unwrap()
+                .save("vfs:/exports/music.wav", 0.25, Some(false))
+                .map_err(err)?;
+            "vfs:/exports/music.wav"
+        }
+        _ => return Err(err("Unknown file type".into())),
+    };
+    Ok(path.to_owned())
+}
+#[wasm_bindgen]
+pub fn browser_demo_named_open(path: &str) -> Result<String, JsValue> {
+    let extension = std::path::Path::new(path)
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let detail = match extension.as_str() {
+        "pyxres" => {
+            load(path, false, false, false, false).map_err(err)?;
+            "リソースを読み込みました".into()
+        }
+        "pyxpal" => {
+            load_pal(path).map_err(err)?;
+            "パレットを読み込みました".into()
+        }
+        "png" | "jpg" | "jpeg" | "bmp" => {
+            let image = Image::from_image(path, Some(false)).map_err(err)?;
+            let info = {
+                let i = image.borrow();
+                format!("画像 {}×{}", i.width(), i.height())
+            };
+            with_images(|banks| banks[1] = image);
+            info
+        }
+        "bdf" | "ttf" | "otf" => {
+            let font = Font::new(path, None).map_err(err)?;
+            let width = font.borrow_mut().text_width("AA");
+            format!("フォント: AAの幅 {width}")
+        }
+        "tmx" => {
+            let map = Tilemap::from_tmx(path, 0).map_err(err)?;
+            with_tilemaps(|banks| banks[0] = map);
+            "タイルマップを読み込みました".into()
+        }
+        "wav" | "mp3" | "ogg" | "flac" => {
+            sounds()[2].lock().unwrap().load_pcm(path).map_err(err)?;
+            "PCM音声を読み込みました".into()
+        }
+        "glb" => {
+            let mesh = crate::cube::Mesh::from_glb(path, None, 30.).map_err(err)?;
+            let count = mesh
+                .borrow()
+                .primitives
+                .iter()
+                .filter(|p| p.is_some())
+                .count();
+            format!("GLB: {count}パーツ")
+        }
+        _ => {
+            return Err(err(
+                "対応する形式: pyxres/pyxpal/画像/BDF/TTF/OTF/TMX/音声/GLB".into(),
+            ))
+        }
+    };
+    Ok(detail)
+}

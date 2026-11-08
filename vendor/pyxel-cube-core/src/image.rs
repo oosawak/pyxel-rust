@@ -58,8 +58,8 @@ impl Image {
     }
 
     pub fn from_image(filename: &str, include_colors: Option<bool>) -> Result<RcImage, String> {
-        let bytes =
-            std::fs::read(filename).map_err(|_| format!("Failed to open file '{filename}'"))?;
+        let bytes = crate::file_io::read(filename)
+            .map_err(|_| format!("Failed to open file '{filename}'"))?;
         Self::from_image_bytes(&bytes, include_colors)
     }
 
@@ -302,36 +302,8 @@ impl Image {
     }
 
     pub fn save(&self, filename: &str, scale: u32) -> Result<(), String> {
-        let colors = pyxel::colors();
-        let width = self.width();
-        let height = self.height();
-        let scaled_width = width
-            .checked_mul(scale)
-            .expect("scale is too large for the image dimensions");
-        let scaled_height = height
-            .checked_mul(scale)
-            .expect("scale is too large for the image dimensions");
-        let mut image = image::RgbImage::new(width, height);
-
-        for y in 0..height {
-            for x in 0..width {
-                let rgb = color_to_rgb24(&colors, self.canvas.read_data(x as usize, y as usize));
-                let (r, g, b) = rgb24_to_rgb8(rgb);
-                image.put_pixel(x, y, image::Rgb([r, g, b]));
-            }
-        }
-
-        let image = imageops::resize(
-            &image,
-            scaled_width,
-            scaled_height,
-            imageops::FilterType::Nearest,
-        );
         let filename = utils::add_file_extension(filename, ".png");
-        image
-            .save(&filename)
-            .map_err(|_| format!("Failed to save file '{filename}'"))?;
-        Ok(())
+        crate::file_io::write(&filename, &self.png_bytes_scaled(scale)?)
     }
 
     // Clip and offset
