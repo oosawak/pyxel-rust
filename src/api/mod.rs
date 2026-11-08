@@ -54,3 +54,17 @@ pub use crate::backend::wasm_backend::system::browser_screenshot as screenshot_p
 pub use audio::gen_bgm;
 #[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
 pub use system::{fullscreen, icon, integer_scale, perf_monitor, resize, title};
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub use graphics::{blt3d, bltm3d};
+#[cfg(feature = "pyxel-core-backend")]
+pub use system::set_reset_handler;
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub use system::{flip, reset, screen_mode, show};
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub mod scene3d;
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub use graphics3d::render_3d_viewport;
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub use scene3d::{draw_node_primitive, with_node_draw_state, NodeScene};

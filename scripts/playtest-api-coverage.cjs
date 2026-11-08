@@ -24,7 +24,9 @@ const info=p=>p.evaluate(()=>JSON.parse(demo.api_coverage_info()));
  await page.mouse.down();await page.waitForFunction(()=>JSON.parse(demo.api_coverage_info()).left);await page.mouse.move(2,2);await page.mouse.up();await page.waitForFunction(()=>!JSON.parse(demo.api_coverage_info()).left);assert.equal((await info(page)).clicks,1);
  await page.mouse.move(box.x+80,box.y+80);await page.mouse.down({button:'right'});await page.waitForFunction(()=>JSON.parse(demo.api_coverage_info()).right);await page.mouse.up({button:'right'});
  await page.mouse.wheel(0,-100);await page.waitForFunction(()=>JSON.parse(demo.api_coverage_info()).wheel>0);
- await page.locator('#cursor').click();await page.waitForFunction(()=>document.querySelector('canvas').style.cursor==='none');await page.locator('#cursor').click();await page.waitForFunction(()=>document.querySelector('canvas').style.cursor==='default');
+ const cursorPixels=()=>canvas.evaluate(c=>{const [x,y]=JSON.parse(demo.api_coverage_info()).mouse;return Array.from(c.getContext('2d').getImageData(x,y,8,8).data)});
+ const shown=await cursorPixels();let cursorFrame=(await info(page)).frame;await page.locator('#cursor').evaluate(el=>el.click());await page.waitForFunction(frame=>JSON.parse(demo.api_coverage_info()).frame>frame,cursorFrame);const hidden=await cursorPixels();assert.notDeepEqual(shown,hidden);
+ cursorFrame=(await info(page)).frame;await page.locator('#cursor').evaluate(el=>el.click());await page.waitForFunction(frame=>JSON.parse(demo.api_coverage_info()).frame>frame,cursorFrame);assert.deepEqual(await cursorPixels(),shown);assert.equal(await canvas.evaluate(c=>c.style.cursor),'none');
  // Gamepad WebIDL requires actual Gamepad objects: use the Chromium virtual gamepad protocol when available.
  // This fixture overrides the JS prototype so wasm-bindgen's instanceof check sees Web Gamepad objects.
  await page.evaluate(()=>{

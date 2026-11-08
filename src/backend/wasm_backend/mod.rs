@@ -12,6 +12,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
 pub mod audio;
+pub mod recording;
+pub mod storage;
 pub mod system;
 pub mod text_files;
 
@@ -192,7 +194,8 @@ pub struct WasmState {
     pub height: u32,
     pub display_scale: u32,
     pub fps: u32,
-    pub pixel_buffer: Vec<u8>,
+    pub screen: crate::RcImage,
+    pub recorder: Option<pyxel::Screencast>,
     pub rgba_buffer: Vec<u8>, // pre-allocated RGBA output
     pub palette: [[u8; 4]; 256],
     pub color_map: [u8; 256],
@@ -205,6 +208,8 @@ pub struct WasmState {
     pub frame_count: u32,
     pub integer_scale: bool,
     pub perf_monitor: bool,
+    pub running: bool,
+    pub screen_mode: u32,
     pub actual_fps: f64,
     pub update_ms: f64,
     pub draw_ms: f64,
@@ -223,7 +228,8 @@ impl WasmState {
             height,
             display_scale: compute_scale(width, height),
             fps,
-            pixel_buffer: vec![0u8; pixels],
+            screen: crate::Image::new(width, height),
+            recorder: None,
             rgba_buffer: vec![0u8; pixels * 4],
             palette,
             color_map,
@@ -236,6 +242,8 @@ impl WasmState {
             frame_count: 0,
             integer_scale: false,
             perf_monitor: false,
+            running: false,
+            screen_mode: 0,
             actual_fps: 0.,
             update_ms: 0.,
             draw_ms: 0.,
@@ -252,178 +260,55 @@ impl WasmState {
         self.width = width;
         self.height = height;
         self.display_scale = compute_scale(width, height);
-        self.pixel_buffer = vec![0; count];
+        // Keep existing screen handles live across a resize.
+        self.screen.borrow_mut().resize_canvas(width, height)?;
         self.rgba_buffer = vec![0; count * 4];
         self.clip_rect = None;
         self.camera_x = 0.;
         self.camera_y = 0.;
         self.dither_alpha = 1.;
         self.text_overlay.clear();
+        self.recorder = None;
         Ok(())
     }
-    /// Reuse the official 2D rasterizer, preserving the software screen's state.
+    /// All drawing shares the actual screen image, including public screen handles.
     pub(crate) fn raster_core(&mut self, draw: impl FnOnce(&mut crate::Image)) {
-        let image = crate::Image::new(self.width, self.height);
-        let mut image = image.borrow_mut();
-        // data_ptr covers exactly width*height color indices, and image owns this allocation.
-        let pixels =
-            unsafe { std::slice::from_raw_parts_mut(image.data_ptr(), self.pixel_buffer.len()) };
-        pixels.copy_from_slice(&self.pixel_buffer);
-        if let Some([x, y, w, h]) = self.clip_rect {
-            image.set_clip_rect(x as f32, y as f32, w as f32, h as f32);
-        }
-        image.set_camera(self.camera_x, self.camera_y);
-        image.set_dithering(self.dither_alpha);
-        for (from, to) in self.color_map.iter().enumerate() {
-            image.map_color(from as u8, *to);
-        }
-        draw(&mut image);
-        let pixels =
-            unsafe { std::slice::from_raw_parts(image.data_ptr(), self.pixel_buffer.len()) };
-        self.pixel_buffer.copy_from_slice(pixels);
+        draw(&mut self.screen.borrow_mut());
     }
-    fn plot(&mut self, x: i32, y: i32, col: u8) {
-        if let Some([cx, cy, cw, ch]) = self.clip_rect {
-            if x < cx || y < cy || x >= cx + cw || y >= cy + ch {
-                return;
-            }
-        }
-        if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
-            return;
-        }
-        if self.dither_alpha < 1.0 {
-            let threshold = (x + y) & 1;
-            if self.dither_alpha <= 0.5 && threshold == 0 {
-                return;
-            }
-        }
-        self.pixel_buffer[(y as u32 * self.width + x as u32) as usize] =
-            self.color_map[col as usize];
-    }
-
     fn cam(&self, x: f32, y: f32) -> (i32, i32) {
         ((x - self.camera_x) as i32, (y - self.camera_y) as i32)
     }
-
     pub fn clear(&mut self, col: u8) {
-        let c = self.color_map[col as usize];
-        for px in self.pixel_buffer.iter_mut() {
-            *px = c;
-        }
+        self.screen.borrow_mut().clear(col);
     }
-
     pub fn pset(&mut self, x: f32, y: f32, col: u8) {
-        let (px, py) = self.cam(x, y);
-        self.plot(px, py, col);
+        self.screen.borrow_mut().set_pixel(x, y, col);
     }
-
     pub fn pget(&self, x: f32, y: f32) -> u8 {
-        let (px, py) = ((x - self.camera_x) as i32, (y - self.camera_y) as i32);
-        if px < 0 || py < 0 || px >= self.width as i32 || py >= self.height as i32 {
-            return 0;
-        }
-        self.pixel_buffer[(py as u32 * self.width + px as u32) as usize]
+        self.screen.borrow().pixel(x, y)
     }
-
     pub fn draw_line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, col: u8) {
-        let (mut x0, mut y0) = self.cam(x1, y1);
-        let (x1i, y1i) = self.cam(x2, y2);
-        let dx = (x1i - x0).abs();
-        let dy = -(y1i - y0).abs();
-        let sx = if x0 < x1i { 1 } else { -1 };
-        let sy = if y0 < y1i { 1 } else { -1 };
-        let mut err = dx + dy;
-        loop {
-            self.plot(x0, y0, col);
-            if x0 == x1i && y0 == y1i {
-                break;
-            }
-            let e2 = 2 * err;
-            if e2 >= dy {
-                err += dy;
-                x0 += sx;
-            }
-            if e2 <= dx {
-                err += dx;
-                y0 += sy;
-            }
-        }
+        self.screen.borrow_mut().draw_line(x1, y1, x2, y2, col);
     }
-
     pub fn draw_rect_border(&mut self, x: f32, y: f32, w: f32, h: f32, col: u8) {
-        let (x0, y0) = self.cam(x, y);
-        let (w, h) = (w as i32, h as i32);
-        for i in 0..w {
-            self.plot(x0 + i, y0, col);
-            self.plot(x0 + i, y0 + h - 1, col);
-        }
-        for i in 0..h {
-            self.plot(x0, y0 + i, col);
-            self.plot(x0 + w - 1, y0 + i, col);
-        }
+        self.screen.borrow_mut().draw_rect_border(x, y, w, h, col);
     }
-
     pub fn draw_rect(&mut self, x: f32, y: f32, w: f32, h: f32, col: u8) {
-        let (x0, y0) = self.cam(x, y);
-        for dy in 0..h as i32 {
-            for dx in 0..w as i32 {
-                self.plot(x0 + dx, y0 + dy, col);
-            }
-        }
+        self.screen.borrow_mut().draw_rect(x, y, w, h, col);
     }
-
     pub fn draw_circle_border(&mut self, x: f32, y: f32, r: f32, col: u8) {
-        let (cx, cy, ri) = (self.cam(x, y).0, self.cam(x, y).1, r as i32);
-        let (mut xi, mut yi, mut d) = (0i32, ri, 3 - 2 * ri);
-        while xi <= yi {
-            for (a, b) in [(xi, yi), (yi, xi)] {
-                for (sa, sb) in [(1, 1), (1, -1), (-1, 1), (-1, -1)] {
-                    self.plot(cx + sa * a, cy + sb * b, col);
-                }
-                let _ = b;
-            }
-            if d < 0 {
-                d += 4 * xi + 6;
-            } else {
-                d += 4 * (xi - yi) + 10;
-                yi -= 1;
-            }
-            xi += 1;
-        }
+        self.screen.borrow_mut().draw_circle_border(x, y, r, col);
     }
-
     pub fn draw_circle(&mut self, x: f32, y: f32, r: f32, col: u8) {
-        let (cx, cy, ri) = (self.cam(x, y).0, self.cam(x, y).1, r as i32);
-        for dy in -ri..=ri {
-            let half = ((ri * ri - dy * dy) as f32).sqrt() as i32;
-            for dx in -half..=half {
-                self.plot(cx + dx, cy + dy, col);
-            }
-        }
+        self.screen.borrow_mut().draw_circle(x, y, r, col);
     }
-
     pub fn draw_text(&mut self, x: f32, y: f32, s: &str, col: u8) {
-        // Non-ASCII (Japanese etc.) → defer to Canvas fillText overlay
         if s.chars().any(|c| c as u32 > 127) {
             let (cx, cy) = self.cam(x, y);
             self.text_overlay
                 .push((cx, cy, s.to_string(), self.color_map[col as usize]));
-            return;
-        }
-        let (mut cx, cy) = self.cam(x, y);
-        for ch in s.chars() {
-            let code = ch as usize;
-            if code >= 32 && code < 128 {
-                let glyph = &crate::backend::font::FONT[code - 32];
-                for (row, &bits) in glyph.iter().enumerate() {
-                    for col_bit in 0..4u8 {
-                        if bits & (0x80 >> col_bit) != 0 {
-                            self.plot(cx + col_bit as i32, cy + row as i32, col);
-                        }
-                    }
-                }
-            }
-            cx += 5;
+        } else {
+            self.screen.borrow_mut().draw_text(x, y, s, col, None);
         }
     }
 
@@ -522,10 +407,45 @@ impl WasmState {
             let rgb = colors.get(i).copied().unwrap_or(0);
             self.palette[i] = [(rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8, 255];
         }
-        for (i, &idx) in self.pixel_buffer.iter().enumerate() {
+        for (i, &idx) in self.screen.borrow().pixels().iter().enumerate() {
             let rgba = self.palette[idx as usize];
             let base = i * 4;
             self.rgba_buffer[base..base + 4].copy_from_slice(&rgba);
+            if self.screen_mode == 2 {
+                let x = (i % self.width as usize) as f32 / self.width as f32;
+                let y = (i / self.width as usize) as f32 / self.height as f32;
+                let vignette = (16. * x * y * (1. - x) * (1. - y)).max(0.).powf(0.15);
+                let factor = vignette
+                    * if (i / self.width as usize) % 2 == 0 {
+                        1.
+                    } else {
+                        0.65
+                    };
+                for channel in &mut self.rgba_buffer[base..base + 3] {
+                    *channel = (*channel as f32 * factor) as u8;
+                }
+            }
+        }
+        if self.input.mouse_visible {
+            let cursor = pyxel::cursor_image();
+            let cursor = cursor.borrow();
+            for y in 0..cursor.height() {
+                for x in 0..cursor.width() {
+                    let c = cursor.pixel(x as f32, y as f32);
+                    let px = self.input.mouse_x + x as i32;
+                    let py = self.input.mouse_y + y as i32;
+                    if c != 0
+                        && px >= 0
+                        && py >= 0
+                        && px < self.width as i32
+                        && py < self.height as i32
+                    {
+                        let offset = (py as usize * self.width as usize + px as usize) * 4;
+                        self.rgba_buffer[offset..offset + 4]
+                            .copy_from_slice(&self.palette[c as usize]);
+                    }
+                }
+            }
         }
     }
 }
@@ -771,6 +691,8 @@ fn poll_gamepads() {
 }
 
 pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
+    assert!(!state().running, "A game loop is already running");
+    state().running = true;
     let f: Rc<RefCell<Option<Closure<dyn FnMut()>>>> = Rc::new(RefCell::new(None));
     let g = f.clone();
 
@@ -791,14 +713,7 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
 
             poll_gamepads();
             if let Some(canvas) = get_canvas() {
-                let _ = canvas.style().set_property(
-                    "cursor",
-                    if state().input.mouse_visible {
-                        "default"
-                    } else {
-                        "none"
-                    },
-                );
+                let _ = canvas.style().set_property("cursor", "none");
             }
             let start = perf.now();
             update();
@@ -810,68 +725,11 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
             state().draw_ms = after_draw - after_update;
             system::update_monitor();
 
-            // Render pixel_buffer → canvas
-            if let Some(ctx) = get_context() {
-                let s = state();
-                s.compose_rgba();
-                let w = s.width;
-                let h = s.height;
-                let scale = s.display_scale;
-                let rgba = s.rgba_buffer.clone();
-                let overlays: Vec<(i32, i32, String, u8)> = s.text_overlay.drain(..).collect();
-                let palette = s.palette;
-
-                if let Ok(img_data) =
-                    ImageData::new_with_u8_clamped_array_and_sh(wasm_bindgen::Clamped(&rgba), w, h)
-                {
-                    if scale == 1 {
-                        // No scaling needed — write directly
-                        let _ = ctx.put_image_data(&img_data, 0.0, 0.0);
-                    } else {
-                        // Write to a temp offscreen canvas, then scale onto main canvas
-                        let document = web_sys::window().unwrap().document().unwrap();
-                        let off = document
-                            .create_element("canvas")
-                            .unwrap()
-                            .dyn_into::<HtmlCanvasElement>()
-                            .unwrap();
-                        off.set_width(w);
-                        off.set_height(h);
-                        let off_ctx = off
-                            .get_context("2d")
-                            .unwrap()
-                            .unwrap()
-                            .dyn_into::<CanvasRenderingContext2d>()
-                            .unwrap();
-                        let _ = off_ctx.put_image_data(&img_data, 0.0, 0.0);
-                        ctx.set_image_smoothing_enabled(false);
-                        let _ = ctx.draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                            &off, 0.0, 0.0,
-                            w as f64, h as f64,
-                            0.0, 0.0,
-                            (w * scale) as f64, (h * scale) as f64,
-                        );
-                    }
-                }
-
-                // Draw non-ASCII text (Japanese) via Canvas fillText
-                if !overlays.is_empty() {
-                    let font_px = scale * 7;
-                    ctx.set_font(&format!(
-                        "{}px 'DotGothic16', 'M PLUS Rounded 1c', monospace",
-                        font_px
-                    ));
-                    ctx.set_text_baseline("top");
-                    for (x, y, text, col) in &overlays {
-                        let [r, g, b, _] = palette[*col as usize];
-                        ctx.set_fill_style(&JsValue::from_str(&format!("rgb({},{},{})", r, g, b)));
-                        let _ =
-                            ctx.fill_text(text, *x as f64 * scale as f64, *y as f64 * scale as f64);
-                    }
-                }
-            }
+            present();
+            recording::capture();
 
             if state().should_quit {
+                state().running = false;
                 return;
             }
 
@@ -887,9 +745,95 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
     let _ = window.request_animation_frame(g.borrow().as_ref().unwrap().as_ref().unchecked_ref());
 }
 
+pub fn present() {
+    // Render pixel_buffer → canvas
+    if let Some(ctx) = get_context() {
+        let s = state();
+        s.compose_rgba();
+        let w = s.width;
+        let h = s.height;
+        let scale = s.display_scale;
+        let rgba = s.rgba_buffer.clone();
+        let overlays: Vec<(i32, i32, String, u8)> = s.text_overlay.drain(..).collect();
+        let palette = s.palette;
+
+        if let Ok(img_data) =
+            ImageData::new_with_u8_clamped_array_and_sh(wasm_bindgen::Clamped(&rgba), w, h)
+        {
+            if scale == 1 {
+                // No scaling needed — write directly
+                let _ = ctx.put_image_data(&img_data, 0.0, 0.0);
+            } else {
+                // Write to a temp offscreen canvas, then scale onto main canvas
+                let document = web_sys::window().unwrap().document().unwrap();
+                let off = document
+                    .create_element("canvas")
+                    .unwrap()
+                    .dyn_into::<HtmlCanvasElement>()
+                    .unwrap();
+                off.set_width(w);
+                off.set_height(h);
+                let off_ctx = off
+                    .get_context("2d")
+                    .unwrap()
+                    .unwrap()
+                    .dyn_into::<CanvasRenderingContext2d>()
+                    .unwrap();
+                let _ = off_ctx.put_image_data(&img_data, 0.0, 0.0);
+                ctx.set_image_smoothing_enabled(state().screen_mode == 1);
+                let _ = ctx
+                    .draw_image_with_html_canvas_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &off,
+                        0.0,
+                        0.0,
+                        w as f64,
+                        h as f64,
+                        0.0,
+                        0.0,
+                        (w * scale) as f64,
+                        (h * scale) as f64,
+                    );
+            }
+        }
+
+        // Draw non-ASCII text (Japanese) via Canvas fillText
+        if !overlays.is_empty() {
+            let font_px = scale * 7;
+            ctx.set_font(&format!(
+                "{}px 'DotGothic16', 'M PLUS Rounded 1c', monospace",
+                font_px
+            ));
+            ctx.set_text_baseline("top");
+            for (x, y, text, col) in &overlays {
+                let [r, g, b, _] = palette[*col as usize];
+                ctx.set_fill_style(&JsValue::from_str(&format!("rgb({},{},{})", r, g, b)));
+                let _ = ctx.fill_text(text, *x as f64 * scale as f64, *y as f64 * scale as f64);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod coverage_tests {
     use super::*;
+    #[test]
+    fn shared_screen_handle_edits_both_ways_and_survives_resize() {
+        let mut state = WasmState::new(8, 8, 30);
+        let handle = state.screen.clone();
+        handle.borrow_mut().set_pixel(2., 3., 8);
+        assert_eq!(state.pget(2., 3.), 8);
+        state.pset(4., 5., 11);
+        assert_eq!(handle.borrow().pixel(4., 5.), 11);
+        handle.borrow_mut().map_color(8, 14);
+        state.pset(1., 1., 8);
+        assert_eq!(handle.borrow().pixel(1., 1.), 14);
+        state.resize(12, 10).unwrap();
+        assert_eq!(
+            (handle.borrow().width(), handle.borrow().height()),
+            (12, 10)
+        );
+        assert!(handle.borrow().pixels().iter().all(|&p| p == 0));
+    }
     #[test]
     fn extended_palette_and_resize_preserve_state_on_invalid_requests() {
         let mut screen = WasmState::new(8, 8, 30);
@@ -899,31 +843,31 @@ mod coverage_tests {
             colors.resize(256, 0);
             colors[200] = 0x123456;
         }
-        screen.color_map[8] = 200;
+        screen.screen.borrow_mut().map_color(8, 200);
         screen.pset(2., 2., 8);
-        screen.color_map[8] = 8;
+        screen.screen.borrow_mut().reset_color_map();
         assert_eq!(
-            screen.pixel_buffer[18], 200,
+            screen.screen.borrow().pixels()[18],
+            200,
             "pal maps at draw time, not presentation time"
         );
         screen.compose_rgba();
         assert_eq!(&screen.rgba_buffer[72..76], &[0x12, 0x34, 0x56, 255]);
         assert!(screen.resize(0, 8).is_err());
         assert_eq!((screen.width, screen.height), (8, 8));
-        assert_eq!(screen.pixel_buffer[18], 200);
+        assert_eq!(screen.screen.borrow().pixels()[18], 200);
         screen.resize(10, 6).unwrap();
-        assert_eq!(screen.pixel_buffer.len(), 60);
-        assert!(screen.pixel_buffer.iter().all(|&p| p == 0));
+        assert_eq!(screen.screen.borrow().pixels().len(), 60);
+        assert!(screen.screen.borrow().pixels().iter().all(|&p| p == 0));
         *pyxel::colors() = old;
     }
     #[test]
     fn official_shapes_preserve_background_clip_camera_and_dither() {
         let mut screen = WasmState::new(80, 60, 30);
         screen.clear(1);
-        screen.camera_x = 3.;
-        screen.camera_y = -2.;
-        screen.clip_rect = Some([5, 4, 65, 48]);
-        screen.dither_alpha = 0.5;
+        screen.screen.borrow_mut().set_camera(3., -2.);
+        screen.screen.borrow_mut().set_clip_rect(5., 4., 65., 48.);
+        screen.screen.borrow_mut().set_dithering(0.5);
         let expected = crate::Image::new(80, 60);
         let mut expected = expected.borrow_mut();
         expected.clear(1);
@@ -943,12 +887,12 @@ mod coverage_tests {
         for y in 0..60 {
             for x in 0..80 {
                 assert_eq!(
-                    screen.pixel_buffer[y * 80 + x],
+                    screen.screen.borrow().pixels()[y * 80 + x],
                     expected.pixel(x as f32, y as f32)
                 );
             }
         }
-        assert_eq!(screen.pixel_buffer[0], 1);
-        assert!(screen.pixel_buffer.iter().any(|&c| c == 8));
+        assert_eq!(screen.screen.borrow().pixels()[0], 1);
+        assert!(screen.screen.borrow().pixels().iter().any(|&c| c == 8));
     }
 }

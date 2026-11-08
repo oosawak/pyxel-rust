@@ -247,3 +247,63 @@ pub async fn browser_screenshot(scale: u32) -> Result<Vec<u8>, JsValue> {
     let buffer = wasm_bindgen_futures::JsFuture::from(blob.array_buffer()).await?;
     Ok(js_sys::Uint8Array::new(&buffer).to_vec())
 }
+
+#[wasm_bindgen]
+pub fn browser_screen_mode(mode: u32) -> Result<(), JsValue> {
+    if mode > 2 {
+        return Err(JsValue::from_str("Screen mode must be 0..2"));
+    }
+    state().screen_mode = mode;
+    if let Some(canvas) = get_canvas() {
+        canvas.style().set_property(
+            "image-rendering",
+            if mode == 1 { "auto" } else { "pixelated" },
+        )?;
+    }
+    Ok(())
+}
+#[wasm_bindgen]
+pub fn browser_reset() -> Result<(), JsValue> {
+    web_sys::window()
+        .ok_or_else(|| JsValue::from_str("No window"))?
+        .location()
+        .reload()
+}
+#[wasm_bindgen]
+pub fn browser_show() {
+    super::present();
+    if !state().running {
+        super::run(Box::new(|| {}), Box::new(|| {}));
+    }
+}
+/// Manual async frame stepping is available when a callback game loop is not running.
+#[wasm_bindgen]
+pub async fn browser_flip() -> Result<(), JsValue> {
+    if state().running {
+        return Err(JsValue::from_str(
+            "Manual flip cannot run alongside run/show",
+        ));
+    }
+    let promise = js_sys::Promise::new(&mut |resolve, reject| {
+        let callback = Closure::once_into_js(move |timestamp: f64| {
+            let _ = resolve.call1(&JsValue::NULL, &timestamp.into());
+        });
+        if let Err(error) = web_sys::window()
+            .unwrap()
+            .request_animation_frame(callback.unchecked_ref())
+        {
+            let _ = reject.call1(&JsValue::NULL, &error);
+        }
+    });
+    wasm_bindgen_futures::JsFuture::from(promise).await?;
+    if state().running {
+        return Err(JsValue::from_str(
+            "Manual flip cannot run alongside run/show",
+        ));
+    }
+    super::present();
+    super::recording::capture();
+    state().frame_count += 1;
+    state().input.tick();
+    Ok(())
+}

@@ -243,3 +243,56 @@ pub fn icon<S: AsRef<str>>(data: &[S], scale: u32, transparent: Option<u8>) -> R
         pyxel::pyxel().set_icon(data, scale, transparent)
     }
 }
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn show() {
+    #[cfg(feature = "wasm-backend")]
+    crate::backend::wasm_backend::system::browser_show();
+    #[cfg(feature = "pyxel-core-backend")]
+    pyxel::Pyxel::show_screen();
+}
+#[cfg(feature = "wasm-backend")]
+pub async fn flip() -> Result<(), String> {
+    crate::backend::wasm_backend::system::browser_flip()
+        .await
+        .map_err(|e| format!("{e:?}"))
+}
+#[cfg(feature = "pyxel-core-backend")]
+pub fn flip() {
+    pyxel::Pyxel::flip_screen();
+}
+#[cfg(feature = "pyxel-core-backend")]
+pub fn set_reset_handler(handler: impl FnMut(Option<String>) + Send + 'static) {
+    *pyxel::reset_callback() = Some(Box::new(handler));
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn reset() -> Result<(), String> {
+    #[cfg(feature = "wasm-backend")]
+    {
+        crate::backend::wasm_backend::system::browser_reset().map_err(|e| format!("{e:?}"))
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        if pyxel::reset_callback().is_none() {
+            return Err("Register set_reset_handler before reset".into());
+        }
+        pyxel::Pyxel::restart();
+        Ok(())
+    }
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn screen_mode(mode: u32) -> Result<(), String> {
+    if mode > 2 {
+        return Err("Screen mode must be 0..2".into());
+    }
+    #[cfg(feature = "wasm-backend")]
+    {
+        crate::backend::wasm_backend::system::browser_screen_mode(mode)
+            .map_err(|e| format!("{e:?}"))
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        pyxel::pyxel().set_screen_mode(mode);
+        Ok(())
+    }
+}

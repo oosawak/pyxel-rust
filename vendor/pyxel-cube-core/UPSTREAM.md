@@ -26,6 +26,10 @@ Local adaptations:
   official classic image/tilemap/sound/music format (no MML/PCM/Tone/Font/Node).
 - TMX parsing adds from_tmx_text/load_tmx_text, sharing the official CSV parser.
 - The pure official BGM MML generator is re-exported for the browser audio adapter.
+- Image exposes read-only logical pixels and a validated canvas resize helper so the
+  browser uses a live screen Image instead of a second pixel buffer.
+- Screencast exposes memory GIF output and captured-frame count through the same
+  official encoder. Browser recording is opt-in and bounded by its outer adapter.
 - Browser RNG backends are enabled for dependencies using getrandom.
 
 For upstream updates, compare the source with the pinned commit, reapply these

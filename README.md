@@ -337,6 +337,40 @@ cargo test --locked --no-default-features --features wasm-backend --lib --test b
 node scripts/playtest-browser-system.cjs
 ```
 
+### 共有画面・録画・Nodeのライフサイクル
+
+[画面・録画・Nodeの確認ページ](https://oosawak.github.io/pyxel-rust/examples/screen-tools/) で画像／タイルマップの透視投影、共有画面の直接編集、GIF録画、手動フレーム、Nodeの更新・衝突・描画・破棄を試せます。
+
+`screen()` / `cursor()` / `font()`は実際の共有Imageを返します。Canvasの通常描画も同じImageへ統一し、`screen()`の画素・クリップ・カメラ・色変換の編集をそのまま使えます。標準ASCIIテキストは公式の4×6フォント画像を参照します（従来Canvas独自フォントの字幅5から公式の字幅4へ変更）。Canvasでの日本語重ね描画は論理画面とは別です。リサイズ後もscreenの共有ハンドルは維持します。借用中のImageを操作するAPIは、呼出し前にRefCellの借用を解放してください。
+
+`blt3d` / `bltm3d`は公式の画像／タイルマップ透視投影を使用します。`show()`は描いた画面を表示し続けます。Canvasでは直ちに戻る非同期ループです。手動ループにはCanvasの`flip().await`（JSは`browser_flip`）を使い、`run/show`と併用しないでください。これはrequestAnimationFrame単位で、SDL2のfps待機付き同期flipとは異なります。`reset()`はCanvasではページ全体を再読込します。SDL2は`set_reset_handler`でアプリ側の再起動処理を登録してから呼び、未登録時はエラーを返します。
+
+Canvasは`configure_screencast(seconds)`で明示的に録画を開始し、`screencast_gif(scale)`で公式エンコーダーによるGIFバイト列を取得します。空の録画はNone、エラー時は既存フレームを保持し、保存成功後は録画内容をクリアします。`reset_screencast()`は内容をクリアし、秒数0で録画を終了します。リングバッファは32MiB、最大30秒、倍率1〜16です。日本語のCanvas重ね描画・ソフトウェアカーソル・表示効果は録画に含みません。リサイズ時には録画を終了します。SDL2の`screencast(filename, scale)`は公式コアに接続します。
+
+`screen_mode(0..2)`はSDL2では公式のシェーダー、Canvasでは通常・平滑化・走査線/周辺減光の簡易表示です。Canvas版は公式xBR/CRTと同じ画質ではありません。`user_data_dir`はSDL2のユーザーフォルダーを返し、ブラウザでは代わりに`user_data_store(vendor, app)`の`get/set/remove`でlocalStorageを使用します。ブラウザの容量制限・利用可否による失敗をResultで受け取れます。
+
+`NodeScene`は公式`RcNode`のグラフを使うRustコールバック層です。`from_mesh`で名前・階層・材質・静的形状を変換し、`on_update/on_draw/on_collide/on_destroy`へクロージャを登録します。`update(frame_seconds)`は全体の更新通知、公式の運動積分、接触検出と通知、子から親への破棄通知・切離しの順に実行します。公式コアのvelocityはフレームごとの変位で、frame_secondsを掛け直しません。inactiveな親の更新は子にも及びます。コールバック中に登録を変更でき、同じシーンへの再入はエラーになります。
+
+`NodeScene::draw(viewport, target)`はカメラ・可視性を親から継承し、Meshの付属Primitiveを描画します。カスタム描画では`with_node_draw_state` / `draw_node_primitive`を使用すると、不透明度とシェーディングも親から継承できます。描画状態をノードごとにリセットし、エラー・パニック時もカメラの深度バッファを戻します。Python継承の代わりにRustの登録式APIを使い、Motionの自動再生は未実装です。アニメーションは従来の`MeshAnimationPlayer`で明示的に進めます。
+
+```rust,ignore
+let mut scene = NodeScene::from_mesh(&mesh)?;
+scene.root.borrow_mut().camera = Some(Camera::new());
+let root = scene.root.clone();
+scene.on_update(&root, |_, node| {
+    // Update node.transform, its collider, or the hierarchy.
+    Ok(())
+});
+scene.update(1.0 / 30.0)?;
+scene.draw([0.0, 0.0, 256.0, 192.0], None)?;
+```
+
+```bash
+cargo test --locked --no-default-features --features wasm-backend --lib --test screen_recording --test scene_lifecycle
+cargo test --locked --test scene_lifecycle --test retro3d
+node scripts/playtest-screen-tools.cjs
+```
+
 ### ローカル確認（GitHub Pages 相当）
 
 ```bash
