@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/pyxel-3.0-api.json'
 OUTPUT = ROOT / 'docs/assets/compatibility/data.json'
-ENGINE_REV = '4c19225518b21ba314e2fb80b5266ef3ad7b6f86'
+ENGINE_REV = '01aa4d9d13bd3e63654409343346b6de16905697'
 BACKENDS = ['wasm', 'sdl2', 'wgpu']
 
 
@@ -46,7 +46,7 @@ def classify(row, backend):
         member = name.split('.')[-1]
         if category == 'Node':
             if member in ['on_update', 'on_draw', 'on_collide', 'on_destroy', 'update', 'draw', 'from_mesh']:
-                return result('supported', 'NodeSceneでRustクロージャを登録し、階層の更新・物理・衝突・子から親への破棄通知と描画を実行します。from_meshは名前・親子関係・材質・形状・Motionのモデル対応を変換します。drawはカメラ・可視性を継承し、カスタム描画にはwith_node_draw_stateで不透明度・シェーディングを適用します。Pythonの継承の代わりに明示的な登録を使用し、同じシーンの再入は拒否します。updateは更新通知→NodeごとのMotion再生→物理→衝突→破棄の順に実行します。Motionはモデル個体ごとに進み、元Meshを書き換えません。', api+'scene3d.rs', 'pub fn '+member, 'scene-lifecycle')
+                return result('supported', 'NodeSceneでRustクロージャを登録し、階層の更新・物理・衝突・子から親への破棄通知と描画を実行します。from_meshは名前・親子関係・材質・形状・Motionのモデル対応を変換します。drawはカメラ・可視性を継承し、カスタム描画にはon_paintのNodePainterで親の座標・不透明度・シェーディングを適用します。Pythonの継承の代わりに明示的な登録を使用し、同じシーンの再入は拒否します。updateは更新通知→NodeごとのMotion再生→物理→衝突→破棄の順に実行します。Motionはモデル個体ごとに進み、元Meshを書き換えません。', api+'scene3d.rs', 'pub fn '+member, 'scene-lifecycle')
             if member in ['apply_motion', 'play_motion', 'stop_motion']:
                 return result('supported', 'NodeSceneのapply_motion / play_motion / stop_motionで、同じMeshに属するMotionを個体・部分木ごとに適用します。updateごとにspeedフレーム進め、逆再生・速度0・ループ・終了・inactiveによる停止に対応します。停止時の姿勢を保持し、再生開始時はアニメーション対象だけを原姿勢へ戻します。', api+'scene3d/motion.rs', 'pub fn '+member, 'node-motion')
             if member in ['raycast', 'raycast_all', 'overlap_sphere', 'overlap_box']:
@@ -54,7 +54,7 @@ def classify(row, backend):
             state = ['dither', 'depth_test', 'depth_write', 'depth_offset', 'decal', 'shaded']
             draw = ['pset', 'line', 'tri', 'trib', 'rect', 'rectb', 'circ', 'circb', 'elli', 'ellib', 'box', 'boxb', 'sphere', 'sphereb', 'plane', 'sprite', 'prim', 'text']
             if member in state + draw:
-                return result('partial', 'cube::drawとDrawContext / DrawStateを使います。NodeSceneのon_drawではwith_node_draw_stateを使用すると親の不透明度・シェーディングを継承できます。Python Nodeメソッドと同じ呼出し形式ではありません。', 'src/api/scene3d.rs', 'pub fn with_node_draw_state')
+                return result('supported', 'NodeScene::on_paintのNodePainterでNodeローカル描画と状態設定を実行します。親の座標変換・不透明度・陰影を継承し、追加行列を合成します。円・スプライト・文字はカメラ向き、decal(None)は解除、設定はNodeごとにリセットします。box/sphere/primにはMaterialで単色・画像・透過色を渡します。Python継承の代わりにRustクロージャを登録します。18描画は公式3.0.0とのピクセル比較、状態継承・奥行き・デカールはRustテストで検証しています。', 'src/api/scene3d/painter.rs', 'pub fn '+('r#box' if member == 'box' else member)+'(', 'node-painter')
         if category == 'Mesh' and member == 'from_glb':
             return result('partial' if soft else 'supported', 'GLBバイト列から読込。画像・バッファはBIN内への埋め込みが必要です。ファイルパス・外部URIは使えません。' if soft else '公式Mesh::from_glbを公開。公式3.0.0自身がスキニング・モーフに非対応です。', path, 'pub fn from_glb', 'glb' if backend == 'wasm' else None)
         if category == 'Mat4' and member in ['pos', 'rot', 'scale']:
