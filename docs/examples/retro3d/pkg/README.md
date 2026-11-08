@@ -351,7 +351,18 @@ Canvasは`configure_screencast(seconds)`で明示的に録画を開始し、`scr
 
 `NodeScene`は公式`RcNode`のグラフを使うRustコールバック層です。`from_mesh`で名前・階層・材質・形状とMotionのモデル対応を変換し、`on_update/on_draw/on_collide/on_destroy`へクロージャを登録します。`update(frame_seconds)`は全体の更新通知、NodeごとのMotion自動再生、公式の運動積分、接触検出と通知、子から親への破棄通知・切離しの順に実行します。公式コアのvelocityはフレームごとの変位で、frame_secondsを掛け直しません。inactiveな親の更新は子にも及びます。コールバック中に登録を変更でき、同じシーンへの再入はエラーになります。
 
-`NodeScene::draw(viewport, target)`はカメラ・可視性を親から継承し、Meshの付属Primitiveを描画します。カスタム描画では`with_node_draw_state` / `draw_node_primitive`を使用すると、不透明度とシェーディングも親から継承できます。描画状態をノードごとにリセットし、エラー・パニック時もカメラの深度バッファを戻します。Python継承の代わりにRustの登録式APIを使います。
+`NodeScene::draw(viewport, target)`はカメラ・可視性を親から継承し、Meshの付属Primitiveを描画します。`on_paint`の`NodePainter`で点・線・三角形・矩形・円・楕円・箱・球・テクスチャ面・スプライト・Primitive・文字を描けます。座標はNodeのローカル座標です。行列を受けるコマンドは親階層のworld行列と追加行列を合成し、不透明度とシェーディングを継承します。`dither/depth_test/depth_write/depth_offset/decal/shaded`の設定は同じNode内で保持し、次のNodeではリセットします。`decal(None)`で投影を解除します。円・スプライト・文字は公式と同じカメラ向きの描画です。Python継承の代わりにRustの登録式APIを使います。
+
+```rust,ignore
+scene.on_paint(&node, |_, painter| {
+    painter.shaded(false).dither(0.75);
+    painter.rect(&Mat4::identity_value(), 2., 1., 8);
+    painter.text(&Vec3 { x: 0., y: 1., z: 0. }, "Hello", 7, None);
+    Ok(())
+});
+```
+
+`box/sphere/prim`には`cube::mesh::Material`で単色または画像と透過色を渡します。`on_paint`は既存の`on_draw`と同じ登録枠を置き換えます。既存の`on_draw`でも`NodePainter::new(ctx, node)`を使用できます。低レベルの`with_node_draw_state` / `draw_node_primitive`も引き続き公開しています。エラー・パニック時はカメラの深度バッファを戻します。[画面・録画・Nodeの確認ページ](https://oosawak.github.io/pyxel-rust/examples/screen-tools/?view=painter)の「Node描画18種」で表示を確認できます。
 
 [Nodeアニメーションの確認ページ](https://oosawak.github.io/pyxel-rust/examples/node-motion/) では、同じMeshの2体を別々のクリップ・速度で再生できます。`NodeScene::play_motion(node, motion, looping, speed, start_frame)`はNodeごとの再生を開始し、`update`のたびにspeedフレーム進めます。これは秒数ではなく、GLB読込時に指定したfpsでのフレーム単位です。逆再生（負のspeed）、速度0、ループ、非ループの終端停止に対応します。inactiveな親の下では再生を止め、再度activeになると続きから進みます。visibleは再生に影響しません。
 

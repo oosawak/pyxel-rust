@@ -8,8 +8,10 @@ use crate::cube::{
 };
 use crate::RcImage;
 mod motion;
+mod painter;
 pub use motion::NodeMotionState;
 use motion::{MeshInstance, MotionPlayer};
+pub use painter::NodePainter;
 use std::{
     cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
@@ -165,6 +167,17 @@ impl NodeScene {
         hook: impl FnMut(&mut Self, &RcNode, &mut DrawContext) -> Result<(), String> + 'static,
     ) {
         self.record(node).draw = Some(Rc::new(RefCell::new(hook)));
+    }
+    /// Register node-local drawing commands. Replaces the same slot as `on_draw`.
+    /// The painter borrows the context only for this callback, so it cannot escape.
+    pub fn on_paint(
+        &mut self,
+        node: &RcNode,
+        mut hook: impl FnMut(&mut Self, &mut NodePainter<'_>) -> Result<(), String> + 'static,
+    ) {
+        self.on_draw(node, move |scene, node, ctx| {
+            hook(scene, &mut NodePainter::new(ctx, node))
+        });
     }
     pub fn on_collide(
         &mut self,

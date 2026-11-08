@@ -4,7 +4,7 @@
 <div class="actors" id="actors"></div><p>1倍速は1回の更新につき1フレームです。このデモは毎秒30回更新します。「停止」は今の姿勢を保持し、「再生」は指定した開始フレームから始めます。モデル自体のデータは書き換えません。</p>
 <p id="action-status" role="status"></p><button id="reset" disabled>デモを再起動</button><details><summary>状態の詳細</summary><pre id="details"></pre></details>
 <script type="module">
-import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=a4cbdeaa366b';
+import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=2f6ce3a6c116';
 const status=(text,error=false)=>{const el=document.querySelector('#action-status');el.textContent=text;el.setAttribute('role',error?'alert':'status');};
 for(let i=0;i<2;i++){
  const panel=document.createElement('fieldset');panel.innerHTML=`<legend>モデル ${i?'B':'A'}</legend><output id="state-${i}">準備中…</output><label>アニメーション <select id="clip-${i}" disabled><option value="0">Bounce（上下移動）</option><option value="1">Turn（回転）</option></select></label><label>速度 <select id="speed-${i}" disabled><option value="-1">−1倍（逆再生）</option><option value="0">0倍（姿勢保持）</option><option value="0.5">0.5倍</option><option value="1">1倍</option><option value="2">2倍</option></select></label><label>開始・確認フレーム <input id="frame-${i}" type="number" value="0" step="1" disabled></label><label><input id="loop-${i}" type="checkbox" checked disabled>ループ再生</label><label><input id="active-${i}" type="checkbox" checked disabled>有効（外すと一時停止）</label><button id="play-${i}" disabled>再生</button><button id="stop-${i}" disabled>停止</button><button id="sample-${i}" disabled>指定フレームで停止</button>`;document.querySelector('#actors').append(panel);
@@ -15,7 +15,7 @@ for(let i=0;i<2;i++){
  value('active').onchange=()=>{try{api.node_motion_demo_active(i,value('active').checked);}catch(e){status(String(e),true)}};
 }
 try{
- await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=a4cbdeaa366b',import.meta.url)});api.start_node_motion();window.demo=api;document.querySelector('#status').textContent='実行中';document.querySelectorAll('button,input,select').forEach(el=>el.disabled=false);document.querySelector('#reset').onclick=()=>api.browser_reset();
+ await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=2f6ce3a6c116',import.meta.url)});api.start_node_motion();window.demo=api;document.querySelector('#status').textContent='実行中';document.querySelectorAll('button,input,select').forEach(el=>el.disabled=false);document.querySelector('#reset').onclick=()=>api.browser_reset();
  setInterval(()=>{const info=JSON.parse(api.node_motion_demo_info());document.querySelector('#details').textContent=JSON.stringify(info,null,2);if(info.error)status(info.error,true);for(let i=0;i<2;i++){const state=info.actors[i];document.querySelector(`#state-${i}`).textContent=state.playing?`${state.active?'再生中':'一時停止'} · ${state.clip} · ${state.frame.toFixed(1)}フレーム`:'停止中（姿勢を保持）';}},100);
 }catch(e){const el=document.querySelector('#status');el.textContent=String(e);el.setAttribute('role','alert')}
 </script></html>
