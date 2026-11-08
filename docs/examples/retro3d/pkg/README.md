@@ -289,7 +289,7 @@ Rust版の公式Cubeデモでは、描画解像度を標準・2倍・4倍に変�
 [基本APIの動作確認](https://oosawak.github.io/pyxel-rust/examples/api-coverage/) で楕円・三角形・塗りつぶし、キーボード、マウス、標準ゲームパッド4台の状態を確認できます。
 
 - 入力：`btnp_hold`のhold/repeat、`btnv`、`set_btn`、`set_btnv`、`input_keys`、マウスボタン・ホイール・カーソル表示。ブラウザのマウス座標はCSSの表示サイズを考慮します。フォーカスを失った場合は押下を解除します。
-- 描画：`elli`、`ellib`、`tri`、`trib`、`fill`をSDL2とCanvas/WASMで公開し、公式ラスタライザーを使用します。`rectb` / `circb`も追加。既存Rustゲーム用に`rect` / `circ`の輪郭描画の意味は維持しています。
+- 描画：`elli`、`ellib`、`tri`、`trib`、`fill`をSDL2とCanvas/WASMで公開し、公式ラスタライザーを使用します。`rect` / `circ`は公式どおり塗りつぶし、`rectb` / `circb`は輪郭です。従来のRust版で輪郭として使用した呼び出しは`rectb` / `circb`へ移行してください。`rectfill` / `circfill`も塗りつぶしの別名として残しています。付属ゲームは移行済みです。
 - 数学：`ceil`、度数の`atan2`、`rndi`、`nseed`、`noise`。SDL2とCanvasの乱数・ノイズは公式コアを使用します。従来の`rnd_int`が常に0になる不具合も修正しました。
 - 定数：不足していた260件を公開しました。定数の存在と機器の入力対応は別です。キー番号はバックエンド固有なので、数値を直書きせず定数名を使用してください。ブラウザのゲームパッドは標準マッピングに対応し、wgpuのゲームパッドイベントは引き続き未対応です。
 
@@ -429,3 +429,22 @@ bash scripts/ci.sh
 ## ライセンス
 
 MIT License
+
+
+### 初期化設定と画像の倍率保存
+
+`init_with_options(width, height, title, fps, InitOptions)`で終了キー、表示倍率、保存倍率、録画秒数、headlessを指定できます。`init`も引き続き使用できます。`InitOptions::default()`は終了キーEscape・保存倍率2・録画10秒で、`capture_sec: 0`で録画を無効化します。ブラウザは論理画面と表示先をそれぞれ16Miピクセル、録画32MiB・最大30秒、保存倍率1..16の範囲で初期化前に検証します。設定エラー時には既存画面を保持します。実行中の初期化は拒否し、設定変更は終了後またはページの再起動で行います。
+
+```rust,ignore
+init_with_options(320, 192, "My game", 30, InitOptions {
+    quit_key: KEY_Q,
+    display_scale: Some(3),
+    capture_scale: 3,
+    capture_sec: 1,
+    headless: false,
+})?;
+```
+
+ブラウザのheadlessは画素を生成し、Canvasの更新・入力イベント登録を省略します。`browser_capture_png(None)` / `configured_screencast_gif(None)`は初期化時の保存倍率を使い、`Some(scale)`で上書きできます。画像単体は`Image::png_bytes_scaled(scale)`で最近傍拡大したPNGを取得できます。画像の書出しは描画中のclip・camera・pal・ditherに影響されず、現在のRGBパレットを使います。scale 0・寸法オーバーフロー・RGB出力128MiB超はエラーになります。`png_bytes()`は等倍のままです。
+
+[ブラウザ・ファイルAPIの確認](https://oosawak.github.io/pyxel-rust/examples/browser-system/?config=1&display=3&capture=3&record=1)に初期化設定と画像・画面・録画の倍率保存を追加しています。ファイル選択・ダウンロードによる読み書きは既存のpyxres・パレット・TMX操作と同じページで確認できます。ファイルパスを直接指定するAPIとの差は、引き続き対応状況に記載します。

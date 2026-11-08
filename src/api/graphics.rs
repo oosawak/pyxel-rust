@@ -35,14 +35,16 @@ pub fn pget(x: f32, y: f32) -> Color {
 pub fn line(x1: f32, y1: f32, x2: f32, y2: f32, col: Color) {
     dispatch!(soft: s().draw_line(x1,y1,x2,y2,col), pyxel: pyxel::pyxel().draw_line(x1,y1,x2,y2,col));
 }
+/// Official Pyxel spelling: draw a filled rectangle. Use rectb for an outline.
 pub fn rect(x: f32, y: f32, w: f32, h: f32, col: Color) {
-    dispatch!(soft: s().draw_rect_border(x,y,w,h,col), pyxel: pyxel::pyxel().draw_rect_border(x,y,w,h,col));
+    rectfill(x, y, w, h, col);
 }
 pub fn rectfill(x: f32, y: f32, w: f32, h: f32, col: Color) {
     dispatch!(soft: s().draw_rect(x,y,w,h,col), pyxel: pyxel::pyxel().draw_rect(x,y,w,h,col));
 }
+/// Official Pyxel spelling: draw a filled circle. Use circb for an outline.
 pub fn circ(x: f32, y: f32, r: f32, col: Color) {
-    dispatch!(soft: s().draw_circle_border(x,y,r,col), pyxel: pyxel::pyxel().draw_circle_border(x,y,r,col));
+    circfill(x, y, r, col);
 }
 pub fn circfill(x: f32, y: f32, r: f32, col: Color) {
     dispatch!(soft: s().draw_circle(x,y,r,col), pyxel: pyxel::pyxel().draw_circle(x,y,r,col));
@@ -146,12 +148,12 @@ pub fn tilemap_pset(tm: u32, x: u32, y: u32, tile: (u8, u8)) {
     dispatch!(soft: s().tilemap_pset(tm, x, y, tile), pyxel: { if let Some(m)=pyxel::tilemaps().get(tm as usize) {m.borrow_mut().set_tile(x as f32,y as f32,(tile.0.into(),tile.1.into()));} });
 }
 
-/// Official outline spellings. Legacy rect/circ remain outlines for existing Rust games.
+/// Official outline spellings.
 pub fn rectb(x: f32, y: f32, w: f32, h: f32, col: Color) {
-    rect(x, y, w, h, col);
+    dispatch!(soft: s().draw_rect_border(x,y,w,h,col), pyxel: pyxel::pyxel().draw_rect_border(x,y,w,h,col));
 }
 pub fn circb(x: f32, y: f32, r: f32, col: Color) {
-    circ(x, y, r, col);
+    dispatch!(soft: s().draw_circle_border(x,y,r,col), pyxel: pyxel::pyxel().draw_circle_border(x,y,r,col));
 }
 
 #[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]

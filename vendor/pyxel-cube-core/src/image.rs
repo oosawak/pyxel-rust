@@ -143,16 +143,34 @@ impl Image {
         Ok(())
     }
     pub fn png_bytes(&self) -> Result<Vec<u8>, String> {
+        self.png_bytes_scaled(1)
+    }
+
+    /// Encode a nearest-neighbor scaled PNG of the raw pixels, ignoring drawing
+    /// camera, clip, palette remapping and dither. Uses the current RGB palette.
+    /// Reject invalid sizes before allocating (maximum RGB output: 128 MiB).
+    pub fn png_bytes_scaled(&self, scale: u32) -> Result<Vec<u8>, String> {
+        let width = self
+            .width()
+            .checked_mul(scale)
+            .filter(|w| *w > 0)
+            .ok_or("Invalid PNG scale or width")?;
+        let height = self
+            .height()
+            .checked_mul(scale)
+            .filter(|h| *h > 0)
+            .ok_or("Invalid PNG scale or height")?;
+        if u64::from(width) * u64::from(height) > 128 * 1024 * 1024 / 3 {
+            return Err("Scaled PNG RGB output exceeds 128 MiB".into());
+        }
         let colors = pyxel::colors();
-        let mut source = self.clone();
-        source.reset_clip_rect();
-        let mut rgb = image::RgbImage::new(self.width(), self.height());
-        for y in 0..self.height() {
-            for x in 0..self.width() {
-                let c = colors
-                    .get(source.canvas.value(x as f32, y as f32) as usize)
-                    .copied()
-                    .unwrap_or(0);
+        let mut rgb = image::RgbImage::new(width, height);
+        for y in 0..height {
+            for x in 0..width {
+                let color = self
+                    .canvas
+                    .read_data((x / scale) as usize, (y / scale) as usize);
+                let c = colors.get(color as usize).copied().unwrap_or(0);
                 rgb.put_pixel(x, y, image::Rgb([(c >> 16) as u8, (c >> 8) as u8, c as u8]));
             }
         }

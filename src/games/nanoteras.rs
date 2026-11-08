@@ -203,8 +203,8 @@ impl NanoTeras {
         for r in &self.rings { r.draw(self.cx, self.cy); }
 
         let core_r = 4.0 + self.pulse * 1.5;
-        circ(self.cx, self.cy, core_r + 2.0, DARK_BLUE);
-        circ(self.cx, self.cy, core_r + 1.0, TEAL);
+        circb(self.cx, self.cy, core_r + 2.0, DARK_BLUE);
+        circb(self.cx, self.cy, core_r + 1.0, TEAL);
         circfill(self.cx, self.cy, core_r, LIGHT_BLUE);
         pset(self.cx, self.cy, WHITE);
 
@@ -225,7 +225,7 @@ impl NanoTeras {
         let bx = self.cx - 28.0;
         let by = 1.0f32;
         rectfill(bx, by, 56.0, 18.0, DARK_BLUE);
-        rect(bx, by, 56.0, 18.0, TEAL);
+        rectb(bx, by, 56.0, 18.0, TEAL);
         // "SPIN" ラベル (小)
         text(bx + 2.0, by + 2.0, "SPIN", DARK_GRAY);
         // 数字: 現在値を大きく表示 (4ピクセル文字を2倍に見せるため2行ずらして重ねる)
@@ -242,7 +242,7 @@ impl NanoTeras {
         let bar_x = 2.0f32;
         let bar_y = H as f32 - 10.0;
         let bar_w = W as f32 - 4.0;
-        rect(bar_x, bar_y, bar_w, 6.0, DARK_BLUE);
+        rectb(bar_x, bar_y, bar_w, 6.0, DARK_BLUE);
         let fill = (bar_w - 2.0) * (self.total_spins / TARGET_SPINS).min(1.0);
         if fill > 0.0 {
             let col = if self.spin_velocity > 0.1 { YELLOW } else { TEAL };

@@ -298,7 +298,7 @@ const CMDS: [&str; 4] = ["たたかう", "スキル", "どうぐ", "にげる"];
 fn draw_battle_ui(player: &Player, cursor: usize) {
     // Bottom panel
     rectfill(0.0, 85.0, W as f32, 35.0, DARK_BLUE);
-    rect(0.0, 85.0, W as f32, 35.0, WHITE);
+    rectb(0.0, 85.0, W as f32, 35.0, WHITE);
     line(80.0, 85.0, 80.0, 120.0, WHITE);
 
     // Player status (left)
@@ -340,7 +340,7 @@ fn draw_enemy_hud(enemy: &Enemy) {
 
 fn draw_msg_box(msg: &str) {
     rectfill(0.0, 68.0, W as f32, 17.0, BLACK);
-    rect(0.0, 68.0, W as f32, 17.0, WHITE);
+    rectb(0.0, 68.0, W as f32, 17.0, WHITE);
     text(4.0, 74.0, msg, WHITE);
 }
 
@@ -678,14 +678,14 @@ impl Game {
             BattlePhase::Victory => {
                 draw_battle_ui(&self.player, self.cursor);
                 rectfill(20.0, 42.0, 120.0, 22.0, BLACK);
-                rect(20.0, 42.0, 120.0, 22.0, YELLOW);
+                rectb(20.0, 42.0, 120.0, 22.0, YELLOW);
                 text(38.0, 47.0, "★ しょうり！ ★", YELLOW);
                 text(28.0, 57.0, "Zキーでもどる", WHITE);
             }
             BattlePhase::Defeat => {
                 draw_battle_ui(&self.player, self.cursor);
                 rectfill(20.0, 42.0, 120.0, 22.0, BLACK);
-                rect(20.0, 42.0, 120.0, 22.0, RED);
+                rectb(20.0, 42.0, 120.0, 22.0, RED);
                 text(48.0, 47.0, "GAME OVER", RED);
                 text(28.0, 57.0, "Zキーでもどる", WHITE);
             }

@@ -62,7 +62,7 @@ impl Player {
     }
 
     fn draw(&self, col: u8) {
-        rect(self.x, self.y, PW, PH, col);
+        rectb(self.x, self.y, PW, PH, col);
     }
 }
 
@@ -211,16 +211,16 @@ impl Game {
             }
             ST_PLAY => {
                 // Draw ground
-                rect(0.0, self.ground_y, W as f32, 80.0, 3);
+                rectb(0.0, self.ground_y, W as f32, 80.0, 3);
 
                 // Draw items
                 for (ix, iy) in &self.items {
-                    circ(*ix, *iy, 3.0, 10);
+                    circb(*ix, *iy, 3.0, 10);
                 }
 
                 // Draw enemies
                 for (ex, ey) in &self.enemies {
-                    circ(*ex, *ey, 6.0, 8);
+                    circb(*ex, *ey, 6.0, 8);
                 }
 
                 // Draw particles

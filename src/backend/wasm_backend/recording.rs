@@ -58,3 +58,12 @@ pub fn browser_recorded_frames() -> u32 {
         .as_ref()
         .map_or(0, |r| r.frame_count() as u32)
 }
+
+/// Export with the initialization capture scale unless explicitly overridden.
+pub fn configured_screencast_gif(scale: Option<u32>) -> Result<Option<Vec<u8>>, String> {
+    screencast_gif(scale.unwrap_or_else(|| state().capture_scale))
+}
+#[wasm_bindgen]
+pub fn browser_capture_gif(scale: Option<u32>) -> Result<Option<Vec<u8>>, JsValue> {
+    configured_screencast_gif(scale).map_err(|e| JsValue::from_str(&e))
+}
