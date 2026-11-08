@@ -178,7 +178,7 @@ pub fn user_data_dir(vendor: &str, app: &str) -> Result<String, String> {
 }
 #[cfg(feature = "wasm-backend")]
 pub use crate::backend::wasm_backend::recording::{
-    configure_screencast, reset_screencast, screencast_gif,
+    configure_screencast, configured_screencast_gif, reset_screencast, screencast_gif,
 };
 #[cfg(feature = "wasm-backend")]
 pub use crate::backend::wasm_backend::storage::{user_data_store, UserDataStore};

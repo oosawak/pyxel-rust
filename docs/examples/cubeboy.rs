@@ -392,7 +392,7 @@ impl Boss {
     }
 
     fn draw(&self) {
-        circ(self.x, self.y, 4.0, 8u8);
+        circb(self.x, self.y, 4.0, 8u8);
     }
 }
 

@@ -29,6 +29,13 @@ export function api_coverage_info(): string;
 
 export function browser_audio_status(): string;
 
+export function browser_capture_gif(scale?: number | null): Uint8Array | undefined;
+
+/**
+ * Use the capture scale configured by init_with_options unless overridden.
+ */
+export function browser_capture_png(scale?: number | null): Promise<Uint8Array>;
+
 export function browser_demo_bgm(): string;
 
 export function browser_demo_edit(): void;
@@ -36,6 +43,11 @@ export function browser_demo_edit(): void;
 export function browser_demo_flags(integer: boolean, monitor: boolean): void;
 
 export function browser_demo_icon(): void;
+
+/**
+ * Exercise the official filled/outline names in a small exportable image.
+ */
+export function browser_demo_image_png(scale: number): Uint8Array;
 
 export function browser_demo_info(): string;
 
@@ -50,6 +62,8 @@ export function browser_demo_reset_palette(): void;
 export function browser_demo_resize(w: number, h: number): void;
 
 export function browser_demo_save(): Uint8Array;
+
+export function browser_demo_shapes(): void;
 
 export function browser_demo_stop(): void;
 
@@ -256,6 +270,8 @@ export function start_battle_from_js(idx: number): void;
 
 export function start_browser_system(): void;
 
+export function start_browser_system_with_options(display_scale: number, capture_scale: number, capture_sec: number, headless: boolean, quit_key: number): void;
+
 export function start_cube_example(id: number): void;
 
 export function start_cube_example_resolution(id: number, scale: number): void;
@@ -275,10 +291,13 @@ export interface InitOutput {
     readonly api_coverage_cursor: (a: number) => void;
     readonly api_coverage_info: () => [number, number];
     readonly browser_audio_status: () => [number, number];
+    readonly browser_capture_gif: (a: number) => [number, number, number, number];
+    readonly browser_capture_png: (a: number) => any;
     readonly browser_demo_bgm: () => [number, number, number, number];
     readonly browser_demo_edit: () => [number, number];
     readonly browser_demo_flags: (a: number, b: number) => void;
     readonly browser_demo_icon: () => [number, number];
+    readonly browser_demo_image_png: (a: number) => [number, number, number, number];
     readonly browser_demo_info: () => [number, number];
     readonly browser_demo_load: (a: number, b: number) => [number, number];
     readonly browser_demo_palette: (a: number, b: number) => [number, number];
@@ -286,6 +305,7 @@ export interface InitOutput {
     readonly browser_demo_reset_palette: () => void;
     readonly browser_demo_resize: (a: number, b: number) => [number, number];
     readonly browser_demo_save: () => [number, number, number, number];
+    readonly browser_demo_shapes: () => void;
     readonly browser_demo_stop: () => void;
     readonly browser_demo_title: (a: number, b: number) => void;
     readonly browser_demo_tmx: (a: number, b: number) => [number, number];
@@ -372,6 +392,7 @@ export interface InitOutput {
     readonly start_api_coverage: () => void;
     readonly start_battle_from_js: (a: number) => void;
     readonly start_browser_system: () => [number, number];
+    readonly start_browser_system_with_options: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly start_cube_example: (a: number) => [number, number];
     readonly start_cube_example_resolution: (a: number, b: number) => [number, number];
     readonly start_node_motion: () => [number, number];
@@ -383,13 +404,13 @@ export interface InitOutput {
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___wasm_bindgen_cf0989641d10091a___JsValue__core_8896a31dc0048bac___result__Result_____wasm_bindgen_cf0989641d10091a___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___core_8896a31dc0048bac___option__Option_web_sys_c32f62750fef9b4___features__gen_Blob__Blob_______true_: (a: number, b: number, c: number) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__110: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__111: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__112: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__113: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__114: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__115: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__116: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__117: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__118: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__119: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__120: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke___web_sys_c32f62750fef9b4___features__gen_DragEvent__DragEvent______true__121: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_cf0989641d10091a___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

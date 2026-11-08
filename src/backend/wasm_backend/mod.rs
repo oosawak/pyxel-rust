@@ -194,6 +194,9 @@ pub struct WasmState {
     pub height: u32,
     pub display_scale: u32,
     pub fps: u32,
+    pub quit_key: u32,
+    pub capture_scale: u32,
+    pub headless: bool,
     pub screen: crate::RcImage,
     pub recorder: Option<pyxel::Screencast>,
     pub rgba_buffer: Vec<u8>, // pre-allocated RGBA output
@@ -226,8 +229,15 @@ impl WasmState {
         Self {
             width,
             height,
-            display_scale: compute_scale(width, height),
+            display_scale: if cfg!(target_arch = "wasm32") {
+                compute_scale(width, height)
+            } else {
+                1
+            },
             fps,
+            quit_key: crate::api::KEY_ESCAPE,
+            capture_scale: 2,
+            headless: false,
             screen: crate::Image::new(width, height),
             recorder: None,
             rgba_buffer: vec![0u8; pixels * 4],
@@ -492,7 +502,67 @@ pub fn init(width: u32, height: u32, _title: &str, fps: u32) {
     system::title(_title);
 }
 
+/// Browser bounds are checked before mutating the current game or allocating pixels.
+pub fn init_with_options(
+    width: u32,
+    height: u32,
+    title: &str,
+    fps: u32,
+    options: crate::api::InitOptions,
+) -> Result<(), String> {
+    if unsafe { STATE.as_ref().is_some_and(|s| s.running) } {
+        return Err("Cannot initialize while a game loop is running".into());
+    }
+    let scale = options.display_scale.unwrap_or_else(|| {
+        if options.headless {
+            1
+        } else {
+            compute_scale(width, height)
+        }
+    });
+    let display_width = width.checked_mul(scale).ok_or("Display width overflow")?;
+    let display_height = height.checked_mul(scale).ok_or("Display height overflow")?;
+    if u64::from(display_width) * u64::from(display_height) > 16 * 1024 * 1024 {
+        return Err("Display must fit 16 Mi pixels".into());
+    }
+    if options.capture_scale > 16
+        || options.capture_sec > 30
+        || u128::from(width)
+            * u128::from(height)
+            * u128::from(fps)
+            * u128::from(options.capture_sec)
+            > 32 * 1024 * 1024
+    {
+        return Err("Recording must fit 32 MiB / 30 seconds; capture_scale must be 1..16".into());
+    }
+    let mut next = WasmState::new(width, height, fps);
+    next.display_scale = scale;
+    next.quit_key = options.quit_key;
+    next.capture_scale = options.capture_scale;
+    next.headless = options.headless;
+    if options.capture_sec > 0 {
+        next.recorder = Some(pyxel::Screencast::new(fps, options.capture_sec));
+    }
+    unsafe {
+        STATE = Some(next);
+    }
+    if !options.headless {
+        if let Some(canvas) = get_canvas() {
+            canvas.set_width(display_width);
+            canvas.set_height(display_height);
+        }
+        register_keyboard_events();
+        text_files::register();
+        system::register();
+        system::title(title);
+    }
+    Ok(())
+}
+
 fn get_canvas() -> Option<HtmlCanvasElement> {
+    if state().headless {
+        return None;
+    }
     let document = web_sys::window()?.document()?;
     let el = document.get_element_by_id("pyxel_canvas").or_else(|| {
         // Create canvas if not present
@@ -542,6 +612,9 @@ fn register_keyboard_events() {
         }
         let idx = code_to_idx(&e.code());
         state().input.set_key(idx, true);
+        if !is_editor && idx == state().quit_key {
+            crate::api::quit();
+        }
         if !is_editor
             && !e.is_composing()
             && !e.ctrl_key()
@@ -701,6 +774,11 @@ pub fn run(mut update: Box<dyn FnMut()>, mut draw: Box<dyn FnMut()>) {
     let last_time: Rc<RefCell<f64>> = Rc::new(RefCell::new(0.0));
 
     *g.borrow_mut() = Some(Closure::new(move || {
+        if state().should_quit {
+            state().running = false;
+            crate::api::audio::stop(None);
+            return;
+        }
         let window = web_sys::window().unwrap();
         let perf = window.performance().unwrap();
         let now = perf.now();

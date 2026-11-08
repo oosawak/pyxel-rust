@@ -70,3 +70,6 @@ pub use graphics3d::render_3d_viewport;
 pub use scene3d::{
     draw_node_primitive, with_node_draw_state, NodeMotionState, NodePainter, NodeScene,
 };
+
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub use system::{init_with_options, InitOptions};

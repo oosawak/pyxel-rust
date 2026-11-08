@@ -212,6 +212,13 @@ pub async fn browser_screenshot(scale: u32) -> Result<Vec<u8>, JsValue> {
     if scale == 0 || scale > 16 {
         return Err(JsValue::from_str("Screenshot scale must be 1..16"));
     }
+    if state().headless {
+        return state()
+            .screen
+            .borrow()
+            .png_bytes_scaled(scale)
+            .map_err(|e| JsValue::from_str(&e));
+    }
     let source = get_canvas().ok_or_else(|| JsValue::from_str("No canvas"))?;
     let document = web_sys::window().unwrap().document().unwrap();
     let output = document
@@ -306,4 +313,10 @@ pub async fn browser_flip() -> Result<(), JsValue> {
     state().frame_count += 1;
     state().input.tick();
     Ok(())
+}
+
+/// Use the capture scale configured by init_with_options unless overridden.
+#[wasm_bindgen]
+pub async fn browser_capture_png(scale: Option<u32>) -> Result<Vec<u8>, JsValue> {
+    browser_screenshot(scale.unwrap_or_else(|| state().capture_scale)).await
 }

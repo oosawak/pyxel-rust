@@ -46,7 +46,7 @@ class CompatibilityTests(unittest.TestCase):
         self.assertEqual(self.find('playm', 'sdl2')['status'], 'supported')
 
     def test_semantic_and_backend_limitations_are_visible(self):
-        self.assertEqual(self.find('rect', 'wasm')['status'], 'partial')
+        self.assertEqual(self.find('rect', 'wasm')['status'], 'supported')
         self.assertEqual(self.find('btnp', 'wasm')['status'], 'supported')
         self.assertEqual(self.find('mouse_wheel', 'wasm')['status'], 'supported')
         self.assertEqual(self.find('Node.update', 'wasm')['status'], 'supported')
@@ -85,6 +85,18 @@ class CompatibilityTests(unittest.TestCase):
         self.assertEqual(self.find('input_text','wgpu')['status'],'supported')
         self.assertEqual(self.find('Sound','wgpu')['status'],'missing')
         self.assertIn('旧JSフック',self.find('play_pos','wasm')['note'])
+
+    def test_initialization_and_filled_shapes_are_implemented(self):
+        for backend in ['wasm','sdl2']:
+            for name in ['init','rect','circ']:
+                self.assertEqual(self.find(name,backend)['status'],'supported')
+                self.assertEqual(self.find(name,backend)['verification'],'compat-options')
+        self.assertEqual(self.find('init','wgpu')['status'],'partial')
+        self.assertEqual(self.find('rect','wgpu')['status'],'supported')
+        image = self.find('Image.save','wasm')
+        self.assertEqual(image['status'],'partial')
+        self.assertIn('png_bytes_scaled',image['note'])
+        self.assertIn('filename指定は未対応',image['note'])
 
     def test_node_painter_support_has_runtime_evidence(self):
         for backend in ['wasm','sdl2']:

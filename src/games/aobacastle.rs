@@ -303,7 +303,7 @@ impl Game {
         self.draw_castle_silhouette(60.0, HF * 0.28);
         // タイトルボックス
         rectfill(16.0, 136.0, WF - 32.0, 104.0, BLACK);
-        rect(16.0, 136.0, WF - 32.0, 104.0, YELLOW);
+        rectb(16.0, 136.0, WF - 32.0, 104.0, YELLOW);
         text(40.0, 148.0, "AOBA CASTLE", YELLOW);
         text(56.0, 168.0, "NINJA CLIMB", WHITE);
         // 難易度セレクター
@@ -314,7 +314,7 @@ impl Game {
         for (i, (&lbl, &col)) in labels.iter().zip(cols.iter()).enumerate() {
             if self.diff_sel == i {
                 rectfill(lx[i]-2.0, 212.0, (lbl.len()*4+6) as f32 * 2.0, 18.0, DARK_GRAY);
-                rect(lx[i]-2.0, 212.0, (lbl.len()*4+6) as f32 * 2.0, 18.0, col);
+                rectb(lx[i]-2.0, 212.0, (lbl.len()*4+6) as f32 * 2.0, 18.0, col);
                 text(lx[i], 216.0, lbl, col);
             } else {
                 text(lx[i], 216.0, lbl, DARK_GRAY);
@@ -359,7 +359,7 @@ impl Game {
             let sy = p.y - cam;
             if sy < -PLAT_H || sy > HF + 2.0 { continue; }
             rectfill(p.x, sy, p.w, PLAT_H, DARK_GRAY);
-            rect(p.x, sy, p.w, PLAT_H, LIGHT_GRAY);
+            rectb(p.x, sy, p.w, PLAT_H, LIGHT_GRAY);
             let segs = (p.w / 16.0) as usize;
             for s in 1..segs {
                 line(p.x + s as f32 * 16.0, sy,
@@ -379,7 +379,7 @@ impl Game {
 
         let progress = t;
         let ind_h = HF - 40.0;
-        rect(WF - 12.0, 16.0, 8.0, ind_h, DARK_BLUE);
+        rectb(WF - 12.0, 16.0, 8.0, ind_h, DARK_BLUE);
         let fill_h = ind_h * progress;
         rectfill(WF - 10.0, 16.0 + ind_h - fill_h, 4.0, fill_h, YELLOW);
         text(WF - 14.0, 4.0, "^", LIGHT_GRAY);
@@ -403,7 +403,7 @@ impl Game {
             let mut xx = offset - 16.0;
             while xx < WF {
                 rectfill(xx, yy, 14.0, 14.0, DARK_BLUE);
-                rect(xx, yy, 14.0, 14.0, DARK_PRP);
+                rectb(xx, yy, 14.0, 14.0, DARK_PRP);
                 xx += 16.0;
             }
             yy += 16.0;
@@ -424,7 +424,7 @@ impl Game {
     fn draw_clear(&self) {
         let diff_col = DiffConfig::label_col(self.diff);
         rectfill(36.0, HF/2.0-44.0, WF-72.0, 100.0, BLACK);
-        rect(36.0, HF/2.0-44.0, WF-72.0, 100.0, diff_col);
+        rectb(36.0, HF/2.0-44.0, WF-72.0, 100.0, diff_col);
         if self.clear_timer % 8 < 6 {
             text(80.0, HF/2.0-32.0, "CLEARED!", WHITE);
         }
@@ -440,7 +440,7 @@ impl Game {
 
     fn draw_gameover(&self) {
         rectfill(44.0, HF/2.0-28.0, WF-88.0, 60.0, BLACK);
-        rect(44.0, HF/2.0-28.0, WF-88.0, 60.0, RED);
+        rectb(44.0, HF/2.0-28.0, WF-88.0, 60.0, RED);
         text(72.0, HF/2.0-16.0, "GAME OVER", RED);
         text(60.0, HF/2.0+8.0,  "PRESS JUMP", LIGHT_GRAY);
     }

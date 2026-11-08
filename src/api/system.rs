@@ -115,6 +115,67 @@ mod wgpu_impl {
 // Public API — dispatches to the active backend
 // ---------------------------------------------------------------------------
 
+/// Extended official initialization settings. `init` remains the small convenience
+/// entry point; this fallible API validates settings before replacing browser state.
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+#[derive(Clone, Debug)]
+pub struct InitOptions {
+    pub quit_key: u32,
+    pub display_scale: Option<u32>,
+    pub capture_scale: u32,
+    pub capture_sec: u32,
+    pub headless: bool,
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+impl Default for InitOptions {
+    fn default() -> Self {
+        Self {
+            quit_key: super::KEY_ESCAPE,
+            display_scale: None,
+            capture_scale: 2,
+            capture_sec: 10,
+            headless: false,
+        }
+    }
+}
+#[cfg(any(feature = "wasm-backend", feature = "pyxel-core-backend"))]
+pub fn init_with_options(
+    width: u32,
+    height: u32,
+    title: &str,
+    fps: u32,
+    options: InitOptions,
+) -> Result<(), String> {
+    if width == 0
+        || height == 0
+        || fps == 0
+        || u64::from(width) * u64::from(height) > 16 * 1024 * 1024
+    {
+        return Err("Dimensions and fps must be positive; screen must fit 16 Mi pixels".into());
+    }
+    if options.display_scale == Some(0) || options.capture_scale == 0 {
+        return Err("Display and capture scales must be positive".into());
+    }
+    #[cfg(feature = "wasm-backend")]
+    {
+        crate::backend::wasm_backend::init_with_options(width, height, title, fps, options)
+    }
+    #[cfg(feature = "pyxel-core-backend")]
+    {
+        pyxel::init(
+            width,
+            height,
+            Some(title),
+            Some(fps),
+            Some(options.quit_key),
+            options.display_scale,
+            Some(options.capture_scale),
+            Some(options.capture_sec),
+            Some(options.headless),
+        )
+    }
+}
+
 pub fn init(width: u32, height: u32, title: &str, fps: u32) {
     #[cfg(feature = "wasm-backend")]
     wasm_impl::init(width, height, title, fps);
