@@ -124,36 +124,11 @@
 
         // ── Audio System ───────────────────────────────────────────────────
         let audioCtx = null;
-        let bgmAudio = null;
-        let bgmStarted = false;
 
-        const BGM_FILES = [
-            'BGM/ComfyUI_00001_.mp3',
-            'BGM/ComfyUI_00002_.mp3',
-            'BGM/ComfyUI_00003_.mp3',
-            'BGM/ComfyUI_00004_.mp3',
-        ];
-        let bgmIdx = 0;
 
         function getAudioCtx() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             return audioCtx;
-        }
-
-        function startBgm() {
-            if (bgmStarted) return;
-            bgmStarted = true;
-            bgmIdx = Math.floor(Math.random() * BGM_FILES.length);
-            playNextBgm();
-        }
-
-        function playNextBgm() {
-            if (bgmAudio) { bgmAudio.pause(); bgmAudio.src = ''; }
-            bgmAudio = new Audio(BGM_FILES[bgmIdx % BGM_FILES.length]);
-            bgmAudio.volume = 0.35;
-            bgmAudio.onended = () => { bgmIdx++; playNextBgm(); };
-            bgmAudio.play().catch(() => {});
-            bgmIdx++;
         }
 
         // SFX: Web Audio API tones
@@ -175,7 +150,6 @@
         }
 
         window.pyxelPlaySound = function(ch, sound) {
-            startBgm();
             try {
                 if (sound === 0) playSfxTone(440, 'square', 0.12, true);   // Jump
                 if (sound === 1) {                                            // Dash
@@ -188,9 +162,6 @@
         window.pyxelStopSound = function(ch) {};
 
         // Start BGM on first user interaction
-        document.addEventListener('keydown', startBgm, { once: true });
-        document.addEventListener('touchstart', startBgm, { once: true });
-        document.addEventListener('mousedown', startBgm, { once: true });
     </script>
     <script type="module">
         import init, { set_key } from './pkg/cubeboy_rust_lib.js';
