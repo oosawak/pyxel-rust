@@ -349,9 +349,17 @@ Canvasは`configure_screencast(seconds)`で明示的に録画を開始し、`scr
 
 `screen_mode(0..2)`はSDL2では公式のシェーダー、Canvasでは通常・平滑化・走査線/周辺減光の簡易表示です。Canvas版は公式xBR/CRTと同じ画質ではありません。`user_data_dir`はSDL2のユーザーフォルダーを返し、ブラウザでは代わりに`user_data_store(vendor, app)`の`get/set/remove`でlocalStorageを使用します。ブラウザの容量制限・利用可否による失敗をResultで受け取れます。
 
-`NodeScene`は公式`RcNode`のグラフを使うRustコールバック層です。`from_mesh`で名前・階層・材質・静的形状を変換し、`on_update/on_draw/on_collide/on_destroy`へクロージャを登録します。`update(frame_seconds)`は全体の更新通知、公式の運動積分、接触検出と通知、子から親への破棄通知・切離しの順に実行します。公式コアのvelocityはフレームごとの変位で、frame_secondsを掛け直しません。inactiveな親の更新は子にも及びます。コールバック中に登録を変更でき、同じシーンへの再入はエラーになります。
+`NodeScene`は公式`RcNode`のグラフを使うRustコールバック層です。`from_mesh`で名前・階層・材質・形状とMotionのモデル対応を変換し、`on_update/on_draw/on_collide/on_destroy`へクロージャを登録します。`update(frame_seconds)`は全体の更新通知、NodeごとのMotion自動再生、公式の運動積分、接触検出と通知、子から親への破棄通知・切離しの順に実行します。公式コアのvelocityはフレームごとの変位で、frame_secondsを掛け直しません。inactiveな親の更新は子にも及びます。コールバック中に登録を変更でき、同じシーンへの再入はエラーになります。
 
-`NodeScene::draw(viewport, target)`はカメラ・可視性を親から継承し、Meshの付属Primitiveを描画します。カスタム描画では`with_node_draw_state` / `draw_node_primitive`を使用すると、不透明度とシェーディングも親から継承できます。描画状態をノードごとにリセットし、エラー・パニック時もカメラの深度バッファを戻します。Python継承の代わりにRustの登録式APIを使い、Motionの自動再生は未実装です。アニメーションは従来の`MeshAnimationPlayer`で明示的に進めます。
+`NodeScene::draw(viewport, target)`はカメラ・可視性を親から継承し、Meshの付属Primitiveを描画します。カスタム描画では`with_node_draw_state` / `draw_node_primitive`を使用すると、不透明度とシェーディングも親から継承できます。描画状態をノードごとにリセットし、エラー・パニック時もカメラの深度バッファを戻します。Python継承の代わりにRustの登録式APIを使います。
+
+[Nodeアニメーションの確認ページ](https://oosawak.github.io/pyxel-rust/examples/node-motion/) では、同じMeshの2体を別々のクリップ・速度で再生できます。`NodeScene::play_motion(node, motion, looping, speed, start_frame)`はNodeごとの再生を開始し、`update`のたびにspeedフレーム進めます。これは秒数ではなく、GLB読込時に指定したfpsでのフレーム単位です。逆再生（負のspeed）、速度0、ループ、非ループの終端停止に対応します。inactiveな親の下では再生を止め、再度activeになると続きから進みます。visibleは再生に影響しません。
+
+`apply_motion(node, motion, frame, looping)`は指定部分木の同じモデル個体に属するパーツだけへ姿勢を適用します。既存の再生状態や他のクリップのチャンネルをリセットしません。`stop_motion(node)`は姿勢を保持して停止し、`motion_state(node)`で再生中のフレーム・速度・クリップを取得できます。親のプレイヤーを先に、子のプレイヤーを後に適用するため、子側の指定で上書きできます。
+
+再生開始時には、その個体の全クリップが使用するパーツだけを元の姿勢へ戻します。アニメーション対象外の手動編集やモデル配置の親変換は保持します。Motionの適用はNodeの行列ハンドルを差し替える方式で、元Meshや別個体の再生結果を書き換えません。Motionは同じソースMeshのmotionsに属する必要があり、有限でない速度・フレームや不正な対象をエラーにします。使用中はMeshのパーツ構成とMotionリストを変更しないでください。従来の`MeshAnimationPlayer`も、Meshを直接描画する用途向けに維持しています。
+
+対応表の`Mat4.pos/rot/scale`も再確認しました。公式3.0.0の[Pythonバインディング](https://github.com/kitao/pyxel/blob/e0b528f9a6f98bfc92bb47ebe1c7623cb3f609fd/crates/pyxel-binding/src/cube/mat4.rs#L23)は読み取り専用getterで、Rustの`pos()/rot()/scale_vec()`と同じです。以前の「書込setter不足」という判定を訂正しました。これは実装追加とは別の判定訂正です。
 
 ```rust,ignore
 let mut scene = NodeScene::from_mesh(&mesh)?;
@@ -361,6 +369,8 @@ scene.on_update(&root, |_, node| {
     // Update node.transform, its collider, or the hierarchy.
     Ok(())
 });
+let clip = mesh.borrow().motions[0].clone();
+scene.play_motion(&root, &clip, true, 1.0, 0.0)?;
 scene.update(1.0 / 30.0)?;
 scene.draw([0.0, 0.0, 256.0, 192.0], None)?;
 ```
@@ -369,6 +379,8 @@ scene.draw([0.0, 0.0, 256.0, 192.0], None)?;
 cargo test --locked --no-default-features --features wasm-backend --lib --test screen_recording --test scene_lifecycle
 cargo test --locked --test scene_lifecycle --test retro3d
 node scripts/playtest-screen-tools.cjs
+cargo test --locked --no-default-features --features wasm-backend --test node_motion --test matrix_views
+node scripts/playtest-node-motion.cjs
 ```
 
 ### ローカル確認（GitHub Pages 相当）

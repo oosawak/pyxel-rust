@@ -7,6 +7,9 @@ use crate::cube::{
     Mat4, Node, Primitive, RcContact, RcMesh, RcNode, RcPrimitive,
 };
 use crate::RcImage;
+mod motion;
+pub use motion::NodeMotionState;
+use motion::{MeshInstance, MotionPlayer};
 use std::{
     cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
@@ -25,6 +28,9 @@ struct Record {
     collide: Option<CollideHook>,
     destroy: Option<UpdateHook>,
     drawable: Option<(RcPrimitive, Material)>,
+    instance: Option<Rc<MeshInstance>>,
+    part: Option<usize>,
+    player: Option<MotionPlayer>,
 }
 struct Busy(Rc<Cell<bool>>);
 impl Busy {
@@ -117,13 +123,17 @@ impl NodeScene {
         Ok(root)
     }
     fn populate_mesh(&mut self, root: &RcNode, mesh: &RcMesh) -> Result<(), String> {
+        let instance = MeshInstance::new(mesh)?;
+        self.record(root).instance = Some(instance.clone());
         let mesh = mesh.borrow();
-        mesh.validate()?;
         let nodes: Vec<_> = (0..mesh.primitives.len())
             .map(|i| {
                 let node = Node::new();
                 node.borrow_mut().name = mesh.names.get(i).cloned().unwrap_or_default();
                 node.borrow_mut().transform = mesh.transforms[i].clone();
+                let record = self.record(&node);
+                record.instance = Some(instance.clone());
+                record.part = Some(i);
                 if let Some(p) = &mesh.primitives[i] {
                     self.record(&node).drawable = Some((p.clone(), mesh.material_for_part(i)));
                 }
@@ -177,8 +187,7 @@ impl NodeScene {
         r.collide = None;
         r.destroy = None;
     }
-    /// Whole-subtree phases: callbacks → core motion → contacts → destruction.
-    /// Animation playback remains explicit through MeshAnimationPlayer.
+    /// Whole-subtree phases: callbacks → node animation → core physics → contacts → destruction.
     pub fn update(&mut self, frame_seconds: f32) -> Result<(), String> {
         if !frame_seconds.is_finite() || frame_seconds < 0. {
             return Err("Invalid frame time".into());
@@ -192,6 +201,7 @@ impl NodeScene {
                 }
             }
         }
+        self.advance_motions()?;
         Scene::integrate_motion(&self.root, frame_seconds);
         for pair in Scene::detect_contacts(&self.root) {
             let a = self

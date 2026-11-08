@@ -37,3 +37,10 @@ adapter changes, then run both native and wasm-backend rendering tests and the
 browser smoke test. Browser GLB input comes from byte slices with resources embedded
 in the BIN chunk. Other filesystem-based imports/exports still need browser-specific
 loading; this adapter does not provide a virtual filesystem or Python callbacks.
+
+The Rust NodeScene motion adapter in src/api/scene3d/motion.rs ports the
+frame-based playback, per-instance rest pose, source validation and subtree
+application from the same pinned revision's crates/pyxel-binding/src/cube/node.rs
+(MIT, covered by the retained upstream LICENSE). It assigns poses to Node
+transforms instead of mutating the shared source Mesh. Compare both the core
+Motion sampler and binding lifecycle phases when updating upstream.

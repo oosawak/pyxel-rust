@@ -5,16 +5,16 @@
 <div class="controls"><button id="draw" disabled>画面を描く</button><button id="edit" disabled>画面を直接編集</button><button id="flip" disabled>1フレーム進める</button><button id="show" disabled>画面の表示を続ける</button><button id="reset" disabled>デモを再起動</button></div>
 <p>通常は自動で描画します。<a href="?manual=1">手動フレームの確認モード</a>では「画面を描く」「直接編集」「1フレーム進める」の順で表示できます。「表示を続ける」は描いた画面を保持して表示を続けます。実行中の自動ループと手動フレームの併用はできません。</p>
 <div class="controls"><button id="font" disabled>フォント画像を編集</button><button id="cursor" disabled>カーソル画像を編集</button><select id="mode" aria-label="画面の表示方法" disabled><option value="0">通常表示</option><option value="1">なめらか表示（簡易）</option><option value="2">レトロ表示（簡易）</option></select></div><p>ブラウザの表示切替はCanvas用の簡易処理です。公式のxBR・CRTシェーダーと同一の画質ではありません。</p>
-<div class="controls"><button id="nodes" disabled>Nodeシーンを表示</button><button id="planes" disabled>透視投影に戻る</button><button id="destroy-node" disabled>Nodeを1つ破棄</button></div><p>Nodeシーンは共有Meshの階層と材質を使い、更新・描画・衝突・破棄の各通知回数を下に表示します。アニメーションのMotion再生は別APIで明示的に進める方式です。</p>
+<div class="controls"><button id="nodes" disabled>Nodeシーンを表示</button><button id="planes" disabled>透視投影に戻る</button><button id="destroy-node" disabled>Nodeを1つ破棄</button></div><p>Nodeシーンは共有Meshの階層と材質を使い、更新・描画・衝突・破棄の各通知回数を下に表示します。Motionの自動再生は<a href="../node-motion/">Nodeアニメーションの確認ページ</a>で試せます。</p>
 <div class="controls"><button id="record" disabled>録画開始（直近2秒）</button><button id="gif" disabled>録画GIFを保存（2倍）</button><button id="clear" disabled>録画をクリア</button><button id="record-stop" disabled>録画を終了</button></div><p>録画は開始後の論理画面を保存します。Canvasの日本語テキスト重ね描画・カーソル・簡易表示効果は含みません。保存後は録画内容をクリアし、録画を継続します。画面サイズ変更時は録画を終了します。録画バッファの上限は32MiBです。</p>
 <div class="controls"><input id="memo" aria-label="保存するメモ" placeholder="このブラウザに保存するメモ"><button id="store" disabled>メモを保存</button><button id="remove" disabled>メモを削除</button></div><p>ブラウザのユーザーデータはアプリごとのlocalStorageに保存します。同じサイト・ブラウザに保持され、デスクトップのフォルダーとは異なります。</p>
 <p id="action-status" role="status"></p><pre id="details" aria-label="画面と録画の状態"></pre>
 <script type="module">
-import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=5a76becd66bb';
+import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=a4cbdeaa366b';
 const status=(message,error=false)=>{const el=document.querySelector('#action-status');el.textContent=message;el.setAttribute('role',error?'alert':'status');};
 const action=(id,fn)=>document.querySelector(id).onclick=async()=>{try{await fn();}catch(e){status(String(e.message||e),true)}};
 try{
- await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=5a76becd66bb',import.meta.url)});api.start_screen_tools(new URLSearchParams(location.search).has('manual'));window.demo=api;
+ await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=a4cbdeaa366b',import.meta.url)});api.start_screen_tools(new URLSearchParams(location.search).has('manual'));window.demo=api;
  document.querySelector('#status').textContent='実行中';document.querySelectorAll('button,select').forEach(el=>el.disabled=false);
  action('#draw',()=>api.screen_demo_draw());action('#edit',()=>api.screen_demo_edit());action('#flip',async()=>{await api.browser_flip();status('1フレーム表示しました');});action('#show',()=>{api.browser_show();status('画面の表示を続けています');});action('#reset',()=>api.browser_reset());
  action('#font',()=>{api.screen_demo_font();status('フォント画像を変更しました。次の描画から反映します');});action('#cursor',()=>{api.screen_demo_cursor(true);status('カーソル画像を変更しました。画面上で動かして確認できます');});

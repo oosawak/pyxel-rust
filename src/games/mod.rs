@@ -21,4 +21,6 @@ pub mod resources_audio;
 #[cfg(feature = "wasm-backend")]
 pub mod browser_system;
 #[cfg(feature = "wasm-backend")]
+pub mod node_motion;
+#[cfg(feature = "wasm-backend")]
 pub mod screen_tools;
