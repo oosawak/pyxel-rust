@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/pyxel-3.0-api.json'
 OUTPUT = ROOT / 'docs/assets/compatibility/data.json'
-ENGINE_REV = '0166b7dfad3d28a717c0a59ac5ae6ec0dd2f1f79'
+ENGINE_REV = '4c19225518b21ba314e2fb80b5266ef3ad7b6f86'
 BACKENDS = ['wasm', 'sdl2', 'wgpu']
 
 
@@ -46,9 +46,9 @@ def classify(row, backend):
         member = name.split('.')[-1]
         if category == 'Node':
             if member in ['on_update', 'on_draw', 'on_collide', 'on_destroy', 'update', 'draw', 'from_mesh']:
-                return result('partial' if member in ['from_mesh','update'] else 'supported', 'NodeSceneでRustクロージャを登録し、階層の更新・物理・衝突・子から親への破棄通知と描画を実行します。from_meshは名前・親子関係・材質・静的形状を変換します。drawはカメラ・可視性を継承し、カスタム描画にはwith_node_draw_stateで不透明度・シェーディングを適用します。Pythonの継承の代わりに明示的な登録を使用し、同じシーンの再入は拒否します。Motionの自動更新はなく、MeshAnimationPlayerの明示的な操作が必要です。', api+'scene3d.rs', 'pub fn '+member, 'scene-lifecycle')
+                return result('supported', 'NodeSceneでRustクロージャを登録し、階層の更新・物理・衝突・子から親への破棄通知と描画を実行します。from_meshは名前・親子関係・材質・形状・Motionのモデル対応を変換します。drawはカメラ・可視性を継承し、カスタム描画にはwith_node_draw_stateで不透明度・シェーディングを適用します。Pythonの継承の代わりに明示的な登録を使用し、同じシーンの再入は拒否します。updateは更新通知→NodeごとのMotion再生→物理→衝突→破棄の順に実行します。Motionはモデル個体ごとに進み、元Meshを書き換えません。', api+'scene3d.rs', 'pub fn '+member, 'scene-lifecycle')
             if member in ['apply_motion', 'play_motion', 'stop_motion']:
-                return result('partial', 'MeshAnimationPlayerでモデルのアニメーションは操作できます。NodeのモーションAPIと自動更新は未実装です。', api+'animation3d.rs', 'pub struct MeshAnimationPlayer', 'animation' if backend == 'wasm' else None)
+                return result('supported', 'NodeSceneのapply_motion / play_motion / stop_motionで、同じMeshに属するMotionを個体・部分木ごとに適用します。updateごとにspeedフレーム進め、逆再生・速度0・ループ・終了・inactiveによる停止に対応します。停止時の姿勢を保持し、再生開始時はアニメーション対象だけを原姿勢へ戻します。', api+'scene3d/motion.rs', 'pub fn '+member, 'node-motion')
             if member in ['raycast', 'raycast_all', 'overlap_sphere', 'overlap_box']:
                 return result('supported', f'cube::Scene::{member}に相当する公式コア処理を公開しています。NodeSceneのrootへ同じ空間クエリーを適用できます。', 'vendor/pyxel-cube-core/src/cube/scene.rs', f'pub fn {member}(')
             state = ['dither', 'depth_test', 'depth_write', 'depth_offset', 'decal', 'shaded']
@@ -58,7 +58,7 @@ def classify(row, backend):
         if category == 'Mesh' and member == 'from_glb':
             return result('partial' if soft else 'supported', 'GLBバイト列から読込。画像・バッファはBIN内への埋め込みが必要です。ファイルパス・外部URIは使えません。' if soft else '公式Mesh::from_glbを公開。公式3.0.0自身がスキニング・モーフに非対応です。', path, 'pub fn from_glb', 'glb' if backend == 'wasm' else None)
         if category == 'Mat4' and member in ['pos', 'rot', 'scale']:
-            return result('partial', '読み取りメソッドは公開しています。Pythonの書込可能なプロパティと同じsetterはなく、行列の更新が必要です。', path, 'pub fn pos')
+            return result('supported', '公式3.0.0 Pythonバインディングもgetterのみの読み取り専用プロパティです。Rustはpos() / rot() / scale_vec()で同じ分解値を取得します。返された値の変更は元の行列を書き換えません。以前の書込setter不足という判定を訂正しました。', path, 'pub fn '+('scale_vec' if member == 'scale' else member), 'matrix-views')
         if category == 'Shading' and member == 'palette':
             return result('unreviewed', 'Shadingコア型は公開済みですが、このPythonプロパティとの等価性は未確認です。', path)
         return result('supported', '公式Cubeコアの型・演算をRustから公開。Pythonのプロパティや定数にはRustメソッドでの相当操作を含みます。個別の動作テストは未実施です。', path)
