@@ -44,6 +44,7 @@ function buildPanel() {
   body.append(provenance);
   const exercise = element('p');
   exercise.append(link('入力・基本描画・数学の動作確認を開く ↗', new URL('../api-coverage/', location.href).href));
+  exercise.append(' · ', link('Nodeアニメーションを試す ↗', new URL('../node-motion/', location.href).href));
   exercise.append(' · ', link('画面・録画・Nodeを試す ↗', new URL('../screen-tools/', location.href).href));
   exercise.append(' · ', link('画面・文字・ファイルを試す ↗', new URL('../browser-system/', location.href).href));
   exercise.append(' · ', link('画像・タイルマップ・音声を試す ↗', new URL('../resources-audio/', location.href).href));
@@ -119,7 +120,7 @@ function buildPanel() {
       const test = element('p', '個別動作：未検証。ソース確認による表示です。');
       if (assessment.verification) {
         test.textContent = '関連テストあり（一部の条件）。';
-        const path = { glb:'tests/glb_browser.rs', animation:'tests/animation_browser.rs', math:'tests/math_compatibility.rs', drawing:'scripts/playtest-api-coverage.cjs', 'browser-input':'scripts/playtest-api-coverage.cjs', resources:'tests/browser_resources.rs', 'resources-audio':'scripts/playtest-resources-audio.cjs', 'browser-system':'scripts/playtest-browser-system.cjs', 'screen-tools':'scripts/playtest-screen-tools.cjs', 'scene-lifecycle':'tests/scene_lifecycle.rs' }[assessment.verification];
+        const path = { glb:'tests/glb_browser.rs', animation:'tests/animation_browser.rs', math:'tests/math_compatibility.rs', drawing:'scripts/playtest-api-coverage.cjs', 'browser-input':'scripts/playtest-api-coverage.cjs', resources:'tests/browser_resources.rs', 'resources-audio':'scripts/playtest-resources-audio.cjs', 'browser-system':'scripts/playtest-browser-system.cjs', 'screen-tools':'scripts/playtest-screen-tools.cjs', 'scene-lifecycle':'tests/scene_lifecycle.rs', 'node-motion':'tests/node_motion.rs', 'matrix-views':'tests/matrix_views.rs' }[assessment.verification];
         test.append(' ', link('検証内容を見る', repo + data.engineRevision + '/' + path));
       }
       item.append(test);
