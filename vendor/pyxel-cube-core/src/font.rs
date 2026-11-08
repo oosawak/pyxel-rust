@@ -40,6 +40,14 @@ define_rc_type!(RcFont, Font);
 
 impl Font {
     pub fn new(filename: &str, font_size: Option<f32>) -> Result<RcFont, String> {
+        if crate::file_io::is_virtual(filename) {
+            let bytes = crate::file_io::read(filename)?;
+            let extension = std::path::Path::new(filename)
+                .extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            return Self::from_bytes(&bytes, extension, font_size);
+        }
         let font = if filename.to_lowercase().ends_with(".bdf") {
             Self::parse_bdf(filename)?
         } else {

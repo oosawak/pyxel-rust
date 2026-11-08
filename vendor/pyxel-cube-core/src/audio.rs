@@ -259,6 +259,16 @@ impl Audio {
 
     #[cfg(pyxel_core)]
     pub fn save_samples(filename: &str, samples: &[i16], use_ffmpeg: bool) -> Result<(), String> {
+        if crate::file_io::is_virtual(filename) {
+            if use_ffmpeg {
+                return Err(
+                    "FFmpeg conversion is not available for virtual files; export WAV instead"
+                        .into(),
+                );
+            }
+            let filename = utils::add_file_extension(filename, ".wav");
+            return crate::file_io::write(&filename, &Self::samples_wav_bytes(samples)?);
+        }
         let spec = WavSpec {
             channels: 1,
             sample_rate: AUDIO_SAMPLE_RATE,

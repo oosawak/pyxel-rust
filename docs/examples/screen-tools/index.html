@@ -10,11 +10,11 @@
 <div class="controls"><input id="memo" aria-label="保存するメモ" placeholder="このブラウザに保存するメモ"><button id="store" disabled>メモを保存</button><button id="remove" disabled>メモを削除</button></div><p>ブラウザのユーザーデータはアプリごとのlocalStorageに保存します。同じサイト・ブラウザに保持され、デスクトップのフォルダーとは異なります。</p>
 <p id="action-status" role="status"></p><pre id="details" aria-label="画面と録画の状態"></pre>
 <script type="module">
-import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=2094b14f5711';
+import init,* as api from '../retro3d/pkg/pyxel_rust.js?build=0e90c90960e7';
 const status=(message,error=false)=>{const el=document.querySelector('#action-status');el.textContent=message;el.setAttribute('role',error?'alert':'status');};
 const action=(id,fn)=>document.querySelector(id).onclick=async()=>{try{await fn();}catch(e){status(String(e.message||e),true)}};
 try{
- await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=2094b14f5711',import.meta.url)});api.start_screen_tools(new URLSearchParams(location.search).has('manual'));window.demo=api;if(new URLSearchParams(location.search).get('view')==='painter')api.screen_demo_painter();
+ await init({module_or_path:new URL('../retro3d/pkg/pyxel_rust_bg.wasm?build=0e90c90960e7',import.meta.url)});api.start_screen_tools(new URLSearchParams(location.search).has('manual'));window.demo=api;if(new URLSearchParams(location.search).get('view')==='painter')api.screen_demo_painter();
  document.querySelector('#status').textContent='実行中';document.querySelectorAll('button,select').forEach(el=>el.disabled=false);
  action('#draw',()=>api.screen_demo_draw());action('#edit',()=>api.screen_demo_edit());action('#flip',async()=>{await api.browser_flip();status('1フレーム表示しました');});action('#show',()=>{api.browser_show();status('画面の表示を続けています');});action('#reset',()=>api.browser_reset());
  action('#font',()=>{api.screen_demo_font();status('フォント画像を変更しました。次の描画から反映します');});action('#cursor',()=>{api.screen_demo_cursor(true);status('カーソル画像を変更しました。画面上で動かして確認できます');});

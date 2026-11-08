@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
 pub mod audio;
+pub mod files;
 pub mod recording;
 pub mod storage;
 pub mod system;

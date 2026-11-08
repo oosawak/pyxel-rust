@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::Read;
-
 use serde::Deserialize;
 
 use crate::settings::TILE_SIZE;
@@ -48,12 +45,8 @@ struct TmxMap {
 }
 
 pub fn parse_tmx(path: &str, layer_index: u32) -> Result<RcTilemap, String> {
-    let err = |msg| format!("{msg} '{path}'");
-    let mut file = File::open(path).map_err(|_| err("Failed to open file"))?;
-    let mut tmx_text = String::new();
-    file.read_to_string(&mut tmx_text)
-        .map_err(|_| err("Failed to read file"))?;
-
+    let bytes = crate::file_io::read(path)?;
+    let tmx_text = String::from_utf8(bytes).map_err(|e| e.to_string())?;
     parse_tmx_text(&tmx_text, layer_index)
 }
 pub fn parse_tmx_text(tmx_text: &str, layer_index: u32) -> Result<RcTilemap, String> {
