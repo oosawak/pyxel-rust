@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/pyxel-3.0-api.json'
 OUTPUT = ROOT / 'docs/assets/compatibility/data.json'
-ENGINE_REV = '01aa4d9d13bd3e63654409343346b6de16905697'
+ENGINE_REV = '59129412023eb23a1922e6190c69ae392accd72e'
 BACKENDS = ['wasm', 'sdl2', 'wgpu']
 
 
@@ -82,6 +82,8 @@ def classify(row, backend):
         if name in ['show','flip','reset','screen_mode'] and backend != 'wgpu':
             note = {'show':'showで現在の画面を表示し続けます。ブラウザでは非同期ループとして直ちに戻ります。', 'flip':'SDL2は公式flip_screen。ブラウザはflip().awaitでrequestAnimationFrameごとに表示します。run/showとの同時実行は拒否し、fps指定の同期待機とは異なります。', 'reset':'ブラウザはページ全体を再読込します。SDL2はset_reset_handlerでアプリ側の再起動処理を登録してから呼びます。未登録時はエラーを返します。', 'screen_mode':'SDL2は公式の3つのシェーダー。ブラウザは通常・平滑化・走査線/周辺減光の簡易Canvas表示で、公式xBR/CRTと同じ画質ではありません。'}[name]
             return result('partial' if backend == 'wasm' or name == 'reset' else 'supported', note, path, 'pub '+('async ' if backend == 'wasm' and name == 'flip' else '')+'fn '+name, 'screen-tools' if backend == 'wasm' else None)
+        if name == 'init' and backend != 'wgpu':
+            return result('supported', 'init_with_options / InitOptionsで終了キー・表示倍率・保存倍率・録画秒数・headlessを指定します。SDL2は公式初期化へ接続、ブラウザは設定の事前検証後にCanvasまたは表示なしの論理画面を作成します。capture_sec=0で録画無効。ブラウザは画面・表示先16Miピクセル、録画32MiB/30秒、保存倍率1..16が上限で、不正な設定は既存状態を保持します。', path, 'pub fn init_with_options', 'compat-options')
         if name == 'init':
             return result('partial', 'width/height/title/fpsのみ公開。quit_key、display_scale、キャプチャ設定、headless等は指定できません。', path, 'pub fn init')
         return missing(path)
@@ -112,7 +114,7 @@ def classify(row, backend):
         if name in ['elli', 'ellib', 'tri', 'trib', 'fill'] and backend != 'wgpu':
             return result('supported', '公式コアのラスタライザーで楕円・三角形・塗りつぶしを描画。既存画素・クリップ・カメラ・ディザを維持します。', path, 'pub fn '+name, 'drawing' if backend == 'wasm' else None)
         if name in ['rect', 'circ']:
-            return result('partial', '公式と名前が異なります。塗りつぶしはrectfill/circfill、輪郭はrect/circです。公式名をそのまま移植できません。', path, 'pub fn '+('rect' if name.startswith('rect') else 'circ'))
+            return result('supported', '公式と同じrect/circが塗りつぶし、rectb/circbが輪郭です。rectfill/circfillも塗りつぶしの別名として使用できます。旧Rust版でrect/circを輪郭として使用した呼び出しはrectb/circbへ移行してください。付属ゲームは移行済みです。', path, 'pub fn '+name, 'compat-options' if backend != 'wgpu' else None)
         if name in ['blt', 'bltm', 'text'] and backend != 'wgpu':
             token = {'blt':'blt_transform','bltm':'bltm_transform','text':'text_with_font'}[name]
             return result('supported', '基本関数に加え、blt_transform / bltm_transformで回転・拡大縮小、text_with_fontで任意Fontに対応します。既存の基本関数の引数は維持しています。', path, 'pub fn '+token, 'resources' if backend == 'wasm' else None)
@@ -166,7 +168,7 @@ def classify(row, backend):
                 return result('supported', '公式SDL2コアのユーザーディレクトリ・GIF録画操作へ接続します。', path, 'pub fn '+name)
             if name == 'user_data_dir':
                 return result('partial', 'user_data_store(vendor,app)のget/set/removeで名前空間ごとのlocalStorageに永続化します。ファイルシステムのディレクトリやパスは提供できず、容量・利用可否はブラウザに従います。', 'src/backend/wasm_backend/storage.rs', 'pub fn user_data_store', 'screen-tools')
-            return result('supported' if name == 'reset_screencast' else 'partial', 'configure_screencastで明示的に録画を開始し、screencast_gifで公式エンコーダーのGIFバイト列を保存します。直近フレームのリングバッファは32MiB/最大30秒、倍率1..16です。reset_screencastで内容をクリアします。Canvasの日本語重ね描画・カーソル・表示効果は含まず、リサイズ時は録画を終了します。', 'src/backend/wasm_backend/recording.rs', 'pub fn '+('reset_screencast' if name == 'reset_screencast' else 'screencast_gif'), 'screen-tools')
+            return result('supported' if name == 'reset_screencast' else 'partial', 'init_with_optionsのcapture_secまたはconfigure_screencastで録画を開始し、screencast_gifで公式エンコーダーのGIFバイト列を保存します。直近フレームのリングバッファは32MiB/最大30秒、倍率1..16です。configured_screencast_gif(None)で初期化時の保存倍率を使えます。reset_screencastで内容をクリアします。Canvasの日本語重ね描画・カーソル・表示効果は含まず、リサイズ時は録画を終了します。', 'src/backend/wasm_backend/recording.rs', 'pub fn '+('reset_screencast' if name == 'reset_screencast' else 'screencast_gif'), 'screen-tools')
         return missing(path)
     if category in ['Image', 'Tilemap', 'Sound', 'Music', 'Channel', 'Font', 'Tone']:
         if backend == 'wgpu':
@@ -179,8 +181,8 @@ def classify(row, backend):
             if category == 'Font' and name == 'Font':
                 return result('partial', 'Font::from_bytesでBDF/TTF/OTFを読み込みます。ファイルパスによるFont::newはブラウザで使えません。', path, 'pub fn from_bytes', 'resources')
             if category == 'Image' and member in ['from_image', 'load', 'save']:
-                token = {'from_image':'from_image_bytes','load':'load_bytes','save':'png_bytes'}[member]
-                return result('partial', 'バイト列から画像を読み込み、PNGバイト列として保存できます。ブラウザのファイル選択・ダウンロードはページ側で行います。filename指定・画像保存時scaleは未対応です。表示パレットは最大256色で、画面全体の倍率PNGはbrowser_screenshotを使用します。', path, 'pub fn '+token, 'resources')
+                token = {'from_image':'from_image_bytes','load':'load_bytes','save':'png_bytes_scaled'}[member]
+                return result('partial', 'バイト列から画像を読み込み、PNGバイト列として保存できます。ブラウザのファイル選択・ダウンロードはページ側で行います。filename指定は未対応ですが、png_bytes_scaled(scale)で最近傍の倍率PNG保存ができます。scale 0・寸法オーバーフロー・RGB出力128MiB超は事前にエラーとします。表示パレットは最大256色で、画面全体の倍率PNGはbrowser_screenshotを使用します。', path, 'pub fn '+token, 'compat-options' if member == 'save' else 'resources')
             if category in ['Sound', 'Music'] and member == 'save':
                 return result('partial', 'wav_bytesで指定秒数を公式シンセサイザーからWAV化し、ブラウザで保存できます。ファイルパス指定・FFmpegによる動画変換は使えません。', path, 'pub fn wav_bytes', 'resources-audio')
             if category == 'Sound' and member == 'pcm':
